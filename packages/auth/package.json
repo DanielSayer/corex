@@ -1,0 +1,24 @@
+{
+  "name": "@corex/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@corex/db": "workspace:*",
+    "@corex/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@corex/config": "workspace:*",
+    "typescript": "^5"
+  }
+}
