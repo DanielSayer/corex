@@ -1,0 +1,11 @@
+export const serverTestEnv = {
+  NODE_ENV: "test",
+  DATABASE_URL: "postgres://postgres:password@127.0.0.1:5432/corex_test",
+  BETTER_AUTH_SECRET: "test-secret-value-with-32-characters",
+  BETTER_AUTH_URL: "http://127.0.0.1:3000",
+  CORS_ORIGIN: "http://127.0.0.1:3001",
+} as const;
+
+export const webTestEnv = {
+  VITE_SERVER_URL: "http://127.0.0.1:3000",
+} as const;
