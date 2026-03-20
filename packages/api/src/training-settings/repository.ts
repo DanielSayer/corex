@@ -80,7 +80,12 @@ function mapGoalRow(row: typeof trainingGoal.$inferSelect): TrainingGoal {
   }
 
   if (row.goalType === "volume_goal") {
-    if (row.metric == null || row.period == null || row.targetValue == null || row.unit == null) {
+    if (
+      row.metric == null ||
+      row.period == null ||
+      row.targetValue == null ||
+      row.unit == null
+    ) {
       throw new PersistenceFailure({
         message: "Stored volume goal is incomplete",
       });
@@ -286,20 +291,24 @@ export function createTrainingSettingsRepository(
               .insert(intervalsCredential)
               .values({
                 userId: record.userId,
-                intervalsApiKeyCiphertext: record.intervalsCredential.ciphertext,
+                intervalsApiKeyCiphertext:
+                  record.intervalsCredential.ciphertext,
                 intervalsApiKeyIv: record.intervalsCredential.iv,
                 intervalsApiKeyTag: record.intervalsCredential.tag,
-                intervalsApiKeyKeyVersion: record.intervalsCredential.keyVersion,
+                intervalsApiKeyKeyVersion:
+                  record.intervalsCredential.keyVersion,
                 intervalsApiKeyUpdatedAt: now,
                 updatedAt: now,
               })
               .onConflictDoUpdate({
                 target: intervalsCredential.userId,
                 set: {
-                  intervalsApiKeyCiphertext: record.intervalsCredential.ciphertext,
+                  intervalsApiKeyCiphertext:
+                    record.intervalsCredential.ciphertext,
                   intervalsApiKeyIv: record.intervalsCredential.iv,
                   intervalsApiKeyTag: record.intervalsCredential.tag,
-                  intervalsApiKeyKeyVersion: record.intervalsCredential.keyVersion,
+                  intervalsApiKeyKeyVersion:
+                    record.intervalsCredential.keyVersion,
                   intervalsApiKeyUpdatedAt: now,
                   updatedAt: now,
                 },
@@ -310,7 +319,13 @@ export function createTrainingSettingsRepository(
               .where(eq(trainingAvailability.userId, record.userId));
             await tx
               .insert(trainingAvailability)
-              .values(buildAvailabilityInsert(record.userId, record.availability, now));
+              .values(
+                buildAvailabilityInsert(
+                  record.userId,
+                  record.availability,
+                  now,
+                ),
+              );
           });
 
           const stored = await findStoredTrainingSettings(db, record.userId);

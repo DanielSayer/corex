@@ -31,7 +31,9 @@ export function createApp(options: CreateAppOptions = {}) {
     }),
   );
 
-  app.on(["POST", "GET"], "/api/auth/*", (c) => authInstance.handler(c.req.raw));
+  app.on(["POST", "GET"], "/api/auth/*", (c) =>
+    authInstance.handler(c.req.raw),
+  );
 
   app.use(
     "/trpc/*",

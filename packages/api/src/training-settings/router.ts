@@ -17,7 +17,10 @@ type CreateTrainingSettingsRouterOptions = {
 };
 
 function mapTrainingSettingsError(error: unknown) {
-  if (error instanceof InvalidSettings || error instanceof InvalidApiKeyFormat) {
+  if (
+    error instanceof InvalidSettings ||
+    error instanceof InvalidApiKeyFormat
+  ) {
     return new TRPCError({
       code: "BAD_REQUEST",
       message: error.message,
@@ -25,7 +28,10 @@ function mapTrainingSettingsError(error: unknown) {
     });
   }
 
-  if (error instanceof EncryptionFailure || error instanceof PersistenceFailure) {
+  if (
+    error instanceof EncryptionFailure ||
+    error instanceof PersistenceFailure
+  ) {
     return new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: error.message,

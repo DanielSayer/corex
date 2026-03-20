@@ -94,7 +94,9 @@ describe("training settings integration", () => {
       throw new Error("Expected stored training settings");
     }
 
-    expect(stored.intervalsCredential.ciphertext).not.toBe("intervals-secret-key");
+    expect(stored.intervalsCredential.ciphertext).not.toBe(
+      "intervals-secret-key",
+    );
 
     const decrypted = await Effect.runPromise(
       crypto.decrypt(createdUser.id, {

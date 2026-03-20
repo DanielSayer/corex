@@ -10,7 +10,9 @@ type CreateAppRouterOptions = {
 export function createAppRouter(options: CreateAppRouterOptions = {}) {
   return router({
     healthCheck: publicProcedure.query(() => getHealthCheck()),
-    privateData: publicProcedure.query(({ ctx }) => getPrivateData(ctx.session)),
+    privateData: publicProcedure.query(({ ctx }) =>
+      getPrivateData(ctx.session),
+    ),
     trainingSettings: options.trainingSettings ?? trainingSettingsRouter,
   });
 }
