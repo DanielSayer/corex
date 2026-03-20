@@ -13,7 +13,7 @@
         "@corex/config": "workspace:*",
         "@types/bun": "catalog:",
         "turbo": "^2.8.12",
-        "typescript": "^5",
+        "typescript": "^5.9.3",
       },
     },
     "apps/server": {
@@ -45,6 +45,7 @@
         "@corex/db": "workspace:*",
         "@corex/env": "workspace:*",
         "@testcontainers/postgresql": "^11.7.2",
+        "@types/pg": "^8.18.0",
         "drizzle-orm": "^0.45.1",
         "pg": "^8.17.1",
         "server": "workspace:*",

@@ -18,6 +18,10 @@ describe("bun test integration tracer bullet", () => {
       name: "Runner One",
     });
 
+    if (!createdUser) {
+      throw new Error("createUser returned null");
+    }
+
     expect(createdUser.email).toBe("runner@example.com");
 
     const persistedUser = await getUserByEmail(db, "runner@example.com");

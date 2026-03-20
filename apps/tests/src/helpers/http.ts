@@ -1,5 +1,6 @@
 import type { AppSession } from "@corex/api/application/types";
 import type { Auth } from "@corex/auth";
+import { getServerTestEnv } from "@corex/env/test";
 
 import { createApp } from "server";
 
@@ -23,8 +24,10 @@ export function createStubAuth(options: StubAuthOptions) {
 }
 
 export function createHttpApp(session: AppSession | null) {
+  const env = getServerTestEnv();
+
   return createApp({
     auth: createStubAuth({ session }),
-    corsOrigin: process.env.CORS_ORIGIN ?? "http://127.0.0.1:3001",
+    corsOrigin: env.CORS_ORIGIN,
   });
 }
