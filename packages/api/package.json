@@ -9,7 +9,9 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "check-types": "tsc --noEmit -p tsconfig.json"
+  },
   "dependencies": {
     "@corex/auth": "workspace:*",
     "@corex/db": "workspace:*",
@@ -18,6 +20,7 @@
     "@trpc/server": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.1",
+    "effect": "^3.21.0",
     "zod": "catalog:"
   },
   "devDependencies": {

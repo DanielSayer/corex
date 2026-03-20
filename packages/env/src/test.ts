@@ -4,6 +4,7 @@ export const serverTestEnvDefaults = {
   BETTER_AUTH_SECRET: "test-secret-value-with-32-characters",
   BETTER_AUTH_URL: "http://127.0.0.1:3000",
   CORS_ORIGIN: "http://127.0.0.1:3001",
+  SETTINGS_MASTER_KEY_BASE64: Buffer.alloc(32, 1).toString("base64"),
 } as const;
 
 type ServerTestEnvKey = keyof typeof serverTestEnvDefaults;
