@@ -1,0 +1,11 @@
+.agents
+.git
+.turbo
+AGENTS.md
+coverage
+dist
+docs
+node_modules
+plans
+bun.lock
+apps/web/src/routeTree.gen.ts

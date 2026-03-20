@@ -4,7 +4,10 @@ import { env } from "@corex/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
-type AuthEnv = Pick<typeof env, "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "CORS_ORIGIN">;
+type AuthEnv = Pick<
+  typeof env,
+  "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "CORS_ORIGIN"
+>;
 
 type CreateAuthOptions = {
   db?: Database;

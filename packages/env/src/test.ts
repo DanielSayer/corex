@@ -33,7 +33,7 @@ export function installServerTestEnv(
   for (const key of Object.keys(serverTestEnvDefaults) as ServerTestEnvKey[]) {
     const nextValue =
       options.overwrite || process.env[key] == null
-        ? overrides[key] ?? serverTestEnvDefaults[key]
+        ? (overrides[key] ?? serverTestEnvDefaults[key])
         : process.env[key]!;
 
     runtimeEnv[key] = nextValue;

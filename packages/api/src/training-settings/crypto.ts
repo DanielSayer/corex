@@ -52,7 +52,9 @@ function decodeMasterKey(masterKeyBase64: string) {
   });
 }
 
-export function createCredentialCrypto(options: CreateCredentialCryptoOptions): CredentialCrypto {
+export function createCredentialCrypto(
+  options: CreateCredentialCryptoOptions,
+): CredentialCrypto {
   const keyEffect = decodeMasterKey(options.masterKeyBase64);
 
   return {
