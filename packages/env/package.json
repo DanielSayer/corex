@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./server": "./src/server.ts",
+    "./test": "./src/test.ts",
     "./web": "./src/web.ts"
   },
   "dependencies": {

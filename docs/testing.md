@@ -83,4 +83,5 @@ If that tracer bullet fails, the backend testing architecture still stands, but 
 - Unit tests live next to code as `*.test.ts`.
 - Backend integration tests live under `apps/tests/src` as `*.integration.test.ts`.
 - Docker is required for `bun run test:integration`.
-- Shared unit-test env defaults live in `tests/config/unit-preload.ts`.
+- Shared test env defaults live in `@corex/env/test`.
+- Integration-test env scaffolding lives in `apps/tests/.env.example`.

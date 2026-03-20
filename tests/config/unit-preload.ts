@@ -1,5 +1,3 @@
-import { serverTestEnv } from "./test-env";
+import { installServerTestEnv } from "@corex/env/test";
 
-for (const [key, value] of Object.entries(serverTestEnv)) {
-  process.env[key] ??= value;
-}
+installServerTestEnv();
