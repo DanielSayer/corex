@@ -1,0 +1,22 @@
+{
+  "name": "tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "DATABASE_URL=postgres://postgres:password@127.0.0.1:5432/corex_test BETTER_AUTH_SECRET=test-secret-value-with-32-characters BETTER_AUTH_URL=http://127.0.0.1:3000 CORS_ORIGIN=http://127.0.0.1:3001 bun test --preload ./src/setup.ts ./src"
+  },
+  "dependencies": {
+    "@corex/api": "workspace:*",
+    "@corex/auth": "workspace:*",
+    "@corex/db": "workspace:*",
+    "@corex/env": "workspace:*",
+    "@testcontainers/postgresql": "^11.7.2",
+    "drizzle-orm": "^0.45.1",
+    "pg": "^8.17.1",
+    "server": "workspace:*"
+  },
+  "devDependencies": {
+    "@corex/config": "workspace:*",
+    "typescript": "^5"
+  }
+}

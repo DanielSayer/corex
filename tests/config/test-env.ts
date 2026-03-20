@@ -5,7 +5,3 @@ export const serverTestEnv = {
   BETTER_AUTH_URL: "http://127.0.0.1:3000",
   CORS_ORIGIN: "http://127.0.0.1:3001",
 } as const;
-
-export const webTestEnv = {
-  VITE_SERVER_URL: "http://127.0.0.1:3000",
-} as const;
