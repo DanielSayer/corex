@@ -1,0 +1,63 @@
+{
+  "bounds": [
+    [153.0192, -27.4748],
+    [153.0329, -27.4621]
+  ],
+  "latlngs": [
+    [-27.4748, 153.0192],
+    [-27.4734, 153.0211],
+    [-27.4702, 153.0265],
+    [-27.466, 153.0312]
+  ],
+  "route": {
+    "athlete_id": "i509216",
+    "route_id": 42111,
+    "name": "River loop",
+    "rename_activities": false,
+    "commute": false,
+    "tags": ["loop", "road"],
+    "description": "Flat river path loop.",
+    "replaced_by_route_id": null,
+    "latlngs": [
+      [-27.4748, 153.0192],
+      [-27.4734, 153.0211],
+      [-27.4702, 153.0265],
+      [-27.466, 153.0312]
+    ]
+  },
+  "weather": {
+    "points": [
+      {
+        "latitude": -27.4702,
+        "longitude": 153.0265,
+        "times": [
+          {
+            "start_secs": 0,
+            "end_secs": 1800,
+            "index": 0,
+            "temp": 23.1,
+            "feels_like": 23.4,
+            "humidity": 78,
+            "wind_speed": 3.5,
+            "wind_deg": 126,
+            "wind_gust": 5.8,
+            "rain": 0,
+            "showers": 0,
+            "snow": 0,
+            "clouds": 35,
+            "pressure": 1012.6,
+            "weather_code": 2
+          }
+        ]
+      }
+    ],
+    "closest_points": [
+      {
+        "start_secs": 0,
+        "p1_index": 0,
+        "p2_index": 1,
+        "p3_index": 2
+      }
+    ]
+  }
+}

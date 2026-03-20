@@ -1,0 +1,59 @@
+[
+  {
+    "type": "distance",
+    "name": "Distance",
+    "data": [0, 12.4, 24.8, 37.3, 49.6, 62.2],
+    "data2": null,
+    "valueTypeIsArray": false,
+    "anomalies": null,
+    "custom": false,
+    "allNull": false
+  },
+  {
+    "type": "heartrate",
+    "name": "Heart Rate",
+    "data": [118, 121, 125, 128, 132, 136],
+    "data2": null,
+    "valueTypeIsArray": false,
+    "anomalies": null,
+    "custom": false,
+    "allNull": false
+  },
+  {
+    "type": "cadence",
+    "name": "Cadence",
+    "data": [82, 83, 84, 85, 86, 86],
+    "data2": null,
+    "valueTypeIsArray": false,
+    "anomalies": null,
+    "custom": false,
+    "allNull": false
+  },
+  {
+    "type": "velocity_smooth",
+    "name": "Speed",
+    "data": [3.4, 3.45, 3.48, 3.52, 3.56, 3.58],
+    "data2": null,
+    "valueTypeIsArray": false,
+    "anomalies": [
+      {
+        "start_index": 2,
+        "end_index": 3,
+        "value": 3.48,
+        "valueEnd": 3.52
+      }
+    ],
+    "custom": false,
+    "allNull": false
+  },
+  {
+    "type": "fixed_altitude",
+    "name": "Altitude",
+    "data": [11.2, 11.3, 11.7, 12.1, 12.4, 12.6],
+    "data2": null,
+    "valueTypeIsArray": false,
+    "anomalies": null,
+    "custom": false,
+    "allNull": false
+  }
+]
