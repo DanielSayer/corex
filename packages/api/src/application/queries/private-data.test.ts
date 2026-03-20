@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { TRPCError } from "@trpc/server";
 
 import { getPrivateData } from "./private-data";
 

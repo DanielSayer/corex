@@ -1,6 +1,12 @@
 import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 
+import {
+  intervalsCredential,
+  trainingAvailability,
+  trainingGoal,
+} from "./training-settings";
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -73,9 +79,18 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const userRelations = relations(user, ({ many }) => ({
+export const userRelations = relations(user, ({ many, one }) => ({
   sessions: many(session),
   accounts: many(account),
+  trainingAvailability: many(trainingAvailability),
+  trainingGoal: one(trainingGoal, {
+    fields: [user.id],
+    references: [trainingGoal.userId],
+  }),
+  intervalsCredential: one(intervalsCredential, {
+    fields: [user.id],
+    references: [intervalsCredential.userId],
+  }),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({

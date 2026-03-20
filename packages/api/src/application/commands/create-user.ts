@@ -18,5 +18,9 @@ export async function createUser(db: Database, input: CreateUserInput) {
     })
     .returning();
 
+  if (!createdUser) {
+    throw new Error("User insert returned no row");
+  }
+
   return createdUser;
 }
