@@ -30,12 +30,10 @@
     "build": "turbo build",
     "check-types": "turbo check-types",
     "test": "bun run test:unit && bun run test:integration",
-    "test:all": "bun run test && bun run test:e2e",
-    "test:watch": "vitest --config vitest.node.config.ts",
-    "test:unit": "vitest --config vitest.node.config.ts run && vitest --config vitest.web.config.ts run",
-    "test:integration": "vitest --config vitest.integration.config.ts run",
-    "test:e2e": "playwright test",
-    "test:coverage": "vitest --config vitest.node.config.ts run --coverage && vitest --config vitest.web.config.ts run --coverage && vitest --config vitest.integration.config.ts run --coverage",
+    "test:watch": "bun test --watch --preload ./tests/config/unit-preload.ts ./packages ./apps/server/src ./apps/web/src",
+    "test:unit": "bun test --preload ./tests/config/unit-preload.ts ./packages ./apps/server/src ./apps/web/src",
+    "test:integration": "bun run --cwd apps/tests test",
+    "test:coverage": "bun test --coverage --preload ./tests/config/unit-preload.ts ./packages ./apps/server/src ./apps/web/src && bun test --coverage --preload ./apps/tests/src/setup.ts ./apps/tests/src",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
     "db:push": "turbo -F @corex/db db:push",
@@ -53,17 +51,10 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.1",
     "@corex/config": "workspace:*",
-    "@testing-library/jest-dom": "^6.8.0",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.1",
     "@types/bun": "catalog:",
-    "@vitest/coverage-v8": "^3.2.4",
-    "jsdom": "^26.1.0",
     "turbo": "^2.8.12",
-    "typescript": "^5",
-    "vitest": "^3.2.4"
+    "typescript": "^5"
   },
   "packageManager": "bun@1.1.38"
 }

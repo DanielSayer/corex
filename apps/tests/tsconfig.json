@@ -1,0 +1,3 @@
+{
+  "extends": "@corex/config/tsconfig.base.json"
+}

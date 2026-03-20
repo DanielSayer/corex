@@ -1,18 +1,23 @@
-import { auth } from "@corex/auth";
+import { auth, type Auth } from "@corex/auth";
 import type { Context as HonoContext } from "hono";
 
 export type CreateContextOptions = {
   context: HonoContext;
 };
 
-export async function createContext({ context }: CreateContextOptions) {
-  const session = await auth.api.getSession({
-    headers: context.req.raw.headers,
-  });
-  return {
-    auth: null,
-    session,
+export function createContextFactory({ auth: authInstance = auth }: { auth?: Auth } = {}) {
+  return async function createContext({ context }: CreateContextOptions) {
+    const session = await authInstance.api.getSession({
+      headers: context.req.raw.headers,
+    });
+
+    return {
+      auth: null,
+      session,
+    };
   };
 }
 
-export type Context = Awaited<ReturnType<typeof createContext>>;
+export const createContext = createContextFactory();
+
+export type Context = Awaited<ReturnType<ReturnType<typeof createContextFactory>>>;
