@@ -5,7 +5,9 @@ export type CreateContextOptions = {
   context: HonoContext;
 };
 
-export function createContextFactory({ auth: authInstance = auth }: { auth?: Auth } = {}) {
+export function createContextFactory({
+  auth: authInstance = auth,
+}: { auth?: Auth } = {}) {
   return async function createContext({ context }: CreateContextOptions) {
     const session = await authInstance.api.getSession({
       headers: context.req.raw.headers,
@@ -20,4 +22,6 @@ export function createContextFactory({ auth: authInstance = auth }: { auth?: Aut
 
 export const createContext = createContextFactory();
 
-export type Context = Awaited<ReturnType<ReturnType<typeof createContextFactory>>>;
+export type Context = Awaited<
+  ReturnType<ReturnType<typeof createContextFactory>>
+>;

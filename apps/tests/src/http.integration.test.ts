@@ -11,7 +11,9 @@ describe("http integration", () => {
   });
 
   it("rejects protected data without a session", async () => {
-    const response = await createHttpApp(null).request("http://localhost/trpc/privateData");
+    const response = await createHttpApp(null).request(
+      "http://localhost/trpc/privateData",
+    );
     const body = await response.text();
 
     expect(response.status).toBe(401);

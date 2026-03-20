@@ -8,7 +8,9 @@ export class InvalidSettings extends Data.TaggedError("InvalidSettings")<{
   message: string;
 }> {}
 
-export class InvalidApiKeyFormat extends Data.TaggedError("InvalidApiKeyFormat")<{
+export class InvalidApiKeyFormat extends Data.TaggedError(
+  "InvalidApiKeyFormat",
+)<{
   message: string;
 }> {}
 
