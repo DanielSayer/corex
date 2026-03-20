@@ -33,3 +33,6 @@ jobs:
 
       - name: Run unit tests
         run: bun run test:unit
+
+      - name: Run integration tests
+        run: bun run test:integration
