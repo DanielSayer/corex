@@ -17,6 +17,7 @@ export type TrainingSettingsView = {
   availability: TrainingSettingsInput["availability"] | null;
   intervalsCredential: {
     hasKey: boolean;
+    username: string | null;
     updatedAt: string | null;
   };
 };
@@ -33,6 +34,7 @@ function createEmptyState(): TrainingSettingsView {
     availability: null,
     intervalsCredential: {
       hasKey: false,
+      username: null,
       updatedAt: null,
     },
   };
@@ -45,6 +47,7 @@ function toView(stored: StoredTrainingSettings): TrainingSettingsView {
     availability: stored.availability,
     intervalsCredential: {
       hasKey: true,
+      username: stored.intervalsCredential.username,
       updatedAt: stored.intervalsCredential.updatedAt.toISOString(),
     },
   };
@@ -53,6 +56,17 @@ function toView(stored: StoredTrainingSettings): TrainingSettingsView {
 function validateInput(
   input: TrainingSettingsInput,
 ): Effect.Effect<TrainingSettingsInput, InvalidApiKeyFormat | InvalidSettings> {
+  if (
+    typeof input.intervalsUsername !== "string" ||
+    input.intervalsUsername.trim().length === 0
+  ) {
+    return Effect.fail(
+      new InvalidSettings({
+        message: "Intervals username is required",
+      }),
+    );
+  }
+
   if (
     typeof input.intervalsApiKey !== "string" ||
     input.intervalsApiKey.trim().length === 0
@@ -100,6 +114,7 @@ export function createTrainingSettingsService(
           userId,
           goal: validatedInput.goal,
           availability: validatedInput.availability,
+          intervalsUsername: validatedInput.intervalsUsername.trim(),
           intervalsCredential: encryptedCredential,
         });
 

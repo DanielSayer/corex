@@ -36,6 +36,7 @@ describe("training settings integration", () => {
       availability: null,
       intervalsCredential: {
         hasKey: false,
+        username: null,
         updatedAt: null,
       },
     });
@@ -77,6 +78,7 @@ describe("training settings integration", () => {
           saturday: { available: true, maxDurationMinutes: 90 },
           sunday: { available: false, maxDurationMinutes: null },
         },
+        intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret-key",
       }),
     );
@@ -97,6 +99,7 @@ describe("training settings integration", () => {
     expect(stored.intervalsCredential.ciphertext).not.toBe(
       "intervals-secret-key",
     );
+    expect(stored.intervalsCredential.username).toBe("runner@example.com");
 
     const decrypted = await Effect.runPromise(
       crypto.decrypt(createdUser.id, {
@@ -144,6 +147,7 @@ describe("training settings integration", () => {
           saturday: { available: true, maxDurationMinutes: 90 },
           sunday: { available: false, maxDurationMinutes: null },
         },
+        intervalsUsername: "runner@example.com",
         intervalsApiKey: "first-secret",
       }),
     );
@@ -165,6 +169,7 @@ describe("training settings integration", () => {
           saturday: { available: true, maxDurationMinutes: 120 },
           sunday: { available: false, maxDurationMinutes: null },
         },
+        intervalsUsername: "runner@example.com",
         intervalsApiKey: "second-secret",
       }),
     );

@@ -26,6 +26,7 @@ const sampleInput: TrainingSettingsInput = {
     saturday: { available: true, maxDurationMinutes: 90 },
     sunday: { available: false, maxDurationMinutes: null },
   },
+  intervalsUsername: "runner@example.com",
   intervalsApiKey: "secret-key",
 };
 
@@ -35,6 +36,9 @@ function createStoredSettings(): StoredTrainingSettings {
     goal: sampleInput.goal,
     availability: sampleInput.availability,
     intervalsCredential: {
+      username: sampleInput.intervalsUsername,
+      athleteId: null,
+      athleteResolvedAt: null,
       ciphertext: "ciphertext",
       iv: "iv",
       tag: "tag",
@@ -46,13 +50,23 @@ function createStoredSettings(): StoredTrainingSettings {
   };
 }
 
+function createRepo(
+  overrides: Partial<TrainingSettingsRepository> = {},
+): TrainingSettingsRepository {
+  return {
+    findByUserId: () => Effect.succeed(null),
+    upsert: () => Effect.succeed(createStoredSettings()),
+    saveIntervalsAthleteIdentity: () => Effect.void,
+    ...overrides,
+  };
+}
+
 describe("training settings service", () => {
   it("returns the not-started state when no settings are stored", async () => {
     const service = createTrainingSettingsService({
-      repo: {
+      repo: createRepo({
         findByUserId: () => Effect.succeed(null),
-        upsert: () => Effect.die("not used"),
-      },
+      }),
       crypto: {
         encrypt: () => Effect.die("not used"),
         decrypt: () => Effect.die("not used"),
@@ -67,6 +81,7 @@ describe("training settings service", () => {
       availability: null,
       intervalsCredential: {
         hasKey: false,
+        username: null,
         updatedAt: null,
       },
     });
@@ -78,13 +93,12 @@ describe("training settings service", () => {
       | undefined;
 
     const service = createTrainingSettingsService({
-      repo: {
-        findByUserId: () => Effect.succeed(null),
+      repo: createRepo({
         upsert: (record) => {
           persistedRecord = record;
           return Effect.succeed(createStoredSettings());
         },
-      },
+      }),
       crypto: {
         encrypt: () =>
           Effect.succeed({
@@ -105,6 +119,7 @@ describe("training settings service", () => {
       availability: sampleInput.availability,
       intervalsCredential: {
         hasKey: true,
+        username: sampleInput.intervalsUsername,
         updatedAt: "2026-03-20T00:00:00.000Z",
       },
     });
@@ -113,6 +128,7 @@ describe("training settings service", () => {
       userId: "user-1",
       goal: sampleInput.goal,
       availability: sampleInput.availability,
+      intervalsUsername: sampleInput.intervalsUsername,
       intervalsCredential: {
         ciphertext: "ciphertext",
         iv: "iv",
@@ -127,13 +143,12 @@ describe("training settings service", () => {
     let upsertCalls = 0;
 
     const service = createTrainingSettingsService({
-      repo: {
-        findByUserId: () => Effect.succeed(null),
+      repo: createRepo({
         upsert: () => {
           upsertCalls += 1;
           return Effect.succeed(createStoredSettings());
         },
-      },
+      }),
       crypto: {
         encrypt: () => {
           encryptCalls += 1;
@@ -182,13 +197,12 @@ describe("training settings service", () => {
     let upsertCalls = 0;
 
     const service = createTrainingSettingsService({
-      repo: {
-        findByUserId: () => Effect.succeed(null),
+      repo: createRepo({
         upsert: () => {
           upsertCalls += 1;
           return Effect.succeed(createStoredSettings());
         },
-      },
+      }),
       crypto: {
         encrypt: () => {
           encryptCalls += 1;
@@ -219,6 +233,54 @@ describe("training settings service", () => {
 
       if (Option.isSome(failure)) {
         expect(failure.value).toBeInstanceOf(InvalidApiKeyFormat);
+      }
+    }
+
+    expect(encryptCalls).toBe(0);
+    expect(upsertCalls).toBe(0);
+  });
+
+  it("rejects blank usernames before encryption or persistence", async () => {
+    let encryptCalls = 0;
+    let upsertCalls = 0;
+
+    const service = createTrainingSettingsService({
+      repo: createRepo({
+        upsert: () => {
+          upsertCalls += 1;
+          return Effect.succeed(createStoredSettings());
+        },
+      }),
+      crypto: {
+        encrypt: () => {
+          encryptCalls += 1;
+          return Effect.succeed({
+            ciphertext: "ciphertext",
+            iv: "iv",
+            tag: "tag",
+            keyVersion: 1,
+          });
+        },
+        decrypt: () => Effect.die("not used"),
+      },
+    });
+
+    const exit = await Effect.runPromiseExit(
+      service.upsertForUser("user-1", {
+        ...sampleInput,
+        intervalsUsername: "   ",
+      } as TrainingSettingsInput),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+
+    if (Exit.isFailure(exit)) {
+      const failure = Cause.failureOption(exit.cause);
+
+      expect(Option.isSome(failure)).toBe(true);
+
+      if (Option.isSome(failure)) {
+        expect(failure.value).toBeInstanceOf(InvalidSettings);
       }
     }
 

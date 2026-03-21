@@ -87,6 +87,9 @@ export const intervalsCredential = pgTable("intervals_credential", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
+  intervalsUsername: text("intervals_username").notNull(),
+  intervalsAthleteId: text("intervals_athlete_id"),
+  intervalsAthleteResolvedAt: timestamp("intervals_athlete_resolved_at"),
   intervalsApiKeyCiphertext: text("intervals_api_key_ciphertext").notNull(),
   intervalsApiKeyIv: text("intervals_api_key_iv").notNull(),
   intervalsApiKeyTag: text("intervals_api_key_tag").notNull(),

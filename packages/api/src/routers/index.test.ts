@@ -103,6 +103,7 @@ describe("appRouter", () => {
               availability: null,
               intervalsCredential: {
                 hasKey: false,
+                username: null,
                 updatedAt: null,
               },
             });
@@ -178,6 +179,7 @@ describe("appRouter", () => {
           saturday: { available: true, maxDurationMinutes: 90 },
           sunday: { available: false, maxDurationMinutes: null },
         },
+        intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-key",
       }),
     ).rejects.toMatchObject({

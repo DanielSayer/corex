@@ -15,6 +15,13 @@
       "when": 1774000000000,
       "tag": "0001_training_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774070000000,
+      "tag": "0002_intervals_sync",
+      "breakpoints": true
     }
   ]
 }

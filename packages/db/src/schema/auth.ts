@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 
+import { importedActivity, syncEvent } from "./intervals-sync";
 import {
   intervalsCredential,
   trainingAvailability,
@@ -87,6 +88,8 @@ export const userRelations = relations(user, ({ many, one }) => ({
     fields: [user.id],
     references: [trainingGoal.userId],
   }),
+  importedActivities: many(importedActivity),
+  syncEvents: many(syncEvent),
   intervalsCredential: one(intervalsCredential, {
     fields: [user.id],
     references: [intervalsCredential.userId],

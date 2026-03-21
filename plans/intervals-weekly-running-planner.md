@@ -6,7 +6,7 @@
 
 Durable decisions that apply across all phases:
 
-- **Routes**: Authenticated onboarding/settings flow for goal, availability, and Intervals API key; authenticated dashboard flow for sync, history review, weekly planning, draft editing, finalization, and plan history.
+- **Routes**: Authenticated onboarding/settings flow for goal, availability, and Intervals credentials; authenticated dashboard flow for sync, history review, weekly planning, draft editing, finalization, and plan history.
 - **Schema**: User training settings, encrypted Intervals credential storage, imported running activities, sync events, weekly plan drafts/finalized plans, and generation events.
 - **Key models**: `TrainingSettings`, `ImportedActivity`, `WeeklyPlan`, `WeeklySession`, `IntervalBlock`, `SyncEvent`, and `GenerationEvent`.
 - **Authentication**: Better Auth session-based authentication with per-user ownership checks on all training data.
@@ -39,12 +39,12 @@ Establish the rewrite foundation so later slices can be added without re-decidin
 
 ### What to build
 
-Deliver the first user-facing vertical slice: a signed-in user can complete onboarding by entering a goal, weekly availability, and an Intervals API key. The app validates and persists settings end to end, and stores the Intervals key encrypted at rest for later sync operations.
+Deliver the first user-facing vertical slice: a signed-in user can complete onboarding by entering a goal, weekly availability, and Intervals credentials. The app validates and persists settings end to end, and stores the Intervals API key encrypted at rest for later sync operations.
 
 ### Acceptance criteria
 
 - [ ] A signed-in user can view and update their training goal and weekly availability.
-- [ ] A signed-in user can enter an Intervals API key and have it stored securely.
+- [ ] A signed-in user can enter Intervals credentials and have the API key stored securely.
 - [ ] Settings are persisted per user and returned correctly on subsequent sessions.
 - [ ] Invalid settings input is rejected with clear user-facing validation.
 
@@ -57,6 +57,78 @@ Deliver the first user-facing vertical slice: a signed-in user can complete onbo
 ### What to build
 
 Add the first external integration slice. A user can manually trigger sync, the backend decrypts the stored Intervals API key, imports recent running activities, normalizes and stores them locally, records the sync attempt, and returns a summary showing what was imported and the latest sync state.
+
+### Phase 3 decisions
+
+- **Settings contract change**: expand stored Intervals credentials from API key only to `intervalsUsername + intervalsApiKey`. Keep `athleteId` as derived sync metadata rather than a user-edited setting.
+- **Identity resolution**: first successful sync authenticates with `username + apiKey`, resolves the canonical `athleteId` through the Intervals profile lookup, and persists that `athleteId` for later syncs. If the initial identity lookup fails, treat it as invalid Intervals credentials.
+- **Discovery vs source of truth**: use `GET /athlete/:athleteId/activities` as the discovery feed and sync cursor input, but treat `GET /activity/:activityId?intervals=true` as the normalization source of truth for imported activities.
+- **Imported sport scope**: import only explicit running activity types from a maintained allowlist in the Intervals adapter. Unknown activity types are skipped safely and surfaced in sync diagnostics rather than admitted through loose substring matching.
+- **Initial backfill window**: make the initial backfill window code-configurable, defaulted to trailing 30 days from sync start.
+- **Incremental sync window**: use the latest successful imported activity cursor with a 24-hour overlap buffer, then upsert by upstream activity id to absorb boundary changes safely.
+- **Watermarks**: persist both the newest imported activity start timestamp and the sync completion timestamp. Use the newest imported activity start timestamp as the fetch cursor and completion time as observability metadata.
+- **Normalization contract**: persist a normalized running activity record plus raw `activity-detail` JSON. The minimum viable normalized record is upstream activity id, user id, athlete id, activity type, start timestamp, duration, distance, and raw detail payload, with optional derived fields such as HR, elevation, and intervals when present.
+- **Partial activity handling**: a running activity with missing optional detail can still be stored if the minimum core contract is present. Invalid or incomplete activities are skipped and logged rather than failing the whole sync.
+- **Per-activity fetch failures**: detail fetch failures are non-fatal item failures within a successful sync. Sync diagnostics should record the activity id, discovery type, and any discovery-level date information available so failures are understandable later.
+- **Concurrency model**: fetch activity details with a small bounded concurrency rather than sequentially or fully unbounded fan-out.
+- **Sync event lifecycle**: create a sync event when the run starts, persist imported activities as they succeed, then finalize the sync event with summary counts and outcome metadata at the end.
+- **Concurrent sync protection**: reject a second manual sync for the same user while one is already in progress.
+- **Outcome model**: keep top-level sync status as `success` or `failure`. Partial history coverage and skipped items are expressed through summary fields and warnings, not a separate top-level status.
+
+### Suggested implementation slice
+
+- Add an Intervals sync module behind a stable adapter boundary:
+  - credential loading and decryption
+  - identity/profile lookup
+  - activity discovery
+  - detail fetch orchestration
+  - normalization and upsert
+  - sync event recording
+- Extend persisted training settings to store `intervalsUsername` alongside the encrypted API key.
+- Add persistence for:
+  - canonical Intervals athlete identity per user
+  - imported running activities keyed by upstream activity id
+  - raw detail payload storage for imported activities
+  - sync events with lifecycle state and summary metadata
+- Expose authenticated API procedures for:
+  - triggering a manual sync
+  - retrieving latest sync status/summary
+- Keep router concerns thin. The main sync behavior should live in an application service that can be exercised directly from integration tests.
+
+### Suggested sync summary contract
+
+- `status`: `success | failure`
+- `historyCoverage`: `initial_30d_window | incremental_from_cursor`
+- `insertedCount`
+- `updatedCount`
+- `skippedNonRunningCount`
+- `skippedInvalidCount`
+- `failedDetailCount`
+- `unknownActivityTypes`
+- `coveredDateRange`
+- `cursorStartUsed`
+- `newestImportedActivityStart`
+- `completedAt`
+- `warnings`
+
+### Testing focus
+
+- Unit tests:
+  - running activity type allowlist behavior
+  - initial backfill window and incremental cursor calculation
+  - sync summary aggregation
+  - normalized activity mapping from `activity-detail`
+  - concurrent-sync rejection and failure categorization
+- Integration tests:
+  - first sync resolves athlete identity, imports recent runs, and persists sync metadata
+  - later syncs use stored athlete id and incremental cursor overlap
+  - duplicate activity ids are updated rather than duplicated
+  - detail fetch failures produce successful syncs with warnings and item-failure diagnostics
+  - invalid credentials fail the sync and record the failure event
+- HTTP integration tests:
+  - authenticated trigger endpoint wiring
+  - ownership protection
+  - sync-in-progress conflict behavior
 
 ### Acceptance criteria
 

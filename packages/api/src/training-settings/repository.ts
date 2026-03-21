@@ -12,6 +12,9 @@ import type { TrainingGoal, WeeklyAvailability } from "./contracts";
 import { PersistenceFailure } from "./errors";
 
 export type StoredEncryptedCredential = {
+  username: string;
+  athleteId: string | null;
+  athleteResolvedAt: Date | null;
   ciphertext: string;
   iv: string;
   tag: string;
@@ -32,7 +35,11 @@ export type UpsertTrainingSettingsRecord = {
   userId: string;
   goal: TrainingGoal;
   availability: WeeklyAvailability;
-  intervalsCredential: Omit<StoredEncryptedCredential, "updatedAt">;
+  intervalsUsername: string;
+  intervalsCredential: Omit<
+    StoredEncryptedCredential,
+    "username" | "athleteId" | "athleteResolvedAt" | "updatedAt"
+  >;
 };
 
 export type TrainingSettingsRepository = {
@@ -42,6 +49,13 @@ export type TrainingSettingsRepository = {
   upsert: (
     record: UpsertTrainingSettingsRecord,
   ) => Effect.Effect<StoredTrainingSettings, PersistenceFailure>;
+  saveIntervalsAthleteIdentity: (
+    userId: string,
+    identity: {
+      athleteId: string;
+      resolvedAt: Date;
+    },
+  ) => Effect.Effect<void, PersistenceFailure>;
 };
 
 const dayOrder = [
@@ -220,6 +234,9 @@ function mapStoredAggregate(
     goal: mapGoalRow(goalRow),
     availability: mapAvailabilityRows(availabilityRows),
     intervalsCredential: {
+      username: credentialRow.intervalsUsername,
+      athleteId: credentialRow.intervalsAthleteId,
+      athleteResolvedAt: credentialRow.intervalsAthleteResolvedAt,
       ciphertext: credentialRow.intervalsApiKeyCiphertext,
       iv: credentialRow.intervalsApiKeyIv,
       tag: credentialRow.intervalsApiKeyTag,
@@ -291,6 +308,9 @@ export function createTrainingSettingsRepository(
               .insert(intervalsCredential)
               .values({
                 userId: record.userId,
+                intervalsUsername: record.intervalsUsername,
+                intervalsAthleteId: null,
+                intervalsAthleteResolvedAt: null,
                 intervalsApiKeyCiphertext:
                   record.intervalsCredential.ciphertext,
                 intervalsApiKeyIv: record.intervalsCredential.iv,
@@ -303,6 +323,9 @@ export function createTrainingSettingsRepository(
               .onConflictDoUpdate({
                 target: intervalsCredential.userId,
                 set: {
+                  intervalsUsername: record.intervalsUsername,
+                  intervalsAthleteId: null,
+                  intervalsAthleteResolvedAt: null,
                   intervalsApiKeyCiphertext:
                     record.intervalsCredential.ciphertext,
                   intervalsApiKeyIv: record.intervalsCredential.iv,
@@ -345,6 +368,25 @@ export function createTrainingSettingsRepository(
                 message: "Failed to persist training settings",
                 cause,
               }),
+      });
+    },
+    saveIntervalsAthleteIdentity(userId, identity) {
+      return Effect.tryPromise({
+        try: async () => {
+          await db
+            .update(intervalsCredential)
+            .set({
+              intervalsAthleteId: identity.athleteId,
+              intervalsAthleteResolvedAt: identity.resolvedAt,
+              updatedAt: identity.resolvedAt,
+            })
+            .where(eq(intervalsCredential.userId, userId));
+        },
+        catch: (cause) =>
+          new PersistenceFailure({
+            message: "Failed to persist Intervals athlete identity",
+            cause,
+          }),
       });
     },
   };
