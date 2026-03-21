@@ -3,10 +3,7 @@ import { Cause, Effect, Exit, Option } from "effect";
 
 import { createCredentialCrypto } from "../training-settings/crypto";
 import type { StoredTrainingSettings } from "../training-settings/repository";
-import {
-  InvalidIntervalsCredentials,
-  SyncAlreadyInProgress,
-} from "./errors";
+import { InvalidIntervalsCredentials, SyncAlreadyInProgress } from "./errors";
 import type { IntervalsAdapter } from "./adapter";
 import { createIntervalsSyncService } from "./service";
 import type { IntervalsSyncRepository } from "./repository";

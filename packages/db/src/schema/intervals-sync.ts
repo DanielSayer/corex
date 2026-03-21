@@ -93,12 +93,15 @@ export const syncEvent = pgTable(
   ],
 );
 
-export const importedActivityRelations = relations(importedActivity, ({ one }) => ({
-  user: one(user, {
-    fields: [importedActivity.userId],
-    references: [user.id],
+export const importedActivityRelations = relations(
+  importedActivity,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [importedActivity.userId],
+      references: [user.id],
+    }),
   }),
-}));
+);
 
 export const syncEventRelations = relations(syncEvent, ({ one }) => ({
   user: one(user, {

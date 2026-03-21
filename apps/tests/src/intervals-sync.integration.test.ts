@@ -13,7 +13,9 @@ import { getIntegrationHarness, resetDatabase } from "./harness";
 
 const masterKeyBase64 = Buffer.alloc(32, 9).toString("base64");
 
-function createAdapter(overrides: Partial<IntervalsAdapter> = {}): IntervalsAdapter {
+function createAdapter(
+  overrides: Partial<IntervalsAdapter> = {},
+): IntervalsAdapter {
   return {
     getProfile: async () => ({
       id: "i509216",
@@ -260,7 +262,9 @@ describe("intervals sync integration", () => {
       activityId: "run-2",
       type: "Run",
     });
-    expect(result.warnings[0]).toContain("1 running activities could not be loaded");
+    expect(result.warnings[0]).toContain(
+      "1 running activities could not be loaded",
+    );
   });
 
   it("uses the overlap window on later syncs and updates existing activities instead of duplicating them", async () => {

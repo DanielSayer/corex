@@ -75,7 +75,9 @@ export type FinalizeFailureInput = {
 };
 
 export type IntervalsSyncRepository = {
-  hasInProgressSync: (userId: string) => Effect.Effect<boolean, SyncPersistenceFailure>;
+  hasInProgressSync: (
+    userId: string,
+  ) => Effect.Effect<boolean, SyncPersistenceFailure>;
   createSyncEvent: (
     userId: string,
     event: { id: string; startedAt: Date },
@@ -190,13 +192,15 @@ export function createIntervalsSyncRepository(
             userId: record.userId,
             upstreamActivityId: record.detail.id,
             athleteId: record.athleteId,
-            upstreamActivityType: record.detail.type ?? record.normalizedActivityType,
+            upstreamActivityType:
+              record.detail.type ?? record.normalizedActivityType,
             normalizedActivityType: record.normalizedActivityType,
             startAt: record.startAt,
             movingTimeSeconds: record.movingTimeSeconds,
             elapsedTimeSeconds: record.elapsedTimeSeconds,
             distanceMeters: record.distanceMeters,
-            totalElevationGainMeters: record.detail.total_elevation_gain ?? null,
+            totalElevationGainMeters:
+              record.detail.total_elevation_gain ?? null,
             averageSpeedMetersPerSecond: record.detail.average_speed ?? null,
             averageHeartrate: record.detail.average_heartrate ?? null,
             rawDetail: record.detail,

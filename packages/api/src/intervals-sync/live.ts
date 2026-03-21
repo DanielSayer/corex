@@ -5,7 +5,10 @@ import { createCredentialCrypto } from "../training-settings/crypto";
 import { createTrainingSettingsRepository } from "../training-settings/repository";
 import { createIntervalsAdapter } from "./adapter";
 import { createIntervalsSyncRepository } from "./repository";
-import { createIntervalsSyncService, type IntervalsSyncService } from "./service";
+import {
+  createIntervalsSyncService,
+  type IntervalsSyncService,
+} from "./service";
 
 type LiveIntervalsSyncEnv = Pick<typeof env, "SETTINGS_MASTER_KEY_BASE64">;
 type CreateLiveIntervalsSyncServiceOptions = {

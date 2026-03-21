@@ -92,4 +92,6 @@ export type IntervalsAthleteProfile = z.infer<
 export type IntervalsActivityDiscovery = z.infer<
   typeof intervalsActivityDiscoverySchema
 >;
-export type IntervalsActivityDetail = z.infer<typeof intervalsActivityDetailSchema>;
+export type IntervalsActivityDetail = z.infer<
+  typeof intervalsActivityDetailSchema
+>;

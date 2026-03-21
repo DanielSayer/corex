@@ -78,14 +78,19 @@ function validatePayload<T>(
   payload: unknown,
   endpoint: string,
   schema: {
-    safeParse: (value: unknown) => { success: true; data: T } | { success: false; error: { issues: Array<{ message: string }> } };
+    safeParse: (
+      value: unknown,
+    ) =>
+      | { success: true; data: T }
+      | { success: false; error: { issues: Array<{ message: string }> } };
   },
 ): T {
   const result = schema.safeParse(payload);
 
   if (!result.success) {
     throw new IntervalsSchemaValidationFailure({
-      message: result.error.issues[0]?.message ?? "Intervals payload was invalid",
+      message:
+        result.error.issues[0]?.message ?? "Intervals payload was invalid",
       endpoint,
       cause: result.error,
     });
