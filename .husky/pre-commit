@@ -1,0 +1,4 @@
+bun format
+git update-index --again
+bun lint
+bun test
