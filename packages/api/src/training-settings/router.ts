@@ -1,4 +1,3 @@
-import { Cause, Effect, Exit, Option } from "effect";
 import { TRPCError } from "@trpc/server";
 
 import {
@@ -11,6 +10,7 @@ import { createLiveTrainingSettingsService } from "./live";
 import { type TrainingSettingsService } from "./service";
 import { trainingSettingsInputSchema } from "./contracts";
 import { authedProcedure, router } from "../index";
+import { executeEffect } from "../trpc/effect";
 
 type CreateTrainingSettingsRouterOptions = {
   service?: TrainingSettingsService;
@@ -46,24 +46,6 @@ function mapTrainingSettingsError(error: unknown) {
   });
 }
 
-async function executeTrainingSettingsEffect<A>(
-  effect: Effect.Effect<A, unknown>,
-): Promise<A> {
-  const exit = await Effect.runPromiseExit(effect);
-
-  if (Exit.isSuccess(exit)) {
-    return exit.value;
-  }
-
-  const failure = Cause.failureOption(exit.cause);
-
-  if (Option.isSome(failure)) {
-    throw mapTrainingSettingsError(failure.value);
-  }
-
-  throw mapTrainingSettingsError(exit.cause);
-}
-
 export function createTrainingSettingsRouter(
   options: CreateTrainingSettingsRouterOptions = {},
 ) {
@@ -71,13 +53,17 @@ export function createTrainingSettingsRouter(
 
   return router({
     get: authedProcedure.query(({ ctx }) =>
-      executeTrainingSettingsEffect(service.getForUser(ctx.session.user.id)),
+      executeEffect(
+        service.getForUser(ctx.session.user.id),
+        mapTrainingSettingsError,
+      ),
     ),
     upsert: authedProcedure
       .input(trainingSettingsInputSchema)
       .mutation(({ ctx, input }) =>
-        executeTrainingSettingsEffect(
+        executeEffect(
           service.upsertForUser(ctx.session.user.id, input),
+          mapTrainingSettingsError,
         ),
       ),
   });

@@ -1,48 +1,24 @@
 import { describe, expect, it } from "bun:test";
 import { Cause, Effect, Exit, Option } from "effect";
 
-import { createCredentialCrypto } from "../training-settings/crypto";
-import type { StoredTrainingSettings } from "../training-settings/repository";
 import { InvalidIntervalsCredentials, SyncAlreadyInProgress } from "./errors";
 import type { IntervalsAdapter } from "./adapter";
 import { createIntervalsSyncService } from "./service";
+import type { IntervalsAccountService } from "../intervals/account";
 import type { IntervalsSyncRepository } from "./repository";
 
-const masterKeyBase64 = Buffer.alloc(32, 7).toString("base64");
-
-function createStoredSettings(): StoredTrainingSettings {
+function createAccountService(
+  overrides: Partial<IntervalsAccountService> = {},
+): IntervalsAccountService {
   return {
-    userId: "user-1",
-    goal: {
-      type: "volume_goal",
-      metric: "distance",
-      period: "week",
-      targetValue: 20,
-      unit: "km",
-    },
-    availability: {
-      monday: { available: true, maxDurationMinutes: 45 },
-      tuesday: { available: false, maxDurationMinutes: null },
-      wednesday: { available: true, maxDurationMinutes: 60 },
-      thursday: { available: false, maxDurationMinutes: null },
-      friday: { available: true, maxDurationMinutes: null },
-      saturday: { available: true, maxDurationMinutes: 90 },
-      sunday: { available: false, maxDurationMinutes: null },
-    },
-    intervalsCredential: {
-      username: "runner@example.com",
-      athleteId: null,
-      athleteResolvedAt: null,
-      ...Effect.runSync(
-        createCredentialCrypto({
-          masterKeyBase64,
-          keyVersion: 1,
-        }).encrypt("user-1", "intervals-secret"),
-      ),
-      updatedAt: new Date("2026-03-20T00:00:00.000Z"),
-    },
-    createdAt: new Date("2026-03-20T00:00:00.000Z"),
-    updatedAt: new Date("2026-03-20T00:00:00.000Z"),
+    loadAccountForUser: () =>
+      Effect.succeed({
+        username: "runner@example.com",
+        apiKey: "intervals-secret",
+        athleteId: null,
+      }),
+    recordResolvedAthleteIdentity: () => Effect.void,
+    ...overrides,
   };
 }
 
@@ -140,17 +116,9 @@ function createSyncRepo(
 describe("intervals sync service", () => {
   it("rejects when a sync is already in progress", async () => {
     const service = createIntervalsSyncService({
-      trainingSettingsRepo: {
-        findByUserId: () => Effect.succeed(createStoredSettings()),
-        upsert: () => Effect.die("not used"),
-        saveIntervalsAthleteIdentity: () => Effect.void,
-      },
+      account: createAccountService(),
       syncRepo: createSyncRepo({
         hasInProgressSync: () => Effect.succeed(true),
-      }),
-      crypto: createCredentialCrypto({
-        masterKeyBase64,
-        keyVersion: 1,
       }),
       adapter: createAdapter(),
     });
@@ -174,19 +142,13 @@ describe("intervals sync service", () => {
     let savedAthleteId: string | undefined;
 
     const service = createIntervalsSyncService({
-      trainingSettingsRepo: {
-        findByUserId: () => Effect.succeed(createStoredSettings()),
-        upsert: () => Effect.die("not used"),
-        saveIntervalsAthleteIdentity: (_userId, identity) => {
+      account: createAccountService({
+        recordResolvedAthleteIdentity: (_userId, identity) => {
           savedAthleteId = identity.athleteId;
           return Effect.void;
         },
-      },
-      syncRepo: createSyncRepo(),
-      crypto: createCredentialCrypto({
-        masterKeyBase64,
-        keyVersion: 1,
       }),
+      syncRepo: createSyncRepo(),
       adapter: createAdapter(),
       clock: {
         now: () => new Date("2026-03-21T00:00:00.000Z"),
@@ -203,16 +165,8 @@ describe("intervals sync service", () => {
 
   it("fails clearly when the initial Intervals identity lookup rejects credentials", async () => {
     const service = createIntervalsSyncService({
-      trainingSettingsRepo: {
-        findByUserId: () => Effect.succeed(createStoredSettings()),
-        upsert: () => Effect.die("not used"),
-        saveIntervalsAthleteIdentity: () => Effect.void,
-      },
+      account: createAccountService(),
       syncRepo: createSyncRepo(),
-      crypto: createCredentialCrypto({
-        masterKeyBase64,
-        keyVersion: 1,
-      }),
       adapter: {
         ...createAdapter(),
         getProfile: async () => {

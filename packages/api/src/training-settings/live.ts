@@ -1,7 +1,7 @@
 import { db, type Database } from "@corex/db";
 import { env } from "@corex/env/server";
 
-import { createCredentialCrypto } from "./crypto";
+import { createCredentialCrypto } from "../intervals/crypto";
 import { createTrainingSettingsRepository } from "./repository";
 import {
   createTrainingSettingsService,
