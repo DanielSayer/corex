@@ -3,7 +3,10 @@ import { z } from "zod";
 const nullableNumber = z.number().nullable().optional();
 const nullableString = z.string().nullable().optional();
 const nullableBoolean = z.boolean().nullable().optional();
-const unknownArrayOrRecord = z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]);
+const unknownArrayOrRecord = z.union([
+  z.array(z.unknown()),
+  z.record(z.string(), z.unknown()),
+]);
 
 export const intervalsAthleteProfileSchema = z
   .object({
@@ -174,7 +177,10 @@ export const intervalsActivityStreamSchema = z
     data: unknownArrayOrRecord,
     data2: unknownArrayOrRecord.nullable().optional(),
     valueTypeIsArray: nullableBoolean,
-    anomalies: z.array(intervalsActivityStreamAnomalySchema).nullable().optional(),
+    anomalies: z
+      .array(intervalsActivityStreamAnomalySchema)
+      .nullable()
+      .optional(),
     custom: nullableBoolean,
     allNull: nullableBoolean,
   })

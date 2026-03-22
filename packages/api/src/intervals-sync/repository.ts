@@ -269,7 +269,10 @@ export function createIntervalsSyncRepository(
                   .where(
                     and(
                       eq(importedActivityMap.userId, record.userId),
-                      eq(importedActivityMap.upstreamActivityId, record.detail.id),
+                      eq(
+                        importedActivityMap.upstreamActivityId,
+                        record.detail.id,
+                      ),
                     ),
                   );
               } else {
@@ -281,24 +284,28 @@ export function createIntervalsSyncRepository(
                 .where(
                   and(
                     eq(importedActivityMap.userId, record.userId),
-                    eq(importedActivityMap.upstreamActivityId, record.detail.id),
+                    eq(
+                      importedActivityMap.upstreamActivityId,
+                      record.detail.id,
+                    ),
                   ),
                 );
             }
 
             if (record.streams && record.streams.length > 0) {
-              await tx
-                .delete(importedActivityStream)
-                .where(
-                  and(
-                    eq(importedActivityStream.userId, record.userId),
-                    eq(importedActivityStream.upstreamActivityId, record.detail.id),
-                    inArray(
-                      importedActivityStream.streamType,
-                      record.streams.map((stream) => stream.type),
-                    ),
+              await tx.delete(importedActivityStream).where(
+                and(
+                  eq(importedActivityStream.userId, record.userId),
+                  eq(
+                    importedActivityStream.upstreamActivityId,
+                    record.detail.id,
                   ),
-                );
+                  inArray(
+                    importedActivityStream.streamType,
+                    record.streams.map((stream) => stream.type),
+                  ),
+                ),
+              );
 
               await tx.insert(importedActivityStream).values(
                 record.streams.map((stream) => ({

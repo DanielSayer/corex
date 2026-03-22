@@ -405,7 +405,8 @@ export function createIntervalsSyncService(
                     credentials,
                     activityId: candidate.id,
                   }),
-                catch: (cause) => createEndpointFailure("map", candidate.id, cause),
+                catch: (cause) =>
+                  createEndpointFailure("map", candidate.id, cause),
               }),
             );
 
