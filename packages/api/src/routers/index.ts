@@ -1,5 +1,5 @@
-import { getHealthCheck } from "../application/queries/health-check";
-import { getPrivateData } from "../application/queries/private-data";
+import { getPrivateData } from "../session/private-data";
+import { getHealthCheck } from "../system/health-check";
 import { intervalsSyncRouter } from "../intervals-sync/router";
 import { publicProcedure, router } from "../index";
 import { trainingSettingsRouter } from "../training-settings/router";

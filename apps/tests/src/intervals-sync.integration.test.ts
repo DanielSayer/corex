@@ -3,8 +3,8 @@ import { Cause, Effect, Exit, Option } from "effect";
 
 import { createUser } from "@corex/api/application/commands/create-user";
 import type { IntervalsAdapter } from "@corex/api/intervals-sync/adapter";
+import { createLiveIntervalsSyncService } from "@corex/api/intervals-sync/live";
 import { createIntervalsSyncRepository } from "@corex/api/intervals-sync/repository";
-import { createIntervalsSyncService } from "@corex/api/intervals-sync/service";
 import { createCredentialCrypto } from "@corex/api/training-settings/crypto";
 import { createTrainingSettingsRepository } from "@corex/api/training-settings/repository";
 import { createTrainingSettingsService } from "@corex/api/training-settings/service";
@@ -50,13 +50,11 @@ function createAdapter(
 async function createConfiguredSyncService(adapter: IntervalsAdapter) {
   const { db } = await getIntegrationHarness();
 
-  return createIntervalsSyncService({
-    trainingSettingsRepo: createTrainingSettingsRepository(db),
-    syncRepo: createIntervalsSyncRepository(db),
-    crypto: createCredentialCrypto({
-      masterKeyBase64,
-      keyVersion: 1,
-    }),
+  return createLiveIntervalsSyncService({
+    db,
+    env: {
+      SETTINGS_MASTER_KEY_BASE64: masterKeyBase64,
+    },
     adapter,
     clock: {
       now: () => new Date("2026-03-21T00:00:00.000Z"),
@@ -131,6 +129,48 @@ describe("intervals sync integration", () => {
       distance: 8000,
     });
     expect(storedSettings?.intervalsCredential.athleteId).toBe("i509216");
+  });
+
+  it("runs through the live Intervals boundary without constructing training-settings internals in the caller", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "runner@example.com",
+      name: "Runner One",
+    });
+    const settingsService = await createConfiguredTrainingSettingsService();
+
+    await Effect.runPromise(
+      settingsService.upsertForUser(user.id, {
+        goal: {
+          type: "volume_goal",
+          metric: "distance",
+          period: "week",
+          targetValue: 20,
+          unit: "km",
+        },
+        availability: {
+          monday: { available: true, maxDurationMinutes: 45 },
+          tuesday: { available: false, maxDurationMinutes: null },
+          wednesday: { available: true, maxDurationMinutes: 60 },
+          thursday: { available: false, maxDurationMinutes: null },
+          friday: { available: true, maxDurationMinutes: null },
+          saturday: { available: true, maxDurationMinutes: 90 },
+          sunday: { available: false, maxDurationMinutes: null },
+        },
+        intervalsUsername: "runner@example.com",
+        intervalsApiKey: "intervals-secret",
+      }),
+    );
+
+    const service = await createConfiguredSyncService(createAdapter());
+    const result = await Effect.runPromise(service.triggerForUser(user.id));
+    const latest = await Effect.runPromise(
+      createIntervalsSyncRepository(db).getLatestSyncSummary(user.id),
+    );
+
+    expect(result.status).toBe("success");
+    expect(latest?.status).toBe("success");
+    expect(latest?.insertedCount).toBe(1);
   });
 
   it("records a failure when Intervals credentials are invalid", async () => {

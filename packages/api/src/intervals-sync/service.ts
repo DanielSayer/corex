@@ -2,16 +2,15 @@ import { randomUUID } from "node:crypto";
 
 import { Effect } from "effect";
 
-import type { CredentialCrypto } from "../training-settings/crypto";
-import type { TrainingSettingsRepository } from "../training-settings/repository";
+import type { IntervalsAccountService } from "../intervals/account";
 import type { IntervalsAdapter } from "./adapter";
 import {
+  InvalidIntervalsCredentials,
   IntervalsSchemaValidationFailure,
   IntervalsUpstreamFailure,
-  InvalidIntervalsCredentials,
-  MissingIntervalsCredentials,
   SyncAlreadyInProgress,
   SyncPersistenceFailure,
+  MissingIntervalsCredentials,
 } from "./errors";
 import type {
   FailedDetailDiagnostic,
@@ -39,9 +38,8 @@ type Clock = {
 };
 
 type CreateIntervalsSyncServiceOptions = {
-  trainingSettingsRepo: TrainingSettingsRepository;
+  account: IntervalsAccountService;
   syncRepo: IntervalsSyncRepository;
-  crypto: CredentialCrypto;
   adapter: IntervalsAdapter;
   clock?: Clock;
   initialWindowDays?: number;
@@ -205,45 +203,13 @@ export function createIntervalsSyncService(
           });
 
         const syncEffect = Effect.gen(function* () {
-          const settings = yield* Effect.mapError(
-            options.trainingSettingsRepo.findByUserId(userId),
-            (cause) =>
-              new SyncPersistenceFailure({
-                message: cause.message,
-                cause,
-              }),
-          );
-
-          if (!settings) {
-            return yield* Effect.fail(
-              new MissingIntervalsCredentials({
-                message: "Intervals credentials are required before syncing",
-              }),
-            );
-          }
-
-          const { intervalsCredential } = settings;
-
-          const apiKey = yield* Effect.mapError(
-            options.crypto.decrypt(userId, {
-              ciphertext: intervalsCredential.ciphertext,
-              iv: intervalsCredential.iv,
-              tag: intervalsCredential.tag,
-              keyVersion: intervalsCredential.keyVersion,
-            }),
-            (cause) =>
-              new SyncPersistenceFailure({
-                message: cause.message,
-                cause,
-              }),
-          );
-
+          const account = yield* options.account.loadAccountForUser(userId);
           const credentials = {
-            username: intervalsCredential.username,
-            apiKey,
+            username: account.username,
+            apiKey: account.apiKey,
           };
 
-          let athleteId = intervalsCredential.athleteId;
+          let athleteId = account.athleteId;
 
           if (!athleteId) {
             const profile = yield* Effect.tryPromise({
@@ -261,20 +227,10 @@ export function createIntervalsSyncService(
             });
 
             athleteId = profile.id;
-            yield* Effect.mapError(
-              options.trainingSettingsRepo.saveIntervalsAthleteIdentity(
-                userId,
-                {
-                  athleteId,
-                  resolvedAt: clock.now(),
-                },
-              ),
-              (cause) =>
-                new SyncPersistenceFailure({
-                  message: cause.message,
-                  cause,
-                }),
-            );
+            yield* options.account.recordResolvedAthleteIdentity(userId, {
+              athleteId,
+              resolvedAt: clock.now(),
+            });
           }
 
           const latestCursor =

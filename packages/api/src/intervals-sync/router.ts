@@ -1,8 +1,7 @@
-import { Cause, Effect, Exit, Option } from "effect";
 import { TRPCError } from "@trpc/server";
 
 import { authedProcedure, router } from "../index";
-import { PersistenceFailure } from "../training-settings/errors";
+import { executeEffect } from "../trpc/effect";
 import {
   InvalidIntervalsCredentials,
   IntervalsSchemaValidationFailure,
@@ -49,10 +48,7 @@ function mapIntervalsSyncError(error: unknown) {
     });
   }
 
-  if (
-    error instanceof SyncPersistenceFailure ||
-    error instanceof PersistenceFailure
-  ) {
+  if (error instanceof SyncPersistenceFailure) {
     return new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: error.message,
@@ -67,24 +63,6 @@ function mapIntervalsSyncError(error: unknown) {
   });
 }
 
-async function executeIntervalsSyncEffect<A>(
-  effect: Effect.Effect<A, unknown>,
-): Promise<A> {
-  const exit = await Effect.runPromiseExit(effect);
-
-  if (Exit.isSuccess(exit)) {
-    return exit.value;
-  }
-
-  const failure = Cause.failureOption(exit.cause);
-
-  if (Option.isSome(failure)) {
-    throw mapIntervalsSyncError(failure.value);
-  }
-
-  throw mapIntervalsSyncError(exit.cause);
-}
-
 export function createIntervalsSyncRouter(
   options: CreateIntervalsSyncRouterOptions = {},
 ) {
@@ -92,10 +70,16 @@ export function createIntervalsSyncRouter(
 
   return router({
     trigger: authedProcedure.mutation(({ ctx }) =>
-      executeIntervalsSyncEffect(service.triggerForUser(ctx.session.user.id)),
+      executeEffect(
+        service.triggerForUser(ctx.session.user.id),
+        mapIntervalsSyncError,
+      ),
     ),
     latest: authedProcedure.query(({ ctx }) =>
-      executeIntervalsSyncEffect(service.latestForUser(ctx.session.user.id)),
+      executeEffect(
+        service.latestForUser(ctx.session.user.id),
+        mapIntervalsSyncError,
+      ),
     ),
   });
 }

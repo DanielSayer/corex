@@ -4,7 +4,7 @@ import {
   trainingSettingsInputSchema,
   type TrainingSettingsInput,
 } from "./contracts";
-import type { CredentialCrypto } from "./crypto";
+import type { CredentialCrypto } from "../intervals/crypto";
 import { InvalidApiKeyFormat, InvalidSettings } from "./errors";
 import type {
   StoredTrainingSettings,

@@ -1,0 +1,81 @@
+import { Effect } from "effect";
+
+import {
+  MissingIntervalsCredentials,
+  SyncPersistenceFailure,
+} from "../intervals-sync/errors";
+import type { CredentialCrypto } from "./crypto";
+import type { IntervalsAccountStore } from "./account-repository";
+
+export type IntervalsAccount = {
+  username: string;
+  apiKey: string;
+  athleteId: string | null;
+};
+
+export type IntervalsAccountService = {
+  loadAccountForUser: (
+    userId: string,
+  ) => Effect.Effect<
+    IntervalsAccount,
+    MissingIntervalsCredentials | SyncPersistenceFailure
+  >;
+  recordResolvedAthleteIdentity: (
+    userId: string,
+    identity: {
+      athleteId: string;
+      resolvedAt: Date;
+    },
+  ) => Effect.Effect<void, SyncPersistenceFailure>;
+};
+
+type CreateIntervalsAccountServiceOptions = {
+  store: IntervalsAccountStore;
+  crypto: CredentialCrypto;
+};
+
+function toPersistenceFailure(cause: { message: string; cause?: unknown }) {
+  return new SyncPersistenceFailure({
+    message: cause.message,
+    cause: cause.cause,
+  });
+}
+
+export function createIntervalsAccountService(
+  options: CreateIntervalsAccountServiceOptions,
+): IntervalsAccountService {
+  return {
+    loadAccountForUser(userId) {
+      return Effect.gen(function* () {
+        const storedAccount = yield* options.store.findAccountByUserId(userId);
+
+        if (!storedAccount) {
+          return yield* Effect.fail(
+            new MissingIntervalsCredentials({
+              message: "Intervals credentials are required before syncing",
+            }),
+          );
+        }
+
+        const apiKey = yield* Effect.mapError(
+          options.crypto.decrypt(userId, {
+            ciphertext: storedAccount.ciphertext,
+            iv: storedAccount.iv,
+            tag: storedAccount.tag,
+            keyVersion: storedAccount.keyVersion,
+          }),
+          toPersistenceFailure,
+        );
+
+        return {
+          username: storedAccount.username,
+          apiKey,
+          athleteId: storedAccount.athleteId,
+        };
+      });
+    },
+    recordResolvedAthleteIdentity(userId, identity) {
+      return options.store.saveAthleteIdentity(userId, identity);
+    },
+  };
+}

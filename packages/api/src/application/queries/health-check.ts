@@ -1,3 +1,1 @@
-export function getHealthCheck() {
-  return "OK";
-}
+export { getHealthCheck } from "../../system/health-check";
