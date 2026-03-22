@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -54,6 +55,55 @@ export const importedActivity = pgTable(
   ],
 );
 
+export const importedActivityMap = pgTable(
+  "imported_activity_map",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    upstreamActivityId: text("upstream_activity_id").notNull(),
+    hasRoute: boolean("has_route").default(false).notNull(),
+    hasWeather: boolean("has_weather").default(false).notNull(),
+    rawMap: jsonb("raw_map").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.upstreamActivityId] }),
+  ],
+);
+
+export const importedActivityStream = pgTable(
+  "imported_activity_stream",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    upstreamActivityId: text("upstream_activity_id").notNull(),
+    streamType: text("stream_type").notNull(),
+    allNull: boolean("all_null"),
+    custom: boolean("custom"),
+    rawStream: jsonb("raw_stream").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.upstreamActivityId, table.streamType],
+    }),
+    index("imported_activity_stream_user_activity_idx").on(
+      table.userId,
+      table.upstreamActivityId,
+    ),
+  ],
+);
+
 export const syncEvent = pgTable(
   "sync_event",
   {
@@ -76,6 +126,10 @@ export const syncEvent = pgTable(
       .notNull(),
     skippedInvalidCount: integer("skipped_invalid_count").default(0).notNull(),
     failedDetailCount: integer("failed_detail_count").default(0).notNull(),
+    failedMapCount: integer("failed_map_count").default(0).notNull(),
+    failedStreamCount: integer("failed_stream_count").default(0).notNull(),
+    storedMapCount: integer("stored_map_count").default(0).notNull(),
+    storedStreamCount: integer("stored_stream_count").default(0).notNull(),
     unknownActivityTypes: jsonb("unknown_activity_types").notNull(),
     warnings: jsonb("warnings").notNull(),
     failedDetails: jsonb("failed_details").notNull(),
@@ -95,10 +149,52 @@ export const syncEvent = pgTable(
 
 export const importedActivityRelations = relations(
   importedActivity,
-  ({ one }) => ({
+  ({ one, many }) => ({
     user: one(user, {
       fields: [importedActivity.userId],
       references: [user.id],
+    }),
+    map: many(importedActivityMap),
+    streams: many(importedActivityStream),
+  }),
+);
+
+export const importedActivityMapRelations = relations(
+  importedActivityMap,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [importedActivityMap.userId],
+      references: [user.id],
+    }),
+    activity: one(importedActivity, {
+      fields: [
+        importedActivityMap.userId,
+        importedActivityMap.upstreamActivityId,
+      ],
+      references: [
+        importedActivity.userId,
+        importedActivity.upstreamActivityId,
+      ],
+    }),
+  }),
+);
+
+export const importedActivityStreamRelations = relations(
+  importedActivityStream,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [importedActivityStream.userId],
+      references: [user.id],
+    }),
+    activity: one(importedActivity, {
+      fields: [
+        importedActivityStream.userId,
+        importedActivityStream.upstreamActivityId,
+      ],
+      references: [
+        importedActivity.userId,
+        importedActivity.upstreamActivityId,
+      ],
     }),
   }),
 );

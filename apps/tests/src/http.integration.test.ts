@@ -82,6 +82,10 @@ describe("http integration", () => {
               skippedNonRunningCount: 0,
               skippedInvalidCount: 0,
               failedDetailCount: 0,
+              failedMapCount: 0,
+              failedStreamCount: 0,
+              storedMapCount: 1,
+              storedStreamCount: 5,
               unknownActivityTypes: [],
               warnings: [],
               failedDetails: [],
@@ -114,5 +118,6 @@ describe("http integration", () => {
     expect(response.status).toBe(200);
     expect(body).toContain("sync-1");
     expect(body).toContain("initial_30d_window");
+    expect(body).toContain("storedMapCount");
   });
 });

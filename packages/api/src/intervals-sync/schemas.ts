@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const nullableNumber = z.number().nullable().optional();
 const nullableString = z.string().nullable().optional();
+const nullableBoolean = z.boolean().nullable().optional();
+const unknownArrayOrRecord = z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]);
 
 export const intervalsAthleteProfileSchema = z
   .object({
@@ -86,6 +88,102 @@ export const intervalsActivityDetailSchema = z
   })
   .passthrough();
 
+export const intervalsMapLatLngSchema = z.array(z.number()).nullable();
+
+export const intervalsActivityMapRouteSchema = z
+  .object({
+    athlete_id: nullableString,
+    route_id: nullableNumber,
+    name: nullableString,
+    rename_activities: nullableBoolean,
+    commute: nullableBoolean,
+    tags: z.array(z.string()).optional(),
+    description: nullableString,
+    replaced_by_route_id: nullableNumber,
+    latlngs: z.array(intervalsMapLatLngSchema).optional(),
+  })
+  .passthrough();
+
+export const intervalsActivityMapWeatherTimeSchema = z
+  .object({
+    start_secs: nullableNumber,
+    end_secs: nullableNumber,
+    index: nullableNumber,
+    temp: nullableNumber,
+    feels_like: nullableNumber,
+    humidity: nullableNumber,
+    wind_speed: nullableNumber,
+    wind_deg: nullableNumber,
+    wind_gust: nullableNumber,
+    rain: nullableNumber,
+    showers: nullableNumber,
+    snow: nullableNumber,
+    clouds: nullableNumber,
+    pressure: nullableNumber,
+    weather_code: nullableNumber,
+  })
+  .passthrough();
+
+export const intervalsActivityMapWeatherPointSchema = z
+  .object({
+    latitude: nullableNumber,
+    longitude: nullableNumber,
+    times: z.array(intervalsActivityMapWeatherTimeSchema).optional(),
+  })
+  .passthrough();
+
+export const intervalsActivityMapClosestPointSchema = z
+  .object({
+    start_secs: nullableNumber,
+    p1_index: nullableNumber,
+    p2_index: nullableNumber,
+    p3_index: nullableNumber,
+  })
+  .passthrough();
+
+export const intervalsActivityMapWeatherSchema = z
+  .object({
+    points: z.array(intervalsActivityMapWeatherPointSchema).optional(),
+    closest_points: z.array(intervalsActivityMapClosestPointSchema).optional(),
+  })
+  .passthrough();
+
+export const intervalsActivityMapSchema = z
+  .object({
+    bounds: z.array(z.array(z.number())).nullable().optional(),
+    latlngs: z.array(intervalsMapLatLngSchema).nullable().optional(),
+    route: intervalsActivityMapRouteSchema.nullable().optional(),
+    weather: intervalsActivityMapWeatherSchema.nullable().optional(),
+  })
+  .passthrough()
+  .nullable();
+
+export const intervalsActivityStreamAnomalySchema = z
+  .object({
+    start_index: z.number(),
+    end_index: z.number(),
+    value: z.number(),
+    valueEnd: z.number(),
+  })
+  .passthrough();
+
+export const intervalsActivityStreamSchema = z
+  .object({
+    type: z.string().min(1),
+    name: nullableString,
+    data: unknownArrayOrRecord,
+    data2: unknownArrayOrRecord.nullable().optional(),
+    valueTypeIsArray: nullableBoolean,
+    anomalies: z.array(intervalsActivityStreamAnomalySchema).nullable().optional(),
+    custom: nullableBoolean,
+    allNull: nullableBoolean,
+  })
+  .passthrough();
+
+export const intervalsActivityStreamsSchema = z.array(
+  intervalsActivityStreamSchema,
+);
+
 export type IntervalsAthleteProfile = z.infer<
   typeof intervalsAthleteProfileSchema
 >;
@@ -94,4 +192,11 @@ export type IntervalsActivityDiscovery = z.infer<
 >;
 export type IntervalsActivityDetail = z.infer<
   typeof intervalsActivityDetailSchema
+>;
+export type IntervalsActivityMap = z.infer<typeof intervalsActivityMapSchema>;
+export type IntervalsActivityStream = z.infer<
+  typeof intervalsActivityStreamSchema
+>;
+export type IntervalsActivityStreams = z.infer<
+  typeof intervalsActivityStreamsSchema
 >;
