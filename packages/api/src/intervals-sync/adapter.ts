@@ -5,10 +5,14 @@ import {
 } from "./errors";
 import {
   intervalsActivityDetailSchema,
+  intervalsActivityMapSchema,
+  intervalsActivityStreamsSchema,
   intervalsAthleteActivitiesSchema,
   intervalsAthleteProfileSchema,
   type IntervalsActivityDetail,
+  type IntervalsActivityMap,
   type IntervalsActivityDiscovery,
+  type IntervalsActivityStream,
   type IntervalsAthleteProfile,
 } from "./schemas";
 
@@ -31,6 +35,15 @@ export type IntervalsAdapter = {
     credentials: IntervalsCredentials;
     activityId: string;
   }) => Promise<IntervalsActivityDetail>;
+  getActivityMap: (input: {
+    credentials: IntervalsCredentials;
+    activityId: string;
+  }) => Promise<IntervalsActivityMap>;
+  getActivityStreams: (input: {
+    credentials: IntervalsCredentials;
+    activityId: string;
+    types: string[];
+  }) => Promise<IntervalsActivityStream[]>;
 };
 
 type CreateIntervalsAdapterOptions = {
@@ -157,6 +170,37 @@ export function createIntervalsAdapter(
       const endpoint = `/activity/${activityId}?intervals=true`;
       const payload = await requestJson(endpoint, credentials);
       return validatePayload(payload, endpoint, intervalsActivityDetailSchema);
+    },
+    async getActivityMap({ credentials, activityId }) {
+      const endpoint = `/activity/${activityId}/map`;
+      const payload = await requestJson(endpoint, credentials);
+      return validatePayload(payload, endpoint, intervalsActivityMapSchema);
+    },
+    async getActivityStreams({ credentials, activityId, types }) {
+      const url = new URL(`${baseUrl}/activity/${activityId}/streams.json`);
+
+      for (const type of types) {
+        url.searchParams.append("types", type);
+      }
+
+      const response = await fetchImpl(url, {
+        headers: {
+          Authorization: createBasicAuth(credentials),
+          "Content-Type": "application/json",
+        },
+      });
+
+      assertOkOrThrow(response, `/activity/${activityId}/streams.json`);
+      const payload = await parseResponseJson(
+        response,
+        `/activity/${activityId}/streams.json`,
+      );
+
+      return validatePayload(
+        payload,
+        `/activity/${activityId}/streams.json`,
+        intervalsActivityStreamsSchema,
+      );
     },
   };
 }

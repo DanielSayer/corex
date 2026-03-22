@@ -20,6 +20,8 @@ import type {
 import type {
   IntervalsActivityDetail,
   IntervalsActivityDiscovery,
+  IntervalsActivityMap,
+  IntervalsActivityStream,
 } from "./schemas";
 
 const RUNNING_ACTIVITY_TYPES = new Set([
@@ -32,6 +34,13 @@ const RUNNING_ACTIVITY_TYPES = new Set([
 const DEFAULT_INITIAL_WINDOW_DAYS = 30;
 const DEFAULT_INCREMENTAL_OVERLAP_HOURS = 24;
 const DEFAULT_DETAIL_CONCURRENCY = 4;
+export const REQUESTED_STREAM_TYPES = [
+  "cadence",
+  "heartrate",
+  "distance",
+  "velocity_smooth",
+  "fixed_altitude",
+] as const;
 
 type Clock = {
   now: () => Date;
@@ -157,6 +166,48 @@ function mapFailureCategory(error: unknown): string {
   return "persistence_failure";
 }
 
+function createEndpointFailure(
+  endpoint: "map" | "streams",
+  activityId: string,
+  cause: unknown,
+) {
+  if (
+    cause instanceof InvalidIntervalsCredentials ||
+    cause instanceof IntervalsUpstreamFailure ||
+    cause instanceof IntervalsSchemaValidationFailure
+  ) {
+    return cause;
+  }
+
+  return new IntervalsUpstreamFailure({
+    message: `Failed to load Intervals activity ${endpoint} for ${activityId}`,
+    endpoint: `${endpoint}:${activityId}`,
+    cause,
+  });
+}
+
+function validateRequestedStreams(
+  activityId: string,
+  streams: IntervalsActivityStream[],
+): IntervalsActivityStream[] {
+  const received = new Set(streams.map((stream) => stream.type));
+
+  for (const type of REQUESTED_STREAM_TYPES) {
+    if (!received.has(type)) {
+      throw new IntervalsSchemaValidationFailure({
+        message: `Intervals streams payload for ${activityId} was missing required stream ${type}`,
+        endpoint: `streams:${activityId}`,
+      });
+    }
+  }
+
+  return streams.filter((stream) =>
+    REQUESTED_STREAM_TYPES.includes(
+      stream.type as (typeof REQUESTED_STREAM_TYPES)[number],
+    ),
+  );
+}
+
 export function createIntervalsSyncService(
   options: CreateIntervalsSyncServiceOptions,
 ) {
@@ -279,6 +330,10 @@ export function createIntervalsSyncService(
           let updatedCount = 0;
           let skippedInvalidCount = 0;
           let failedDetailCount = 0;
+          let failedMapCount = 0;
+          let failedStreamCount = 0;
+          let storedMapCount = 0;
+          let storedStreamCount = 0;
           const failedDetails: FailedDetailDiagnostic[] = [];
           const importedStartDates: Date[] = [];
 
@@ -322,6 +377,7 @@ export function createIntervalsSyncService(
                 type: candidate.type,
                 startDate:
                   candidate.start_date ?? candidate.start_date_local ?? null,
+                endpoint: "detail",
                 message:
                   result.left instanceof Error
                     ? result.left.message
@@ -339,10 +395,81 @@ export function createIntervalsSyncService(
               continue;
             }
 
+            let map: IntervalsActivityMap | null | undefined = undefined;
+            let streams: IntervalsActivityStream[] | undefined = undefined;
+
+            const mapResult = yield* Effect.either(
+              Effect.tryPromise({
+                try: () =>
+                  options.adapter.getActivityMap({
+                    credentials,
+                    activityId: candidate.id,
+                  }),
+                catch: (cause) => createEndpointFailure("map", candidate.id, cause),
+              }),
+            );
+
+            if (mapResult._tag === "Left") {
+              failedMapCount += 1;
+              failedDetails.push({
+                activityId: candidate.id,
+                type: candidate.type,
+                startDate:
+                  candidate.start_date ?? candidate.start_date_local ?? null,
+                endpoint: "map",
+                message:
+                  mapResult.left instanceof Error
+                    ? mapResult.left.message
+                    : String(mapResult.left),
+              });
+            } else {
+              map = mapResult.right;
+
+              if (map != null) {
+                storedMapCount += 1;
+              }
+            }
+
+            const streamsResult = yield* Effect.either(
+              Effect.tryPromise({
+                try: async () =>
+                  validateRequestedStreams(
+                    candidate.id,
+                    await options.adapter.getActivityStreams({
+                      credentials,
+                      activityId: candidate.id,
+                      types: [...REQUESTED_STREAM_TYPES],
+                    }),
+                  ),
+                catch: (cause) =>
+                  createEndpointFailure("streams", candidate.id, cause),
+              }),
+            );
+
+            if (streamsResult._tag === "Left") {
+              failedStreamCount += 1;
+              failedDetails.push({
+                activityId: candidate.id,
+                type: candidate.type,
+                startDate:
+                  candidate.start_date ?? candidate.start_date_local ?? null,
+                endpoint: "streams",
+                message:
+                  streamsResult.left instanceof Error
+                    ? streamsResult.left.message
+                    : String(streamsResult.left),
+              });
+            } else {
+              streams = streamsResult.right;
+              storedStreamCount += streams.length;
+            }
+
             const action = yield* options.syncRepo.upsertImportedActivity({
               userId,
               athleteId,
               detail: normalized.detail,
+              map,
+              streams,
               normalizedActivityType: normalized.normalizedActivityType,
               startAt: normalized.startAt,
               movingTimeSeconds: normalized.movingTimeSeconds,
@@ -364,6 +491,18 @@ export function createIntervalsSyncService(
           if (failedDetailCount > 0) {
             warnings.push(
               `${failedDetailCount} running activities could not be loaded from Intervals detail`,
+            );
+          }
+
+          if (failedMapCount > 0) {
+            warnings.push(
+              `${failedMapCount} running activities could not be loaded from Intervals map`,
+            );
+          }
+
+          if (failedStreamCount > 0) {
+            warnings.push(
+              `${failedStreamCount} running activities could not be loaded from Intervals streams`,
             );
           }
 
@@ -410,6 +549,10 @@ export function createIntervalsSyncService(
               discoveredActivities.length - runningCandidates.length,
             skippedInvalidCount,
             failedDetailCount,
+            failedMapCount,
+            failedStreamCount,
+            storedMapCount,
+            storedStreamCount,
             unknownActivityTypes: [...unknownActivityTypes].sort(),
             warnings,
             failedDetails,

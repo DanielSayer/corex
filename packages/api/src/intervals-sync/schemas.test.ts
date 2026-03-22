@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import {
   intervalsActivityDetailSchema,
+  intervalsActivityMapSchema,
+  intervalsActivityStreamsSchema,
   intervalsAthleteActivitiesSchema,
   intervalsAthleteProfileSchema,
 } from "./schemas";
@@ -45,6 +47,42 @@ describe("intervals schemas", () => {
         },
       ],
     });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts valid activity map payloads and null map payloads", () => {
+    const mapResult = intervalsActivityMapSchema.safeParse({
+      latlngs: [
+        [-27.47, 153.02],
+        [-27.46, 153.03],
+      ],
+      route: {
+        name: "River loop",
+      },
+      weather: {
+        points: [],
+        closest_points: [],
+      },
+    });
+    const nullResult = intervalsActivityMapSchema.safeParse(null);
+
+    expect(mapResult.success).toBe(true);
+    expect(nullResult.success).toBe(true);
+  });
+
+  it("accepts valid activity streams payloads", () => {
+    const result = intervalsActivityStreamsSchema.safeParse([
+      {
+        type: "distance",
+        data: [0, 12.4, 24.8],
+        allNull: false,
+      },
+      {
+        type: "heartrate",
+        data: [118, 121, 125],
+      },
+    ]);
 
     expect(result.success).toBe(true);
   });

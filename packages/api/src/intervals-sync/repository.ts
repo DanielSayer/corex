@@ -1,16 +1,26 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 
 import type { Database } from "@corex/db";
-import { importedActivity, syncEvent } from "@corex/db/schema/intervals-sync";
+import {
+  importedActivity,
+  importedActivityMap,
+  importedActivityStream,
+  syncEvent,
+} from "@corex/db/schema/intervals-sync";
 
 import { SyncPersistenceFailure } from "./errors";
-import type { IntervalsActivityDetail } from "./schemas";
+import type {
+  IntervalsActivityDetail,
+  IntervalsActivityMap,
+  IntervalsActivityStream,
+} from "./schemas";
 
 export type FailedDetailDiagnostic = {
   activityId: string;
   type: string;
   startDate: string | null;
+  endpoint: "detail" | "map" | "streams";
   message: string;
 };
 
@@ -29,6 +39,10 @@ export type SyncSummary = {
   skippedNonRunningCount: number;
   skippedInvalidCount: number;
   failedDetailCount: number;
+  failedMapCount: number;
+  failedStreamCount: number;
+  storedMapCount: number;
+  storedStreamCount: number;
   unknownActivityTypes: string[];
   warnings: string[];
   failedDetails: FailedDetailDiagnostic[];
@@ -42,6 +56,8 @@ export type UpsertImportedActivityRecord = {
   userId: string;
   athleteId: string;
   detail: IntervalsActivityDetail;
+  map?: IntervalsActivityMap | null;
+  streams?: IntervalsActivityStream[];
   normalizedActivityType: string;
   startAt: Date;
   movingTimeSeconds: number;
@@ -61,6 +77,10 @@ export type FinalizeSuccessInput = {
   skippedNonRunningCount: number;
   skippedInvalidCount: number;
   failedDetailCount: number;
+  failedMapCount: number;
+  failedStreamCount: number;
+  storedMapCount: number;
+  storedStreamCount: number;
   unknownActivityTypes: string[];
   warnings: string[];
   failedDetails: FailedDetailDiagnostic[];
@@ -116,6 +136,10 @@ function mapSyncSummary(row: typeof syncEvent.$inferSelect): SyncSummary {
     skippedNonRunningCount: row.skippedNonRunningCount,
     skippedInvalidCount: row.skippedInvalidCount,
     failedDetailCount: row.failedDetailCount,
+    failedMapCount: row.failedMapCount,
+    failedStreamCount: row.failedStreamCount,
+    storedMapCount: row.storedMapCount,
+    storedStreamCount: row.storedStreamCount,
     unknownActivityTypes: (row.unknownActivityTypes as string[]) ?? [],
     warnings: (row.warnings as string[]) ?? [],
     failedDetails: (row.failedDetails as FailedDetailDiagnostic[]) ?? [],
@@ -207,22 +231,89 @@ export function createIntervalsSyncRepository(
             updatedAt: new Date(),
           };
 
-          if (existing) {
-            await db
-              .update(importedActivity)
-              .set(values)
-              .where(
-                and(
-                  eq(importedActivity.userId, record.userId),
-                  eq(importedActivity.upstreamActivityId, record.detail.id),
+          return db.transaction(async (tx) => {
+            if (existing) {
+              await tx
+                .update(importedActivity)
+                .set(values)
+                .where(
+                  and(
+                    eq(importedActivity.userId, record.userId),
+                    eq(importedActivity.upstreamActivityId, record.detail.id),
+                  ),
+                );
+            } else {
+              await tx.insert(importedActivity).values(values);
+            }
+
+            if (record.map !== undefined && record.map !== null) {
+              const mapValues = {
+                userId: record.userId,
+                upstreamActivityId: record.detail.id,
+                hasRoute: record.map.route != null,
+                hasWeather: record.map.weather != null,
+                rawMap: record.map,
+                updatedAt: new Date(),
+              };
+              const existingMap = await tx.query.importedActivityMap.findFirst({
+                where: and(
+                  eq(importedActivityMap.userId, record.userId),
+                  eq(importedActivityMap.upstreamActivityId, record.detail.id),
                 ),
+              });
+
+              if (existingMap) {
+                await tx
+                  .update(importedActivityMap)
+                  .set(mapValues)
+                  .where(
+                    and(
+                      eq(importedActivityMap.userId, record.userId),
+                      eq(importedActivityMap.upstreamActivityId, record.detail.id),
+                    ),
+                  );
+              } else {
+                await tx.insert(importedActivityMap).values(mapValues);
+              }
+            } else if (record.map === null) {
+              await tx
+                .delete(importedActivityMap)
+                .where(
+                  and(
+                    eq(importedActivityMap.userId, record.userId),
+                    eq(importedActivityMap.upstreamActivityId, record.detail.id),
+                  ),
+                );
+            }
+
+            if (record.streams && record.streams.length > 0) {
+              await tx
+                .delete(importedActivityStream)
+                .where(
+                  and(
+                    eq(importedActivityStream.userId, record.userId),
+                    eq(importedActivityStream.upstreamActivityId, record.detail.id),
+                    inArray(
+                      importedActivityStream.streamType,
+                      record.streams.map((stream) => stream.type),
+                    ),
+                  ),
+                );
+
+              await tx.insert(importedActivityStream).values(
+                record.streams.map((stream) => ({
+                  userId: record.userId,
+                  upstreamActivityId: record.detail.id,
+                  streamType: stream.type,
+                  allNull: stream.allNull ?? null,
+                  custom: stream.custom ?? null,
+                  rawStream: stream,
+                })),
               );
+            }
 
-            return "updated" as const;
-          }
-
-          await db.insert(importedActivity).values(values);
-          return "inserted" as const;
+            return existing ? ("updated" as const) : ("inserted" as const);
+          });
         },
         catch: (cause) =>
           new SyncPersistenceFailure({
@@ -248,6 +339,10 @@ export function createIntervalsSyncRepository(
               skippedNonRunningCount: input.skippedNonRunningCount,
               skippedInvalidCount: input.skippedInvalidCount,
               failedDetailCount: input.failedDetailCount,
+              failedMapCount: input.failedMapCount,
+              failedStreamCount: input.failedStreamCount,
+              storedMapCount: input.storedMapCount,
+              storedStreamCount: input.storedStreamCount,
               unknownActivityTypes: input.unknownActivityTypes,
               warnings: input.warnings,
               failedDetails: input.failedDetails,
