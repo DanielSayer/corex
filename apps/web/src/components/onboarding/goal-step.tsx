@@ -23,6 +23,7 @@ import { format, parseISO } from "date-fns";
 import { CalendarIcon, FlagIcon, RouteIcon, TimerIcon } from "lucide-react";
 
 import type { GoalDraft, StepErrors } from "@/lib/onboarding";
+import { getNextGoalDraft } from "@/lib/onboarding-goal";
 import { cn } from "@/lib/utils";
 
 import {
@@ -64,14 +65,14 @@ function GoalTypeSelector({
         description="Train toward a race or target effort on a specific date."
         icon={FlagIcon}
         selected={draft.type === "event_goal"}
-        onClick={() => onChange(createEventGoalDraft(draft))}
+        onClick={() => onChange(getNextGoalDraft(draft, "event_goal"))}
       />
       <SelectionTile
         title="Volume goal"
         description="Train toward a recurring weekly or monthly mileage target."
         icon={RouteIcon}
         selected={draft.type === "volume_goal"}
-        onClick={() => onChange(createVolumeGoalDraft())}
+        onClick={() => onChange(getNextGoalDraft(draft, "volume_goal"))}
       />
     </div>
   );
@@ -353,33 +354,6 @@ function VolumeTargetValueField({
       </InputGroupAddon>
     </InputGroup>
   );
-}
-
-function createEventGoalDraft(
-  currentGoal: GoalDraft,
-): Extract<GoalDraft, { type: "event_goal" }> {
-  return {
-    type: "event_goal",
-    targetDistanceValue: "10",
-    targetDistanceUnit: "km",
-    targetDate: currentGoal.type === "event_goal" ? currentGoal.targetDate : "",
-    eventName: "",
-    targetTimeHours: "",
-    targetTimeMinutes: "",
-    targetTimeSeconds: "",
-    notes: "",
-  };
-}
-
-function createVolumeGoalDraft(): Extract<GoalDraft, { type: "volume_goal" }> {
-  return {
-    type: "volume_goal",
-    metric: "distance",
-    period: "week",
-    targetValue: "40",
-    unit: "km",
-    notes: "",
-  };
 }
 
 function EventGoalDatePicker({
