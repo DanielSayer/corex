@@ -1,3 +1,4 @@
+import { Separator } from "@corex/ui/components/separator";
 import { Link } from "@tanstack/react-router";
 
 import { ModeToggle } from "./mode-toggle";
@@ -26,7 +27,7 @@ export default function Header() {
           <UserMenu />
         </div>
       </div>
-      <hr />
+      <Separator />
     </div>
   );
 }
