@@ -22,6 +22,7 @@ import {
   type OnboardingDraft,
   type StepErrors,
 } from "@/lib/onboarding";
+import { shouldRenderOnboardingStep } from "@/lib/onboarding-route";
 import { queryClient, trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/onboarding")({
@@ -82,7 +83,7 @@ function RouteComponent() {
     return <OnboardingSkeleton />;
   }
 
-  if (settings.data?.status === "complete") {
+  if (!shouldRenderOnboardingStep(settings.data?.status, currentStep)) {
     return null;
   }
 
@@ -175,9 +176,6 @@ function RouteComponent() {
             onExpandedDayChange={setExpandedDay}
             onUsernameChange={handleUsernameChange}
             onApiKeyChange={handleApiKeyChange}
-            onContinue={() => {
-              void navigate({ to: "/dashboard" });
-            }}
           />
         </section>
 

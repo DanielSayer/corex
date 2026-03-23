@@ -190,13 +190,13 @@ function AvailabilityDayHeader({
         </h2>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-      <div className="flex items-center gap-3">
+      <Label className="flex items-center gap-3">
         <Checkbox
           checked={selectedDay.available}
           onCheckedChange={(checked) => onAvailabilityToggle(Boolean(checked))}
         />
-        <Label>{selectedDay.available ? "Available" : "Off"}</Label>
-      </div>
+        {selectedDay.available ? "Available" : "Off"}
+      </Label>
     </div>
   );
 }
