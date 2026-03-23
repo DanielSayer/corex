@@ -22,7 +22,6 @@ export function StepContent({
   onExpandedDayChange,
   onUsernameChange,
   onApiKeyChange,
-  onContinue,
 }: {
   currentStep: OnboardingStep;
   draft: OnboardingDraft;
@@ -34,7 +33,6 @@ export function StepContent({
   onExpandedDayChange: (day: AvailabilityDay) => void;
   onUsernameChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
-  onContinue: () => void;
 }) {
   switch (currentStep) {
     case "goal":
@@ -62,6 +60,6 @@ export function StepContent({
         />
       );
     case "sync":
-      return <SyncStep draft={draft} onContinue={onContinue} />;
+      return <SyncStep draft={draft} />;
   }
 }
