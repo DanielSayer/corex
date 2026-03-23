@@ -60,6 +60,8 @@ function RouteComponent() {
     createDefaultOnboardingDraft(),
   );
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [allowCompletedOnboardingSession, setAllowCompletedOnboardingSession] =
+    useState(false);
   const [errors, setErrors] = useState<StepErrors>({});
   const [expandedDay, setExpandedDay] = useState<AvailabilityDay>("monday");
 
@@ -68,6 +70,7 @@ function RouteComponent() {
     onSuccess: (data) => {
       queryClient.setQueryData(settingsQueryOptions.queryKey, data);
       setErrors({});
+      setAllowCompletedOnboardingSession(true);
       setCurrentStepIndex(onboardingSteps.indexOf("sync"));
       toast.success("Onboarding settings saved");
     },
@@ -83,7 +86,13 @@ function RouteComponent() {
     return <OnboardingSkeleton />;
   }
 
-  if (!shouldRenderOnboardingStep(settings.data?.status, currentStep)) {
+  if (
+    !shouldRenderOnboardingStep(
+      settings.data?.status,
+      currentStep,
+      allowCompletedOnboardingSession,
+    )
+  ) {
     return null;
   }
 
