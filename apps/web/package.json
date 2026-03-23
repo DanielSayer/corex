@@ -46,6 +46,7 @@
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router-devtools": "^1.141.1",
     "@tanstack/router-plugin": "^1.141.1",
+    "@types/bun": "catalog:",
     "@types/node": "^22.13.14",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
