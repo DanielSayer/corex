@@ -36,13 +36,22 @@ function createAad(userId: string) {
 function decodeMasterKey(masterKeyBase64: string) {
   return Effect.try({
     try: () => {
-      const key = Buffer.from(masterKeyBase64, "base64");
+      const trimmedKey = masterKeyBase64.trim();
+      const decodedBase64Key = Buffer.from(trimmedKey, "base64");
 
-      if (key.length !== 32) {
-        throw new Error("Settings master key must decode to 32 bytes");
+      if (decodedBase64Key.length === 32) {
+        return decodedBase64Key;
       }
 
-      return key;
+      const rawKey = Buffer.from(trimmedKey, "utf8");
+
+      if (rawKey.length === 32) {
+        return rawKey;
+      }
+
+      throw new Error(
+        "Settings master key must be base64 for 32 bytes or a raw 32-byte string",
+      );
     },
     catch: (cause) =>
       new EncryptionFailure({

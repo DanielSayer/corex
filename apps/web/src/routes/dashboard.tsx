@@ -6,7 +6,7 @@ import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/dashboard")({
   component: RouteComponent,
-  beforeLoad: async () => {
+  beforeLoad: async ({ context }) => {
     const session = await authClient.getSession();
     if (!session.data) {
       redirect({
@@ -14,6 +14,18 @@ export const Route = createFileRoute("/dashboard")({
         throw: true,
       });
     }
+
+    const settings = await context.queryClient.ensureQueryData(
+      context.trpc.trainingSettings.get.queryOptions(),
+    );
+
+    if (settings.status !== "complete") {
+      redirect({
+        to: "/onboarding",
+        throw: true,
+      });
+    }
+
     return { session };
   },
 });

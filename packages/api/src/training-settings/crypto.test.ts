@@ -48,4 +48,20 @@ describe("credential crypto", () => {
       }
     }
   });
+
+  it("accepts a raw 32-byte master key when encrypting intervals api keys", async () => {
+    const crypto = createCredentialCrypto({
+      masterKeyBase64: "ovF3PhO29PoeS9gxC5TDl3PqlD6Z2xli ",
+      keyVersion: 1,
+    });
+
+    const encrypted = await Effect.runPromise(
+      crypto.encrypt("user-1", "6cg3tnhpclayvep6s9jf8a02g"),
+    );
+    const decrypted = await Effect.runPromise(
+      crypto.decrypt("user-1", encrypted),
+    );
+
+    expect(decrypted).toBe("6cg3tnhpclayvep6s9jf8a02g");
+  });
 });
