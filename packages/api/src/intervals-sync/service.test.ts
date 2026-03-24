@@ -3,6 +3,7 @@ import { Cause, Effect, Exit, Option } from "effect";
 
 import { InvalidIntervalsCredentials, SyncAlreadyInProgress } from "./errors";
 import type { IntervalsAdapter } from "./adapter";
+import type { RecentActivityPreview } from "./recent-activity";
 import { createIntervalsSyncService } from "./service";
 import type { IntervalsAccountService } from "../intervals/account";
 import type { IntervalsSyncRepository } from "./repository";
@@ -148,6 +149,7 @@ function createSyncRepo(
       }),
     getLatestSyncSummary: () => Effect.succeed(null),
     getLatestSuccessfulSyncCursor: () => Effect.succeed(null),
+    getRecentActivities: () => Effect.succeed([]),
     ...overrides,
   };
 }
@@ -305,5 +307,37 @@ describe("intervals sync service", () => {
         }),
       ]),
     );
+  });
+
+  it("returns recent activities from the repository unchanged", async () => {
+    const recentActivities: RecentActivityPreview[] = [
+      {
+        id: "run-1",
+        name: "Morning run",
+        startDate: "2026-03-20T00:00:00.000Z",
+        elapsedTime: 1820,
+        averageHeartrate: 154,
+        routePreview: {
+          latlngs: [
+            [-27.47, 153.02],
+            [-27.46, 153.03],
+          ],
+        },
+      },
+    ];
+
+    const service = createIntervalsSyncService({
+      account: createAccountService(),
+      syncRepo: createSyncRepo({
+        getRecentActivities: () => Effect.succeed(recentActivities),
+      }),
+      adapter: createAdapter(),
+    });
+
+    const result = await Effect.runPromise(
+      service.recentActivitiesForUser("user-1"),
+    );
+
+    expect(result).toEqual(recentActivities);
   });
 });

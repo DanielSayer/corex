@@ -81,6 +81,12 @@ export function createIntervalsSyncRouter(
         mapIntervalsSyncError,
       ),
     ),
+    recentActivities: authedProcedure.query(({ ctx }) =>
+      executeEffect(
+        service.recentActivitiesForUser(ctx.session.user.id),
+        mapIntervalsSyncError,
+      ),
+    ),
   });
 }
 

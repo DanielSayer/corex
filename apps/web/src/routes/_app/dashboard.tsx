@@ -1,4 +1,9 @@
+import {
+  ActivityPreview,
+  ActivityPreviewSkeleton,
+} from "@/components/dashboard/activity-preview";
 import { IntervalsSyncPanel } from "@/components/intervals-sync-panel";
+import { LoadingWrapper } from "@/components/renderers";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -20,6 +25,9 @@ function RouteComponent() {
   const { session } = Route.useRouteContext();
 
   const privateData = useQuery(trpc.privateData.queryOptions());
+  const recentActivities = useQuery(
+    trpc.intervalsSync.recentActivities.queryOptions(),
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-8 pb-12">
@@ -42,18 +50,26 @@ function RouteComponent() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[2rem] border border-border/70 bg-card/60 shadow-none">
-          <CardHeader className="gap-2">
+        <div className="space-y-3">
+          <div>
             <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
-              Testing shortcut
+              Recent activities
             </div>
-            <CardTitle>Repeat syncs from here</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            This stays available after onboarding so you do not need to rely on
-            the one-time sync step during development.
-          </CardContent>
-        </Card>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Last 5 imported runs
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              A quick look at your latest imported Intervals activity history.
+            </p>
+          </div>
+
+          <LoadingWrapper
+            isLoading={recentActivities.isLoading}
+            fallback={<ActivityPreviewSkeleton />}
+          >
+            <ActivityPreview activities={recentActivities.data ?? []} />
+          </LoadingWrapper>
+        </div>
       </section>
 
       <IntervalsSyncPanel

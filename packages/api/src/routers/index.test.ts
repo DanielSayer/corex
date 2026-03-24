@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
 
 import type { Context } from "../context";
+import { createIntervalsSyncRouter } from "../intervals-sync/router";
 import { InvalidSettings } from "../training-settings/errors";
 import { createTrainingSettingsRouter } from "../training-settings/router";
 import { createAppRouter } from "./index";
@@ -186,5 +187,45 @@ describe("appRouter", () => {
       code: "BAD_REQUEST",
       message: "Unavailable days cannot define a max duration",
     });
+  });
+
+  it("passes the authenticated user id through to recent activities reads", async () => {
+    let requestedUserId: string | undefined;
+    const appRouter = createAppRouter({
+      trainingSettings: createTrainingSettingsRouter({
+        service: {
+          getForUser: () => Effect.die("not used"),
+          upsertForUser: () => Effect.die("not used"),
+        },
+      }),
+      intervalsSync: createIntervalsSyncRouter({
+        service: {
+          triggerForUser: () => Effect.die("not used"),
+          latestForUser: () => Effect.die("not used"),
+          recentActivitiesForUser: (userId) => {
+            requestedUserId = userId;
+            return Effect.succeed([]);
+          },
+        },
+      }),
+    });
+    const caller = appRouter.createCaller(
+      createCallerContext({
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
+      } as NonNullable<Context["session"]>),
+    );
+
+    await caller.intervalsSync.recentActivities();
+
+    expect(requestedUserId).toBe("user-1");
   });
 });
