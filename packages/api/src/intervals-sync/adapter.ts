@@ -22,9 +22,9 @@ export type IntervalsCredentials = {
 };
 
 export type IntervalsAdapter = {
-  getProfile: (
-    credentials: IntervalsCredentials,
-  ) => Promise<IntervalsAthleteProfile>;
+  getProfile: (input: {
+    credentials: IntervalsCredentials;
+  }) => Promise<IntervalsAthleteProfile>;
   listActivities: (input: {
     credentials: IntervalsCredentials;
     athleteId: string;
@@ -52,7 +52,7 @@ type CreateIntervalsAdapterOptions = {
 };
 
 function createBasicAuth(credentials: IntervalsCredentials) {
-  return `Basic ${Buffer.from(`${credentials.username}:${credentials.apiKey}`).toString("base64")}`;
+  return `Basic ${Buffer.from(`API_KEY:${credentials.apiKey}`).toString("base64")}`;
 }
 
 async function parseResponseJson(
@@ -134,8 +134,9 @@ export function createIntervalsAdapter(
   }
 
   return {
-    async getProfile(credentials) {
-      const endpoint = `/athlete/${credentials.username}`;
+    async getProfile({ credentials }) {
+      // This is used for the initial fetch, as we dont know the athlete id yet we stub with 0
+      const endpoint = `/athlete/0`;
       const payload = await requestJson(endpoint, credentials);
       return validatePayload(payload, endpoint, intervalsAthleteProfileSchema);
     },

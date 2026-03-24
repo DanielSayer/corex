@@ -510,7 +510,7 @@ describe("intervals sync integration", () => {
       fetch: (async (input) => {
         const url = String(input);
 
-        if (url.includes("/athlete/runner@example.com")) {
+        if (url.includes("/athlete/0")) {
           return new Response(
             JSON.stringify({
               id: "i509216",
