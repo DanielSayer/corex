@@ -8,10 +8,11 @@ import {
   InvalidIntervalsCredentials,
   IntervalsSchemaValidationFailure,
   IntervalsUpstreamFailure,
-  SyncAlreadyInProgress,
   SyncPersistenceFailure,
   MissingIntervalsCredentials,
+  SyncAlreadyInProgress,
 } from "./errors";
+import type { RecentActivityPreview } from "./recent-activity";
 import type {
   FailedDetailDiagnostic,
   IntervalsSyncRepository,
@@ -223,6 +224,14 @@ export function createIntervalsSyncService(
     latestForUser(userId: string): Effect.Effect<SyncSummary | null, unknown> {
       return Effect.mapError(
         options.syncRepo.getLatestSyncSummary(userId),
+        (cause) => cause,
+      );
+    },
+    recentActivitiesForUser(
+      userId: string,
+    ): Effect.Effect<RecentActivityPreview[], unknown> {
+      return Effect.mapError(
+        options.syncRepo.getRecentActivities(userId),
         (cause) => cause,
       );
     },

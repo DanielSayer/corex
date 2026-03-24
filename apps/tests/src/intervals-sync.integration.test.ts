@@ -9,6 +9,10 @@ import { createIntervalsSyncRepository } from "@corex/api/intervals-sync/reposit
 import { createCredentialCrypto } from "@corex/api/training-settings/crypto";
 import { createTrainingSettingsRepository } from "@corex/api/training-settings/repository";
 import { createTrainingSettingsService } from "@corex/api/training-settings/service";
+import {
+  importedActivity,
+  importedActivityMap,
+} from "@corex/db/schema/intervals-sync";
 
 import { getIntegrationHarness, resetDatabase } from "./harness";
 
@@ -672,5 +676,132 @@ describe("intervals sync integration", () => {
     expect(importedStreamRows).toHaveLength(5);
     expect(importedRows[0]?.distanceMeters).toBe(9000);
     expect(oldestSeen).toBe("2026-03-19");
+  });
+
+  it("returns the last 5 recent activities with validated detail and map fallbacks", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "runner@example.com",
+      name: "Runner One",
+    });
+    const otherUser = await createUser(db, {
+      email: "other@example.com",
+      name: "Runner Two",
+    });
+
+    const baseDate = new Date("2026-03-20T00:00:00.000Z");
+
+    for (let index = 0; index < 6; index += 1) {
+      const startAt = new Date(baseDate);
+      startAt.setUTCDate(baseDate.getUTCDate() - index);
+
+      await db.insert(importedActivity).values({
+        userId: user.id,
+        upstreamActivityId: `run-${index + 1}`,
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt,
+        movingTimeSeconds: 1800,
+        elapsedTimeSeconds: 1810 + index,
+        distanceMeters: 5000 + index,
+        averageHeartrate: 150 + index,
+        rawDetail:
+          index === 2
+            ? { invalid: true }
+            : {
+                id: `run-${index + 1}`,
+                type: "Run",
+                name: index === 1 ? null : `Run ${index + 1}`,
+                start_date: startAt.toISOString(),
+                moving_time: 1800,
+                elapsed_time: 1810 + index,
+                distance: 5000 + index,
+                average_heartrate: 150 + index,
+              },
+      });
+    }
+
+    await db.insert(importedActivity).values({
+      userId: otherUser.id,
+      upstreamActivityId: "other-run-1",
+      athleteId: "i509216",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      startAt: new Date("2026-03-25T00:00:00.000Z"),
+      movingTimeSeconds: 1800,
+      elapsedTimeSeconds: 1800,
+      distanceMeters: 5000,
+      averageHeartrate: 160,
+      rawDetail: {
+        id: "other-run-1",
+        type: "Run",
+        name: "Other run",
+        start_date: "2026-03-25T00:00:00.000Z",
+        moving_time: 1800,
+        elapsed_time: 1800,
+        distance: 5000,
+        average_heartrate: 160,
+      },
+    });
+
+    await db.insert(importedActivityMap).values([
+      {
+        userId: user.id,
+        upstreamActivityId: "run-1",
+        hasRoute: true,
+        hasWeather: false,
+        rawMap: {
+          latlngs: [
+            [-27.4748, 153.0192],
+            [-27.4734, 153.0211],
+          ],
+        },
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "run-2",
+        hasRoute: true,
+        hasWeather: false,
+        rawMap: { latlngs: "invalid" },
+      },
+    ]);
+
+    const result = await Effect.runPromise(
+      createIntervalsSyncRepository(db).getRecentActivities(user.id),
+    );
+
+    expect(result).toHaveLength(5);
+    expect(result.map((activity) => activity.id)).toEqual([
+      "run-1",
+      "run-2",
+      "run-3",
+      "run-4",
+      "run-5",
+    ]);
+    expect(result[0]).toMatchObject({
+      id: "run-1",
+      name: "Run 1",
+      routePreview: {
+        latlngs: [
+          [-27.4748, 153.0192],
+          [-27.4734, 153.0211],
+        ],
+      },
+    });
+    expect(result[1]).toMatchObject({
+      id: "run-2",
+      name: "Untitled run",
+      routePreview: null,
+    });
+    expect(result[2]).toMatchObject({
+      id: "run-3",
+      name: "Untitled run",
+      routePreview: null,
+    });
+    expect(result.some((activity) => activity.id === "run-6")).toBe(false);
+    expect(result.some((activity) => activity.id === "other-run-1")).toBe(
+      false,
+    );
   });
 });
