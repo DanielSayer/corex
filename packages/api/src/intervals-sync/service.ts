@@ -264,7 +264,10 @@ export function createIntervalsSyncService(
 
           if (!athleteId) {
             const profile = yield* Effect.tryPromise({
-              try: () => options.adapter.getProfile(credentials),
+              try: () =>
+                options.adapter.getProfile({
+                  credentials,
+                }),
               catch: (cause) =>
                 cause instanceof InvalidIntervalsCredentials ||
                 cause instanceof IntervalsUpstreamFailure ||

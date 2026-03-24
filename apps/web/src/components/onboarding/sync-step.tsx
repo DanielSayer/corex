@@ -1,7 +1,7 @@
-import { Button } from "@corex/ui/components/button";
 import { Separator } from "@corex/ui/components/separator";
-import { CheckCircle2Icon, RefreshCwIcon } from "lucide-react";
+import { CheckCircle2Icon } from "lucide-react";
 
+import { IntervalsSyncPanel } from "@/components/intervals-sync-panel";
 import type { OnboardingDraft } from "@/lib/onboarding";
 
 import { SummaryRow } from "./shared";
@@ -11,7 +11,7 @@ function formatGoalSummary(draft: OnboardingDraft["goal"]) {
     const eventName = draft.eventName.trim();
     const distance = `${draft.targetDistanceValue} ${draft.targetDistanceUnit}`;
     return eventName.length > 0
-      ? `${eventName} on ${draft.targetDate} · ${distance}`
+      ? `${eventName} on ${draft.targetDate} - ${distance}`
       : `${distance} event on ${draft.targetDate}`;
   }
 
@@ -53,10 +53,7 @@ export function SyncStep({ draft }: { draft: OnboardingDraft }) {
         </div>
       </div>
 
-      <Button className="w-fit" type="button">
-        <RefreshCwIcon data-icon="inline-start" />
-        Get activities from Intervals
-      </Button>
+      <IntervalsSyncPanel title="Initial history sync" />
     </div>
   );
 }
