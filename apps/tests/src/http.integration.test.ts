@@ -50,6 +50,7 @@ describe("http integration", () => {
         service: {
           latestForUser: () => Effect.die("not used"),
           triggerForUser: () => Effect.die("not used"),
+          recentActivitiesForUser: () => Effect.die("not used"),
         },
       }),
     });
@@ -95,6 +96,7 @@ describe("http integration", () => {
               completedAt: "2026-03-21T00:05:00.000Z",
             }),
           triggerForUser: () => Effect.die("not used"),
+          recentActivitiesForUser: () => Effect.die("not used"),
         },
       }),
     });

@@ -315,6 +315,7 @@ describe("intervals sync service", () => {
         id: "run-1",
         name: "Morning run",
         startDate: "2026-03-20T00:00:00.000Z",
+        distance: 1000,
         elapsedTime: 1820,
         averageHeartrate: 154,
         routePreview: {
