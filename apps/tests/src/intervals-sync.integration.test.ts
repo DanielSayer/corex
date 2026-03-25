@@ -21,6 +21,8 @@ const masterKeyBase64 = Buffer.alloc(32, 9).toString("base64");
 function createAdapter(
   overrides: Partial<IntervalsAdapter> = {},
 ): IntervalsAdapter {
+  const distanceData = Array.from({ length: 2401 }, (_, index) => index * 4);
+
   return {
     getProfile: async () => ({
       id: "i509216",
@@ -64,24 +66,24 @@ function createAdapter(
     getActivityStreams: async () => [
       {
         type: "cadence",
-        data: [82, 83, 84],
+        data: distanceData.map(() => 82),
         allNull: false,
       },
       {
         type: "heartrate",
-        data: [118, 121, 125],
+        data: distanceData.map(() => 150),
       },
       {
         type: "distance",
-        data: [0, 1000, 2000],
+        data: distanceData,
       },
       {
         type: "velocity_smooth",
-        data: [3.4, 3.45, 3.5],
+        data: distanceData.map(() => 4),
       },
       {
         type: "fixed_altitude",
-        data: [11, 12, 13],
+        data: distanceData.map(() => 11),
       },
     ],
     ...overrides,
@@ -162,6 +164,18 @@ describe("intervals sync integration", () => {
     const importedStreamRows = await db.query.importedActivityStream.findMany({
       where: (table, { eq }) => eq(table.userId, user.id),
     });
+    const runBestEffortRows = await db.query.runBestEffort.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const allTimePrRows = await db.query.userAllTimePr.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const monthlyBestRows = await db.query.userMonthlyBest.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const warningRows = await db.query.runProcessingWarning.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
     const storedSettings = await Effect.runPromise(
       createTrainingSettingsRepository(db).findByUserId(user.id),
     );
@@ -173,6 +187,10 @@ describe("intervals sync integration", () => {
     expect(importedRows).toHaveLength(1);
     expect(importedMapRows).toHaveLength(1);
     expect(importedStreamRows).toHaveLength(5);
+    expect(runBestEffortRows.length).toBeGreaterThan(0);
+    expect(allTimePrRows.length).toBeGreaterThan(0);
+    expect(monthlyBestRows.length).toBeGreaterThan(0);
+    expect(warningRows).toHaveLength(0);
     expect(result.storedMapCount).toBe(1);
     expect(result.storedStreamCount).toBe(5);
     expect(importedRows[0]?.rawDetail).toMatchObject({
@@ -184,6 +202,10 @@ describe("intervals sync integration", () => {
     });
     expect(importedStreamRows[0]?.rawStream).toBeTruthy();
     expect(storedSettings?.intervalsCredential.athleteId).toBe("i509216");
+    expect(allTimePrRows.some((row) => row.distanceMeters === 400)).toBe(true);
+    expect(monthlyBestRows.some((row) => row.distanceMeters === 400)).toBe(
+      true,
+    );
   });
 
   it("runs through the live Intervals boundary without constructing training-settings internals in the caller", async () => {
@@ -598,6 +620,84 @@ describe("intervals sync integration", () => {
     expect(importedMapRows).toHaveLength(0);
   });
 
+  it("stores a per-run warning and no derived efforts when the distance stream is invalid", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "runner@example.com",
+      name: "Runner One",
+    });
+    const settingsService = await createConfiguredTrainingSettingsService();
+
+    await Effect.runPromise(
+      settingsService.upsertForUser(user.id, {
+        goal: {
+          type: "volume_goal",
+          metric: "distance",
+          period: "week",
+          targetValue: 20,
+          unit: "km",
+        },
+        availability: {
+          monday: { available: true, maxDurationMinutes: 45 },
+          tuesday: { available: false, maxDurationMinutes: null },
+          wednesday: { available: true, maxDurationMinutes: 60 },
+          thursday: { available: false, maxDurationMinutes: null },
+          friday: { available: true, maxDurationMinutes: null },
+          saturday: { available: true, maxDurationMinutes: 90 },
+          sunday: { available: false, maxDurationMinutes: null },
+        },
+        intervalsUsername: "runner@example.com",
+        intervalsApiKey: "intervals-secret",
+      }),
+    );
+
+    const service = await createConfiguredSyncService(
+      createAdapter({
+        getActivityStreams: async () => [
+          {
+            type: "cadence",
+            data: [82, 83, 84],
+          },
+          {
+            type: "heartrate",
+            data: [118, 121, 125],
+          },
+          {
+            type: "distance",
+            data: [0, 1000, 900],
+          },
+          {
+            type: "velocity_smooth",
+            data: [3.4, 3.45, 3.5],
+          },
+          {
+            type: "fixed_altitude",
+            data: [11, 12, 13],
+          },
+        ],
+      }),
+    );
+
+    const result = await Effect.runPromise(service.triggerForUser(user.id));
+    const effortRows = await db.query.runBestEffort.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const warningRows = await db.query.runProcessingWarning.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const allTimePrRows = await db.query.userAllTimePr.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+
+    expect(result.status).toBe("success");
+    expect(effortRows).toHaveLength(0);
+    expect(allTimePrRows).toHaveLength(0);
+    expect(warningRows).toHaveLength(1);
+    expect(warningRows[0]).toMatchObject({
+      code: "invalid_distance_stream",
+    });
+  });
+
   it("uses the overlap window on later syncs and updates existing activities instead of duplicating them", async () => {
     const { db } = await getIntegrationHarness();
     const user = await createUser(db, {
@@ -676,6 +776,121 @@ describe("intervals sync integration", () => {
     expect(importedStreamRows).toHaveLength(5);
     expect(importedRows[0]?.distanceMeters).toBe(9000);
     expect(oldestSeen).toBe("2026-03-19");
+  });
+
+  it("recomputes derived efforts and PR ownership when an existing run is updated", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "runner@example.com",
+      name: "Runner One",
+    });
+    const settingsService = await createConfiguredTrainingSettingsService();
+
+    await Effect.runPromise(
+      settingsService.upsertForUser(user.id, {
+        goal: {
+          type: "volume_goal",
+          metric: "distance",
+          period: "week",
+          targetValue: 20,
+          unit: "km",
+        },
+        availability: {
+          monday: { available: true, maxDurationMinutes: 45 },
+          tuesday: { available: false, maxDurationMinutes: null },
+          wednesday: { available: true, maxDurationMinutes: 60 },
+          thursday: { available: false, maxDurationMinutes: null },
+          friday: { available: true, maxDurationMinutes: null },
+          saturday: { available: true, maxDurationMinutes: 90 },
+          sunday: { available: false, maxDurationMinutes: null },
+        },
+        intervalsUsername: "runner@example.com",
+        intervalsApiKey: "intervals-secret",
+      }),
+    );
+
+    let streamDistanceStep = 4;
+
+    const service = await createConfiguredSyncService(
+      createAdapter({
+        getActivityDetail: async ({ activityId }) => ({
+          id: activityId,
+          icu_athlete_id: "i509216",
+          type: "Run",
+          start_date: "2026-03-20T00:00:00.000Z",
+          moving_time: 2000,
+          elapsed_time: 2000,
+          distance: 8000,
+          average_heartrate: 152,
+        }),
+        getActivityStreams: async () => {
+          const distanceData = Array.from(
+            { length: 2001 },
+            (_, index) => index * streamDistanceStep,
+          );
+
+          return [
+            {
+              type: "cadence",
+              data: distanceData.map(() => 82),
+            },
+            {
+              type: "heartrate",
+              data: distanceData.map(() => 150),
+            },
+            {
+              type: "distance",
+              data: distanceData,
+            },
+            {
+              type: "velocity_smooth",
+              data: distanceData.map(() => 4),
+            },
+            {
+              type: "fixed_altitude",
+              data: distanceData.map(() => 11),
+            },
+          ];
+        },
+      }),
+    );
+
+    await Effect.runPromise(service.triggerForUser(user.id));
+
+    streamDistanceStep = 5;
+
+    await Effect.runPromise(service.triggerForUser(user.id));
+
+    const effortRows = await db.query.runBestEffort.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const allTimePrRows = await db.query.userAllTimePr.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const monthlyBestRows = await db.query.userMonthlyBest.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const warningRows = await db.query.runProcessingWarning.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+
+    expect(warningRows).toHaveLength(0);
+    expect(effortRows.length).toBeGreaterThan(0);
+    expect(
+      effortRows.find((row) => row.distanceMeters === 400)?.durationSeconds,
+    ).toBe(80);
+    expect(
+      allTimePrRows.find((row) => row.distanceMeters === 400),
+    ).toMatchObject({
+      durationSeconds: 80,
+      upstreamActivityId: "run-1",
+    });
+    expect(
+      monthlyBestRows.find((row) => row.distanceMeters === 400),
+    ).toMatchObject({
+      durationSeconds: 80,
+      upstreamActivityId: "run-1",
+    });
   });
 
   it("returns the last 5 recent activities with validated detail and map fallbacks", async () => {

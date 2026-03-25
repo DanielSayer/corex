@@ -3,6 +3,7 @@ import { env } from "@corex/env/server";
 
 import type { IntervalsAdapter } from "../intervals-sync/adapter";
 import { createIntervalsSyncRepository } from "../intervals-sync/repository";
+import { createLiveDerivedPerformanceService } from "../intervals-sync/derived-performance-live";
 import {
   createIntervalsSyncService,
   type IntervalsSyncService,
@@ -41,6 +42,9 @@ export function createLiveIntervalsSyncService(
     account,
     syncRepo: createIntervalsSyncRepository(database),
     adapter: options.adapter ?? createIntervalsAdapter(),
+    derivedPerformance: createLiveDerivedPerformanceService({
+      db: database,
+    }),
     clock: options.clock,
   });
 }

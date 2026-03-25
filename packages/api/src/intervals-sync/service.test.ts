@@ -3,6 +3,7 @@ import { Cause, Effect, Exit, Option } from "effect";
 
 import { InvalidIntervalsCredentials, SyncAlreadyInProgress } from "./errors";
 import type { IntervalsAdapter } from "./adapter";
+import type { DerivedPerformanceService } from "./derived-performance-service";
 import type { RecentActivityPreview } from "./recent-activity";
 import { createIntervalsSyncService } from "./service";
 import type { IntervalsAccountService } from "../intervals/account";
@@ -154,6 +155,28 @@ function createSyncRepo(
   };
 }
 
+function createDerivedPerformanceService(
+  overrides: Partial<DerivedPerformanceService> = {},
+): DerivedPerformanceService {
+  return {
+    recomputeRunEffortsForImportedRun: () =>
+      Effect.succeed({
+        effortCount: 0,
+        warningCount: 0,
+        allTimePrCount: 0,
+        monthlyBestCount: 0,
+      }),
+    deleteRunDerivedPerformance: () =>
+      Effect.succeed({
+        effortCount: 0,
+        warningCount: 0,
+        allTimePrCount: 0,
+        monthlyBestCount: 0,
+      }),
+    ...overrides,
+  };
+}
+
 describe("intervals sync service", () => {
   it("rejects when a sync is already in progress", async () => {
     const service = createIntervalsSyncService({
@@ -162,6 +185,7 @@ describe("intervals sync service", () => {
         hasInProgressSync: () => Effect.succeed(true),
       }),
       adapter: createAdapter(),
+      derivedPerformance: createDerivedPerformanceService(),
     });
 
     const exit = await Effect.runPromiseExit(service.triggerForUser("user-1"));
@@ -199,6 +223,7 @@ describe("intervals sync service", () => {
         },
       }),
       adapter: createAdapter(),
+      derivedPerformance: createDerivedPerformanceService(),
       clock: {
         now: () => new Date("2026-03-21T00:00:00.000Z"),
       },
@@ -230,6 +255,7 @@ describe("intervals sync service", () => {
           });
         },
       },
+      derivedPerformance: createDerivedPerformanceService(),
     });
 
     const exit = await Effect.runPromiseExit(service.triggerForUser("user-1"));
@@ -264,6 +290,7 @@ describe("intervals sync service", () => {
         ...createAdapter(),
         getActivityMap: async () => null,
       },
+      derivedPerformance: createDerivedPerformanceService(),
     });
 
     const result = await Effect.runPromise(service.triggerForUser("user-1"));
@@ -287,6 +314,7 @@ describe("intervals sync service", () => {
           throw new Error("streams unavailable");
         },
       },
+      derivedPerformance: createDerivedPerformanceService(),
     });
 
     const result = await Effect.runPromise(service.triggerForUser("user-1"));
@@ -333,6 +361,7 @@ describe("intervals sync service", () => {
         getRecentActivities: () => Effect.succeed(recentActivities),
       }),
       adapter: createAdapter(),
+      derivedPerformance: createDerivedPerformanceService(),
     });
 
     const result = await Effect.runPromise(

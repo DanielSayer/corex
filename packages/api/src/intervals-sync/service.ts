@@ -4,6 +4,7 @@ import { Effect } from "effect";
 
 import type { IntervalsAccountService } from "../intervals/account";
 import type { IntervalsAdapter } from "./adapter";
+import type { DerivedPerformanceService } from "./derived-performance-service";
 import {
   InvalidIntervalsCredentials,
   IntervalsSchemaValidationFailure,
@@ -51,6 +52,7 @@ type CreateIntervalsSyncServiceOptions = {
   account: IntervalsAccountService;
   syncRepo: IntervalsSyncRepository;
   adapter: IntervalsAdapter;
+  derivedPerformance: DerivedPerformanceService;
   clock?: Clock;
   initialWindowDays?: number;
   incrementalOverlapHours?: number;
@@ -489,6 +491,18 @@ export function createIntervalsSyncService(
               elapsedTimeSeconds: normalized.elapsedTimeSeconds,
               distanceMeters: normalized.distanceMeters,
             });
+
+            yield* options.derivedPerformance.recomputeRunEffortsForImportedRun(
+              {
+                userId,
+                upstreamActivityId: normalized.detail.id,
+                normalizedActivityType: normalized.normalizedActivityType,
+                startAt: normalized.startAt,
+                movingTimeSeconds: normalized.movingTimeSeconds,
+                distanceStream:
+                  streams?.find((stream) => stream.type === "distance") ?? null,
+              },
+            );
 
             importedStartDates.push(normalized.startAt);
 

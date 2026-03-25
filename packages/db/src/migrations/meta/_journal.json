@@ -29,6 +29,13 @@
       "when": 1774150000000,
       "tag": "0003_intervals_sync_enrichment",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774400000000,
+      "tag": "0004_run_derived_performance",
+      "breakpoints": true
     }
   ]
 }

@@ -145,16 +145,46 @@ Add the first external integration slice. A user can manually trigger sync, the 
 
 **User stories**: 11, 12, 13, 14, 40
 
+> Detailed phase-4 spec: [intervals-weekly-running-planner-phase-4-spec.md](./intervals-weekly-running-planner-phase-4-spec.md)
+
 ### What to build
 
-Make imported history visible and trustworthy before planning begins. The user can review recent imported activity history and understand whether the available data is sufficient or partial, giving the planner a clear local source of truth and reducing ambiguity before generation.
+Make imported history trustworthy before planning begins by introducing a dedicated planner-facing history module over local persisted sync data. This phase is primarily an architectural slice rather than a new UI surface. The main outcome is a stable local-history contract that phase 5 can consume without coupling directly to sync persistence details or dashboard preview models.
+
+### Phase 4 decisions
+
+- **Primary deliverable**: add a dedicated backend history module that exposes `getPlanningHistorySnapshot(userId)` and `getHistoryQuality(userId)`.
+- **Source of truth**: these APIs must use only local persisted sync data. They must not make live Intervals calls.
+- **Planner snapshot window**: anchor the snapshot to `now` and use at most the most recent 8 weeks of local running history.
+- **Snapshot shape**: when enough history exists, return the last 4 weeks as detailed individual runs and the prior 4 weeks as weekly rollups.
+- **Fallback behavior**: when less history exists, return the best available subset. If the user is below the threshold, still return available runs even when weekly rollups are absent.
+- **Detailed run content**: the planner-facing run shape should include distance, elapsed duration, moving duration, elevation gain, and HR zone time breakdown. Route preview is not part of the planner snapshot.
+- **Strict object shape**: fields that cannot be derived should still be present as `null` rather than omitted.
+- **Weekly rollup content**: rollups for weeks 5-8 should include run count, total distance, total duration, longest run, cumulative HR zone time, and total elevation gain.
+- **History quality contract**: `getHistoryQuality(userId)` should return `hasAnyHistory`, `meetsSnapshotThreshold`, `hasRecentSync`, `latestSyncWarnings`, and `availableDateRange`.
+- **Recent sync rule**: `hasRecentSync` means there is a successful sync within the last 7 days.
+- **Failure tolerance**: if the latest sync failed but older local history from a previous successful sync exists, that local history remains usable for planning.
+- **Resync behavior**: stale sync data should encourage the user to resync, but must not block planning.
+- **Coverage detection**: explicit detection of incomplete upstream coverage inside the 8-week planning window is out of scope for v1.
+- **Threshold rule**: `meetsSnapshotThreshold` is true when either at least 5 runs exist or the available runs span at least 14 days.
+- **Threshold purpose**: the threshold does not block planning. It exists so phase 5 can decide whether to streamline the planning flow and rely more heavily on imported history instead of asking the full extra questionnaire.
+
+### Suggested implementation slice
+
+- Add a dedicated planner-history module behind a stable application-layer boundary.
+- Define a planner-facing history snapshot schema that is separate from the dashboard review-preview schema.
+- Define a history-quality schema that phase 5 can use to decide whether extra planning questions are required.
+- Keep router concerns thin. Most behavior should be exercised through integration tests against the application layer.
 
 ### Acceptance criteria
 
-- [ ] A user can view their recent imported running history in the app.
-- [ ] The app distinguishes between having usable recent history and having insufficient or partial history.
-- [ ] The history view is based on normalized local data rather than live reads from Intervals.
-- [ ] The planning flow can rely on this local history model as its source input.
+- [ ] A planner-facing backend history module exists with stable `getPlanningHistorySnapshot(userId)` and `getHistoryQuality(userId)` interfaces.
+- [ ] The planner snapshot is built from local persisted sync data rather than live reads from Intervals.
+- [ ] The planner snapshot returns up to 8 weeks of local running history, with the last 4 weeks as detailed runs and the prior 4 weeks as weekly rollups when sufficient data exists.
+- [ ] The snapshot returns the best available subset of local history when less than 8 weeks of data exists.
+- [ ] The history-quality contract reports `hasAnyHistory`, `meetsSnapshotThreshold`, `hasRecentSync`, `latestSyncWarnings`, and `availableDateRange`.
+- [ ] Planning can still use older local history when the latest sync attempt failed.
+- [ ] Phase 4 behavior is verified through integration tests rather than frontend tests.
 
 ---
 
@@ -165,6 +195,24 @@ Make imported history visible and trustworthy before planning begins. The user c
 ### What to build
 
 Deliver the core product value: generate a one-week running plan draft from recent history, goal, and availability. The planner uses the AI SDK behind an internal adapter, requires strict structured output, validates the result against the weekly plan schema, persists the draft, and renders it as structured sessions with typed interval blocks.
+
+### Phase 5 notes captured from phase 4 discovery
+
+- The planning flow should always ask the user for the goal of the plan.
+- The planning flow should ask for running ability.
+- The planning flow should ask for estimated current race time with a selectable race distance: `5k`, `10k`, `half marathon`, or `marathon`.
+- Existing availability and goals should be reused rather than recollected.
+- The planning flow should ask which day the user wants their long run.
+- The planning flow should ask when the user wants to start the plan.
+- The planning flow should ask for the duration of the plan.
+- If the user is below the history threshold from phase 4, phase 5 should ask the fuller questionnaire before generation.
+- If the user is above the history threshold, phase 5 should streamline the flow and rely more heavily on the local history snapshot.
+- Planner support for PR processing is still a missing feature:
+  - persist PR data in a separate table
+  - derive benchmark performances from imported distance streams
+  - support interpolation-based detection from cumulative distance data
+  - support all-time PR plus recent 3-month PR history
+  - tracked distances should include `400m`, `1km`, `1 mile`, `5k`, `10k`, `half marathon`, and `marathon`
 
 ### Acceptance criteria
 
