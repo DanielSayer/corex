@@ -104,6 +104,123 @@ export const importedActivityStream = pgTable(
   ],
 );
 
+export const runBestEffort = pgTable(
+  "run_best_effort",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    upstreamActivityId: text("upstream_activity_id").notNull(),
+    distanceMeters: real("distance_meters").notNull(),
+    durationSeconds: real("duration_seconds").notNull(),
+    startSampleIndex: integer("start_sample_index").notNull(),
+    endSampleIndex: integer("end_sample_index").notNull(),
+    isAllTimePrAfterReconcile: boolean("is_all_time_pr_after_reconcile")
+      .default(false)
+      .notNull(),
+    isMonthlyBestAfterReconcile: boolean("is_monthly_best_after_reconcile")
+      .default(false)
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.upstreamActivityId, table.distanceMeters],
+    }),
+    index("run_best_effort_user_distance_idx").on(
+      table.userId,
+      table.distanceMeters,
+    ),
+  ],
+);
+
+export const runProcessingWarning = pgTable(
+  "run_processing_warning",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    upstreamActivityId: text("upstream_activity_id").notNull(),
+    code: text("code").notNull(),
+    message: text("message").notNull(),
+    metadata: jsonb("metadata").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.upstreamActivityId, table.code],
+    }),
+    index("run_processing_warning_user_activity_idx").on(
+      table.userId,
+      table.upstreamActivityId,
+    ),
+  ],
+);
+
+export const userAllTimePr = pgTable(
+  "user_all_time_pr",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    distanceMeters: real("distance_meters").notNull(),
+    upstreamActivityId: text("upstream_activity_id").notNull(),
+    monthStart: timestamp("month_start").notNull(),
+    durationSeconds: real("duration_seconds").notNull(),
+    startSampleIndex: integer("start_sample_index").notNull(),
+    endSampleIndex: integer("end_sample_index").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.distanceMeters] }),
+    index("user_all_time_pr_user_activity_idx").on(
+      table.userId,
+      table.upstreamActivityId,
+    ),
+  ],
+);
+
+export const userMonthlyBest = pgTable(
+  "user_monthly_best",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    monthStart: timestamp("month_start").notNull(),
+    distanceMeters: real("distance_meters").notNull(),
+    upstreamActivityId: text("upstream_activity_id").notNull(),
+    durationSeconds: real("duration_seconds").notNull(),
+    startSampleIndex: integer("start_sample_index").notNull(),
+    endSampleIndex: integer("end_sample_index").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.monthStart, table.distanceMeters],
+    }),
+    index("user_monthly_best_user_distance_idx").on(
+      table.userId,
+      table.distanceMeters,
+    ),
+  ],
+);
+
 export const syncEvent = pgTable(
   "sync_event",
   {
@@ -191,6 +308,65 @@ export const importedActivityStreamRelations = relations(
         importedActivityStream.userId,
         importedActivityStream.upstreamActivityId,
       ],
+      references: [
+        importedActivity.userId,
+        importedActivity.upstreamActivityId,
+      ],
+    }),
+  }),
+);
+
+export const runBestEffortRelations = relations(runBestEffort, ({ one }) => ({
+  user: one(user, {
+    fields: [runBestEffort.userId],
+    references: [user.id],
+  }),
+  activity: one(importedActivity, {
+    fields: [runBestEffort.userId, runBestEffort.upstreamActivityId],
+    references: [importedActivity.userId, importedActivity.upstreamActivityId],
+  }),
+}));
+
+export const runProcessingWarningRelations = relations(
+  runProcessingWarning,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [runProcessingWarning.userId],
+      references: [user.id],
+    }),
+    activity: one(importedActivity, {
+      fields: [
+        runProcessingWarning.userId,
+        runProcessingWarning.upstreamActivityId,
+      ],
+      references: [
+        importedActivity.userId,
+        importedActivity.upstreamActivityId,
+      ],
+    }),
+  }),
+);
+
+export const userAllTimePrRelations = relations(userAllTimePr, ({ one }) => ({
+  user: one(user, {
+    fields: [userAllTimePr.userId],
+    references: [user.id],
+  }),
+  activity: one(importedActivity, {
+    fields: [userAllTimePr.userId, userAllTimePr.upstreamActivityId],
+    references: [importedActivity.userId, importedActivity.upstreamActivityId],
+  }),
+}));
+
+export const userMonthlyBestRelations = relations(
+  userMonthlyBest,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [userMonthlyBest.userId],
+      references: [user.id],
+    }),
+    activity: one(importedActivity, {
+      fields: [userMonthlyBest.userId, userMonthlyBest.upstreamActivityId],
       references: [
         importedActivity.userId,
         importedActivity.upstreamActivityId,
