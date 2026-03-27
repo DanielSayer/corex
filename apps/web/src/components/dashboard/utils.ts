@@ -70,6 +70,14 @@ export function formatDuration(seconds: number | null) {
     .join(":");
 }
 
+export function formatDistance(meters: number | null) {
+  if (meters == null || meters <= 0) {
+    return "N/A";
+  }
+
+  return `${(meters / 1000).toFixed(2)} km`;
+}
+
 export function formatHeartRate(value: number | null) {
   if (value == null || value <= 0) {
     return "N/A";

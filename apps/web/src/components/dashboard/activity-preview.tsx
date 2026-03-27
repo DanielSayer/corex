@@ -1,15 +1,15 @@
 import type { IntervalsSyncRouterOutputs } from "@/utils/types";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@corex/ui/components/card";
 import { Separator } from "@corex/ui/components/separator";
 import { Skeleton } from "@corex/ui/components/skeleton";
-import { ClockIcon, HeartPulseIcon, TimerIcon } from "lucide-react";
+import {
+  ClockIcon,
+  FootprintsIcon,
+  HeartPulseIcon,
+  TimerIcon,
+} from "lucide-react";
 import {
   formatActivityDateTime,
+  formatDistance,
   formatDuration,
   formatHeartRate,
   toSvgPath,
@@ -24,34 +24,41 @@ export function ActivityPreview({
 }) {
   if (activities.length === 0) {
     return (
-      <Card className="rounded-[2rem] border border-border/70 bg-card/60 p-4 shadow-none">
+      <div className="border-t border-border/70 pt-4">
         <p className="text-sm font-medium">Recent activities</p>
         <p className="mt-2 text-sm text-muted-foreground">
           No imported activities yet.
         </p>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="divide-y divide-border/70 border-y border-border/70">
       {activities.map((activity) => {
         const path = toSvgPath(activity.routePreview?.latlngs);
 
         return (
-          <Card
+          <article
             key={activity.id}
-            className="flex-row items-center justify-between rounded-[1.5rem] border border-border/70 bg-card/60 p-3 shadow-none"
+            className="grid gap-4 py-4 transition-colors hover:bg-muted/20 md:grid-cols-[minmax(0,1fr)_168px] md:items-center"
           >
-            <CardHeader className="w-2/3 flex-1 px-3">
-              <CardTitle>{activity.name}</CardTitle>
-              <CardDescription className="flex w-full items-center justify-between gap-1 text-xs text-muted-foreground">
+            <div className="min-w-0 space-y-3">
+              <h3 className="text-base font-semibold tracking-tight">
+                {activity.name}
+              </h3>
+              <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <ClockIcon className="size-3.5" />
                   {formatActivityDateTime(activity.startDate)}
                 </span>
 
                 <Separator orientation="vertical" className="h-3.5" />
+
+                <span className="flex items-center gap-1">
+                  <FootprintsIcon className="size-3.5" />
+                  {formatDistance(activity.distance)}
+                </span>
 
                 <span className="flex items-center gap-1">
                   <TimerIcon className="size-3.5" />
@@ -64,10 +71,10 @@ export function ActivityPreview({
                   <HeartPulseIcon className="size-3.5" />
                   {formatHeartRate(activity.averageHeartrate)}
                 </span>
-              </CardDescription>
-            </CardHeader>
+              </div>
+            </div>
 
-            <div className="h-20 w-1/3 overflow-hidden rounded-xl border border-border/70 bg-muted/30">
+            <div className="h-20 overflow-hidden rounded-2xl bg-muted/30 md:w-42">
               {path ? (
                 <svg
                   viewBox="0 0 320 88"
@@ -91,7 +98,7 @@ export function ActivityPreview({
                 </div>
               )}
             </div>
-          </Card>
+          </article>
         );
       })}
     </div>
@@ -100,14 +107,11 @@ export function ActivityPreview({
 
 export function ActivityPreviewSkeleton() {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="divide-y divide-border/70 border-y border-border/70">
       {Array.from({ length: 5 }).map((_, index) => (
-        <Card
-          key={`activity-preview-skeleton-${index}`}
-          className="rounded-[1.5rem] border border-border/70 bg-card/60 p-3 shadow-none"
-        >
-          <Skeleton className="h-21 w-full" />
-        </Card>
+        <div key={`activity-preview-skeleton-${index}`} className="py-4">
+          <Skeleton className="h-21 w-full rounded-2xl" />
+        </div>
       ))}
     </div>
   );

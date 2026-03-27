@@ -33,7 +33,7 @@ export function SyncStep({ draft }: { draft: OnboardingDraft }) {
 
       <div className="flex flex-col gap-5">
         <div className="text-sm text-muted-foreground">Summary</div>
-        <div className="flex flex-col gap-4 rounded-4xl border border-border bg-card/30 px-6 py-5">
+        <div className="flex flex-col gap-4 border-y border-border/70 py-5">
           <SummaryRow label="Goal type" value={formatGoalType(draft.goal)} />
           <Separator />
           <SummaryRow

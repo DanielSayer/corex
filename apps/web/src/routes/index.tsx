@@ -27,16 +27,21 @@ function HomeComponent() {
   const healthCheck = useQuery(trpc.healthCheck.queryOptions());
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-2">
-      <pre className="overflow-x-auto font-mono text-sm">{TITLE_TEXT}</pre>
-      <div className="grid gap-6">
-        <section className="rounded-lg border p-4">
-          <h2 className="mb-2 font-medium">API Status</h2>
-          <div className="flex items-center gap-2">
+    <main className="mx-auto flex min-h-svh w-full max-w-5xl flex-col gap-10 px-6 py-8">
+      <header className="grid gap-8 border-b border-border/70 pb-8 lg:grid-cols-[minmax(0,1.1fr)_220px] lg:items-end">
+        <pre className="overflow-x-auto font-mono text-sm leading-tight">
+          {TITLE_TEXT}
+        </pre>
+        <div className="space-y-3 lg:pl-6">
+          <p className="text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">
+            System
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">API status</h1>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div
               className={`h-2 w-2 rounded-full ${healthCheck.data ? "bg-green-500" : "bg-red-500"}`}
             />
-            <span className="text-sm text-muted-foreground">
+            <span>
               {healthCheck.isLoading
                 ? "Checking..."
                 : healthCheck.data
@@ -44,8 +49,8 @@ function HomeComponent() {
                   : "Disconnected"}
             </span>
           </div>
-        </section>
-      </div>
-    </div>
+        </div>
+      </header>
+    </main>
   );
 }

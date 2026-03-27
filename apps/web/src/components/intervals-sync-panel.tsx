@@ -5,13 +5,7 @@ import {
 } from "@corex/ui/components/alert";
 import { Badge } from "@corex/ui/components/badge";
 import { Button } from "@corex/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@corex/ui/components/card";
+import { Separator } from "@corex/ui/components/separator";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircleIcon, LoaderCircleIcon, RefreshCwIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -133,10 +127,18 @@ export function IntervalsSyncPanel({
   const status = syncSummary?.status ?? null;
 
   return (
-    <Card className="rounded-4xl border border-border/70 bg-card/60 shadow-none">
-      <CardHeader className="gap-3">
-        <div className="flex items-center justify-between gap-4">
-          <CardTitle>{title}</CardTitle>
+    <section className="flex flex-col gap-6 border-t border-border/70 pt-8">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex max-w-2xl flex-col gap-2">
+          <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+            Intervals
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
           <Badge
             variant={
               status === "failure"
@@ -148,29 +150,30 @@ export function IntervalsSyncPanel({
           >
             {status ? formatSyncStatusLabel(status) : "Not started"}
           </Badge>
+          <Button
+            className="w-fit"
+            type="button"
+            disabled={isSyncing}
+            onClick={() => void triggerSync.mutateAsync()}
+          >
+            {isSyncing ? (
+              <LoaderCircleIcon
+                className="animate-spin"
+                data-icon="inline-start"
+              />
+            ) : (
+              <RefreshCwIcon data-icon="inline-start" />
+            )}
+            {isSyncing
+              ? "Syncing Intervals history"
+              : "Get activities from Intervals"}
+          </Button>
         </div>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <Button
-          className="w-fit"
-          type="button"
-          disabled={isSyncing}
-          onClick={() => void triggerSync.mutateAsync()}
-        >
-          {isSyncing ? (
-            <LoaderCircleIcon
-              className="animate-spin"
-              data-icon="inline-start"
-            />
-          ) : (
-            <RefreshCwIcon data-icon="inline-start" />
-          )}
-          {isSyncing
-            ? "Syncing Intervals history"
-            : "Get activities from Intervals"}
-        </Button>
+      </div>
 
+      <Separator />
+
+      <div className="flex flex-col gap-5">
         {isSyncing ? (
           <Alert>
             <LoaderCircleIcon className="animate-spin" />
@@ -183,40 +186,40 @@ export function IntervalsSyncPanel({
         ) : null}
 
         {syncSummary ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-3xl border border-border/70 bg-background/70 p-4">
+          <div className="grid gap-x-8 gap-y-6 border-y border-border/70 py-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Runs processed
               </div>
-              <div className="mt-2 text-3xl font-semibold tracking-tight">
+              <div className="text-3xl font-semibold tracking-tight">
                 {getTotalImportedCount(syncSummary)}
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 {syncSummary.insertedCount} new, {syncSummary.updatedCount}{" "}
                 updated
               </div>
             </div>
 
-            <div className="rounded-3xl border border-border/70 bg-background/70 p-4">
+            <div className="space-y-2">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Date coverage
               </div>
-              <div className="mt-2 text-base font-semibold tracking-tight">
+              <div className="text-base font-semibold tracking-tight">
                 {formatDateRange(syncSummary.coveredDateRange)}
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 {formatHistoryCoverage(syncSummary.historyCoverage)}
               </div>
             </div>
 
-            <div className="rounded-3xl border border-border/70 bg-background/70 p-4">
+            <div className="space-y-2">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Partial items
               </div>
-              <div className="mt-2 text-base font-semibold tracking-tight">
+              <div className="text-base font-semibold tracking-tight">
                 {getPartialItemCount(syncSummary)}
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 {syncSummary.skippedNonRunningCount} unsupported,{" "}
                 {syncSummary.skippedInvalidCount} invalid,{" "}
                 {syncSummary.failedDetailCount +
@@ -226,14 +229,14 @@ export function IntervalsSyncPanel({
               </div>
             </div>
 
-            <div className="rounded-3xl border border-border/70 bg-background/70 p-4">
+            <div className="space-y-2">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Last completed
               </div>
-              <div className="mt-2 text-base font-semibold tracking-tight">
+              <div className="text-base font-semibold tracking-tight">
                 {formatCompletedAt(syncSummary.completedAt)}
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 {status === "failure"
                   ? "Needs another attempt"
                   : "Latest sync result"}
@@ -263,7 +266,7 @@ export function IntervalsSyncPanel({
             </AlertDescription>
           </Alert>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

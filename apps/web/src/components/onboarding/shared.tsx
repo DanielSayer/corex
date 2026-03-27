@@ -59,7 +59,7 @@ export function LargeToggleGroup({
 }) {
   return (
     <ToggleGroup
-      className="grid w-full grid-cols-2 gap-3"
+      className="grid w-full grid-cols-2 gap-0 divide-x divide-border/70 border-y border-border/70"
       spacing={12}
       value={[value]}
       onValueChange={(nextValue) => {
@@ -78,7 +78,7 @@ export function LargeToggleGroup({
             key={option.value}
             value={option.value}
             variant="outline"
-            className="h-20 w-full flex-col items-start justify-center gap-2 rounded-3xl px-5 text-left"
+            className="h-20 w-full flex-col items-start justify-center gap-2 rounded-none border-0 px-5 text-left shadow-none"
           >
             {Icon ? <Icon /> : null}
             <span>{option.label}</span>
@@ -107,10 +107,10 @@ export function SelectionTile({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-h-32 flex-col items-start gap-4 rounded-4xl border px-6 py-5 text-left transition-colors outline-none",
+        "flex min-h-32 flex-col items-start gap-4 border-b border-border/70 px-2 py-5 text-left transition-colors outline-none last:border-b-0",
         selected
-          ? "border-primary bg-primary/8"
-          : "border-border bg-card/35 hover:bg-card/60",
+          ? "text-foreground"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       <div
