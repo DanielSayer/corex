@@ -38,8 +38,8 @@ export function CredentialsStep({
         />
       </FieldBlock>
 
-      <div className="flex flex-col gap-3 rounded-4xl border border-border bg-card/30 px-6 py-5">
-        <div className="flex items-center gap-3 text-sm font-medium">
+      <div className="flex flex-col gap-3 border-l border-border/70 pl-5">
+        <div className="flex items-center gap-3 text-sm font-medium tracking-tight">
           <CheckCircle2Icon />
           Save once, sync later
         </div>

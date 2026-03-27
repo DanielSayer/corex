@@ -29,7 +29,6 @@ import {
   UserIcon,
   ChevronRightIcon,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle } from "@corex/ui/components/card";
 import { LoadingWrapper } from "@/components/renderers";
 
 export const Route = createFileRoute("/_app")({
@@ -138,19 +137,22 @@ function AppSidebar() {
       <SidebarFooter>
         <LoadingWrapper
           isLoading={isPending}
-          fallback={<Skeleton className="h-18 w-full" />}
+          fallback={<Skeleton className="h-18 w-full rounded-2xl" />}
         >
-          <Card>
-            <CardHeader className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-accent/60 flex size-10 items-center justify-center rounded-md">
-                  <UserIcon />
-                </div>
-                <CardTitle>{session?.user?.name}</CardTitle>
+          <div className="flex items-center justify-between gap-3 border-t border-border/70 px-4 pt-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="bg-accent/60 flex size-10 items-center justify-center rounded-full">
+                <UserIcon />
               </div>
-              <ChevronRightIcon className="text-muted-foreground stroke-[1.5]" />
-            </CardHeader>
-          </Card>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium">
+                  {session?.user?.name}
+                </div>
+                <div className="text-xs text-muted-foreground">Account</div>
+              </div>
+            </div>
+            <ChevronRightIcon className="shrink-0 text-muted-foreground stroke-[1.5]" />
+          </div>
         </LoadingWrapper>
       </SidebarFooter>
     </Sidebar>

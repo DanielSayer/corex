@@ -4,14 +4,9 @@ import {
 } from "@/components/dashboard/activity-preview";
 import { IntervalsSyncPanel } from "@/components/intervals-sync-panel";
 import { LoadingWrapper } from "@/components/renderers";
+import { Separator } from "@corex/ui/components/separator";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@corex/ui/components/card";
 
 import { ensureAppRouteAccess } from "@/lib/app-route";
 import { trpc } from "@/utils/trpc";
@@ -30,27 +25,43 @@ function RouteComponent() {
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-8 pb-12">
-      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card className="rounded-[2rem] border border-border/70 bg-card/60 shadow-none">
-          <CardHeader className="gap-2">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 pb-12 md:px-8">
+      <section className="grid gap-8 border-b border-border/70 pb-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-end">
+        <div className="flex flex-col gap-5">
+          <div className="space-y-3">
             <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
               Dashboard
             </div>
-            <CardTitle className="text-3xl tracking-tight">
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance md:text-5xl">
               Welcome {session.data?.user.name}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
-            <p>
-              Use this screen to re-run your Intervals import whenever you need
-              another test pass.
+            </h1>
+            <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+              Re-run your Intervals import, inspect the latest history pulled
+              into corex, and keep your training setup moving without digging
+              through panels.
             </p>
-            <p>API: {privateData.data?.message}</p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex flex-wrap gap-x-8 gap-y-3 border-l border-border/70 pl-5">
+            <div className="space-y-1">
+              <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                API
+              </div>
+              <p className="text-sm text-foreground">
+                {privateData.data?.message ?? "Loading private data"}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                Focus
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Sync history, recent activity, and setup flow
+              </p>
+            </div>
+          </div>
+        </div>
 
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3 lg:pl-6">
           <div>
             <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
               Recent activities
@@ -59,9 +70,10 @@ function RouteComponent() {
               Last 5 imported runs
             </h2>
             <p className="text-sm text-muted-foreground">
-              A quick look at your latest imported Intervals activity history.
+              A quick look at the latest Intervals activity history in corex.
             </p>
           </div>
+          <Separator />
 
           <LoadingWrapper
             isLoading={recentActivities.isLoading}

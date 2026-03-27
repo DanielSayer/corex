@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { formatDuration, formatHeartRate, toSvgPath } from "./utils";
+import {
+  formatDistance,
+  formatDuration,
+  formatHeartRate,
+  toSvgPath,
+} from "./utils";
 
 describe("dashboard activity utils", () => {
   it("returns null svg path when fewer than two valid points exist", () => {
@@ -19,10 +24,16 @@ describe("dashboard activity utils", () => {
 
   it("formats null duration and heart rate as N/A", () => {
     expect(formatDuration(null)).toBe("N/A");
+    expect(formatDistance(null)).toBe("N/A");
     expect(formatHeartRate(null)).toBe("N/A");
   });
 
   it("formats elapsed seconds as h:mm:ss", () => {
     expect(formatDuration(3723)).toBe("1:02:03");
+  });
+
+  it("formats meters as kilometres with two decimal places", () => {
+    expect(formatDistance(5000)).toBe("5.00 km");
+    expect(formatDistance(12345)).toBe("12.35 km");
   });
 });

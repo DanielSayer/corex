@@ -95,13 +95,15 @@ function AvailabilityDayButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-center justify-between rounded-3xl border px-4 py-4 text-left transition-colors",
+        "flex items-center justify-between border-b border-border/70 px-1 py-4 text-left transition-colors last:border-b-0",
         isSelected
-          ? "border-primary bg-primary/10"
-          : "border-border bg-card/20 hover:bg-card/35",
+          ? "text-foreground"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
-      <span className="text-sm font-medium">{dayLabels[day]}</span>
+      <span className={cn("text-sm font-medium", isSelected && "text-primary")}>
+        {dayLabels[day]}
+      </span>
       <span className="text-xs text-muted-foreground">
         {availability.available
           ? `${availability.maxDurationMinutes} min`
@@ -134,7 +136,7 @@ function AvailabilityDayEditor({
   };
 
   return (
-    <div className="flex flex-col gap-6 rounded-4xl border border-border bg-card/25 px-6 py-6">
+    <section className="flex flex-col gap-6 border-l border-border/70 pl-6">
       <AvailabilityDayHeader
         day={day}
         selectedDay={selectedDay}
@@ -165,7 +167,7 @@ function AvailabilityDayEditor({
       />
 
       <FieldError error={error} />
-    </div>
+    </section>
   );
 }
 

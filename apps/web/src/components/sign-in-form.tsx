@@ -57,90 +57,137 @@ export default function SignInForm({
   }
 
   return (
-    <div className="mx-auto w-full mt-10 max-w-md p-6">
-      <h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          form.handleSubmit();
-        }}
-        className="space-y-4"
-      >
-        <div>
-          <form.Field name="email">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Email</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="email"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
+    <main className="grid min-h-svh lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
+      <section className="relative hidden overflow-hidden border-r border-border/70 bg-muted/20 px-10 py-12 lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.18),transparent_40%),linear-gradient(180deg,transparent,transparent_55%,hsl(var(--accent)/0.14))]" />
+        <div className="relative space-y-16">
+          <div className="text-3xl font-extrabold italic tracking-tight">
+            corex
+          </div>
+          <div className="max-w-xl space-y-6">
+            <p className="text-sm font-medium tracking-[0.22em] text-muted-foreground uppercase">
+              Training workspace
+            </p>
+            <h1 className="text-5xl font-semibold tracking-tight text-balance">
+              Return to the plan, not another stack of panels.
+            </h1>
+            <p className="max-w-lg text-base leading-7 text-muted-foreground">
+              Bring your Intervals history, goals, and availability into one
+              quieter surface built for real training decisions.
+            </p>
+          </div>
         </div>
-
-        <div>
-          <form.Field name="password">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Password</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="password"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
+        <div className="relative flex gap-8 border-t border-border/70 pt-6 text-sm">
+          <div>
+            <div className="font-medium">Intervals sync</div>
+            <div className="text-muted-foreground">Re-import when needed</div>
+          </div>
+          <div>
+            <div className="font-medium">Goal planning</div>
+            <div className="text-muted-foreground">
+              Set targets and availability
+            </div>
+          </div>
         </div>
+      </section>
 
-        <form.Subscribe
-          selector={(state) => ({
-            canSubmit: state.canSubmit,
-            isSubmitting: state.isSubmitting,
-          })}
-        >
-          {({ canSubmit, isSubmitting }) => (
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={!canSubmit || isSubmitting}
+      <section className="flex items-center px-6 py-10 md:px-10 lg:px-14">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-8">
+          <div className="space-y-3">
+            <p className="text-sm font-medium tracking-[0.22em] text-muted-foreground uppercase">
+              Sign in
+            </p>
+            <h2 className="text-4xl font-semibold tracking-tight">
+              Welcome back
+            </h2>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Pick up where you left off and continue shaping the next block.
+            </p>
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              form.handleSubmit();
+            }}
+            className="space-y-6"
+          >
+            <div>
+              <form.Field name="email">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor={field.name}>Email</Label>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="email"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                    />
+                    {field.state.meta.errors.map((error) => (
+                      <p key={error?.message} className="text-red-500">
+                        {error?.message}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </form.Field>
+            </div>
+
+            <div>
+              <form.Field name="password">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor={field.name}>Password</Label>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="password"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                    />
+                    {field.state.meta.errors.map((error) => (
+                      <p key={error?.message} className="text-red-500">
+                        {error?.message}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </form.Field>
+            </div>
+
+            <form.Subscribe
+              selector={(state) => ({
+                canSubmit: state.canSubmit,
+                isSubmitting: state.isSubmitting,
+              })}
             >
-              {isSubmitting ? "Submitting..." : "Sign In"}
-            </Button>
-          )}
-        </form.Subscribe>
-      </form>
+              {({ canSubmit, isSubmitting }) => (
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={!canSubmit || isSubmitting}
+                >
+                  {isSubmitting ? "Submitting..." : "Sign In"}
+                </Button>
+              )}
+            </form.Subscribe>
+          </form>
 
-      <div className="mt-4 text-center">
-        <Button
-          variant="link"
-          onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
-        >
-          Need an account? Sign Up
-        </Button>
-      </div>
-    </div>
+          <div className="border-t border-border/70 pt-4">
+            <Button
+              variant="link"
+              onClick={onSwitchToSignUp}
+              className="px-0 text-foreground hover:text-foreground/80"
+            >
+              Need an account? Sign Up
+            </Button>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
