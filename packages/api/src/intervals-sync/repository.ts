@@ -99,33 +99,51 @@ export type FinalizeFailureInput = {
   completedAt: Date;
 };
 
-export type IntervalsSyncRepository = {
-  hasInProgressSync: (
+export type SyncLedgerPort = {
+  hasInProgress: (
     userId: string,
   ) => Effect.Effect<boolean, SyncPersistenceFailure>;
-  createSyncEvent: (
+  begin: (
     userId: string,
-    event: { id: string; startedAt: Date },
+    event: { eventId: string; startedAt: Date },
   ) => Effect.Effect<void, SyncPersistenceFailure>;
-  upsertImportedActivity: (
-    record: UpsertImportedActivityRecord,
-  ) => Effect.Effect<"inserted" | "updated", SyncPersistenceFailure>;
-  finalizeSyncSuccess: (
-    input: FinalizeSuccessInput,
-  ) => Effect.Effect<SyncSummary, SyncPersistenceFailure>;
-  finalizeSyncFailure: (
-    input: FinalizeFailureInput,
-  ) => Effect.Effect<SyncSummary, SyncPersistenceFailure>;
-  getLatestSyncSummary: (
+  latest: (
     userId: string,
   ) => Effect.Effect<SyncSummary | null, SyncPersistenceFailure>;
-  getLatestSuccessfulSyncCursor: (
+  latestSuccessfulCursor: (
     userId: string,
   ) => Effect.Effect<Date | null, SyncPersistenceFailure>;
-  getRecentActivities: (
+  completeSuccess: (
+    input: FinalizeSuccessInput,
+  ) => Effect.Effect<SyncSummary, SyncPersistenceFailure>;
+  completeFailure: (
+    input: FinalizeFailureInput,
+  ) => Effect.Effect<SyncSummary, SyncPersistenceFailure>;
+};
+
+export type ImportedActivityPort = {
+  upsert: (
+    record: UpsertImportedActivityRecord,
+  ) => Effect.Effect<"inserted" | "updated", SyncPersistenceFailure>;
+  recentActivities: (
     userId: string,
   ) => Effect.Effect<RecentActivityPreview[], SyncPersistenceFailure>;
 };
+
+export type IntervalsSyncRepository = SyncLedgerPort &
+  ImportedActivityPort & {
+    hasInProgressSync: SyncLedgerPort["hasInProgress"];
+    createSyncEvent: (
+      userId: string,
+      event: { id: string; startedAt: Date },
+    ) => Effect.Effect<void, SyncPersistenceFailure>;
+    finalizeSyncSuccess: SyncLedgerPort["completeSuccess"];
+    finalizeSyncFailure: SyncLedgerPort["completeFailure"];
+    getLatestSyncSummary: SyncLedgerPort["latest"];
+    getLatestSuccessfulSyncCursor: SyncLedgerPort["latestSuccessfulCursor"];
+    upsertImportedActivity: ImportedActivityPort["upsert"];
+    getRecentActivities: ImportedActivityPort["recentActivities"];
+  };
 
 function mapSyncSummary(row: typeof syncEvent.$inferSelect): SyncSummary {
   return {
@@ -167,11 +185,9 @@ async function loadLatestSyncSummary(db: Database, userId: string) {
   return row ? mapSyncSummary(row) : null;
 }
 
-export function createIntervalsSyncRepository(
-  db: Database,
-): IntervalsSyncRepository {
+export function createSyncLedgerPort(db: Database): SyncLedgerPort {
   return {
-    hasInProgressSync(userId) {
+    hasInProgress(userId) {
       return Effect.tryPromise({
         try: async () => {
           const row = await db.query.syncEvent.findFirst({
@@ -190,11 +206,11 @@ export function createIntervalsSyncRepository(
           }),
       });
     },
-    createSyncEvent(userId, event) {
+    begin(userId, event) {
       return Effect.tryPromise({
         try: async () => {
           await db.insert(syncEvent).values({
-            id: event.id,
+            id: event.eventId,
             userId,
             status: "in_progress",
             startedAt: event.startedAt,
@@ -210,7 +226,119 @@ export function createIntervalsSyncRepository(
           }),
       });
     },
-    upsertImportedActivity(record) {
+    latest(userId) {
+      return Effect.tryPromise({
+        try: () => loadLatestSyncSummary(db, userId),
+        catch: (cause) =>
+          new SyncPersistenceFailure({
+            message: "Failed to load latest sync summary",
+            cause,
+          }),
+      });
+    },
+    latestSuccessfulCursor(userId) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await db.query.syncEvent.findFirst({
+            where: and(
+              eq(syncEvent.userId, userId),
+              eq(syncEvent.status, "success"),
+            ),
+            orderBy: desc(syncEvent.startedAt),
+          });
+
+          return row?.newestImportedActivityStart ?? null;
+        },
+        catch: (cause) =>
+          new SyncPersistenceFailure({
+            message: "Failed to load latest successful sync cursor",
+            cause,
+          }),
+      });
+    },
+    completeSuccess(input) {
+      return Effect.tryPromise({
+        try: async () => {
+          const [row] = await db
+            .update(syncEvent)
+            .set({
+              status: "success",
+              historyCoverage: input.historyCoverage,
+              cursorStartUsed: input.cursorStartUsed,
+              coveredRangeStart: input.coveredRangeStart,
+              coveredRangeEnd: input.coveredRangeEnd,
+              newestImportedActivityStart: input.newestImportedActivityStart,
+              insertedCount: input.insertedCount,
+              updatedCount: input.updatedCount,
+              skippedNonRunningCount: input.skippedNonRunningCount,
+              skippedInvalidCount: input.skippedInvalidCount,
+              failedDetailCount: input.failedDetailCount,
+              failedMapCount: input.failedMapCount,
+              failedStreamCount: input.failedStreamCount,
+              storedMapCount: input.storedMapCount,
+              storedStreamCount: input.storedStreamCount,
+              unknownActivityTypes: input.unknownActivityTypes,
+              warnings: input.warnings,
+              failedDetails: input.failedDetails,
+              completedAt: input.completedAt,
+              failureCategory: null,
+              failureMessage: null,
+              updatedAt: input.completedAt,
+            })
+            .where(eq(syncEvent.id, input.eventId))
+            .returning();
+
+          if (!row) {
+            throw new SyncPersistenceFailure({
+              message: "Sync event could not be finalized as success",
+            });
+          }
+
+          return mapSyncSummary(row);
+        },
+        catch: (cause) =>
+          new SyncPersistenceFailure({
+            message: "Failed to finalize sync success",
+            cause,
+          }),
+      });
+    },
+    completeFailure(input) {
+      return Effect.tryPromise({
+        try: async () => {
+          const [row] = await db
+            .update(syncEvent)
+            .set({
+              status: "failure",
+              failureCategory: input.failureCategory,
+              failureMessage: input.failureMessage,
+              completedAt: input.completedAt,
+              updatedAt: input.completedAt,
+            })
+            .where(eq(syncEvent.id, input.eventId))
+            .returning();
+
+          if (!row) {
+            throw new SyncPersistenceFailure({
+              message: "Sync event could not be finalized as failure",
+            });
+          }
+
+          return mapSyncSummary(row);
+        },
+        catch: (cause) =>
+          new SyncPersistenceFailure({
+            message: "Failed to finalize sync failure",
+            cause,
+          }),
+      });
+    },
+  };
+}
+
+export function createImportedActivityPort(db: Database): ImportedActivityPort {
+  return {
+    upsert(record) {
       return Effect.tryPromise({
         try: async () => {
           const existing = await db.query.importedActivity.findFirst({
@@ -337,114 +465,7 @@ export function createIntervalsSyncRepository(
           }),
       });
     },
-    finalizeSyncSuccess(input) {
-      return Effect.tryPromise({
-        try: async () => {
-          const [row] = await db
-            .update(syncEvent)
-            .set({
-              status: "success",
-              historyCoverage: input.historyCoverage,
-              cursorStartUsed: input.cursorStartUsed,
-              coveredRangeStart: input.coveredRangeStart,
-              coveredRangeEnd: input.coveredRangeEnd,
-              newestImportedActivityStart: input.newestImportedActivityStart,
-              insertedCount: input.insertedCount,
-              updatedCount: input.updatedCount,
-              skippedNonRunningCount: input.skippedNonRunningCount,
-              skippedInvalidCount: input.skippedInvalidCount,
-              failedDetailCount: input.failedDetailCount,
-              failedMapCount: input.failedMapCount,
-              failedStreamCount: input.failedStreamCount,
-              storedMapCount: input.storedMapCount,
-              storedStreamCount: input.storedStreamCount,
-              unknownActivityTypes: input.unknownActivityTypes,
-              warnings: input.warnings,
-              failedDetails: input.failedDetails,
-              completedAt: input.completedAt,
-              failureCategory: null,
-              failureMessage: null,
-              updatedAt: input.completedAt,
-            })
-            .where(eq(syncEvent.id, input.eventId))
-            .returning();
-
-          if (!row) {
-            throw new SyncPersistenceFailure({
-              message: "Sync event could not be finalized as success",
-            });
-          }
-
-          return mapSyncSummary(row);
-        },
-        catch: (cause) =>
-          new SyncPersistenceFailure({
-            message: "Failed to finalize sync success",
-            cause,
-          }),
-      });
-    },
-    finalizeSyncFailure(input) {
-      return Effect.tryPromise({
-        try: async () => {
-          const [row] = await db
-            .update(syncEvent)
-            .set({
-              status: "failure",
-              failureCategory: input.failureCategory,
-              failureMessage: input.failureMessage,
-              completedAt: input.completedAt,
-              updatedAt: input.completedAt,
-            })
-            .where(eq(syncEvent.id, input.eventId))
-            .returning();
-
-          if (!row) {
-            throw new SyncPersistenceFailure({
-              message: "Sync event could not be finalized as failure",
-            });
-          }
-
-          return mapSyncSummary(row);
-        },
-        catch: (cause) =>
-          new SyncPersistenceFailure({
-            message: "Failed to finalize sync failure",
-            cause,
-          }),
-      });
-    },
-    getLatestSyncSummary(userId) {
-      return Effect.tryPromise({
-        try: () => loadLatestSyncSummary(db, userId),
-        catch: (cause) =>
-          new SyncPersistenceFailure({
-            message: "Failed to load latest sync summary",
-            cause,
-          }),
-      });
-    },
-    getLatestSuccessfulSyncCursor(userId) {
-      return Effect.tryPromise({
-        try: async () => {
-          const row = await db.query.syncEvent.findFirst({
-            where: and(
-              eq(syncEvent.userId, userId),
-              eq(syncEvent.status, "success"),
-            ),
-            orderBy: desc(syncEvent.startedAt),
-          });
-
-          return row?.newestImportedActivityStart ?? null;
-        },
-        catch: (cause) =>
-          new SyncPersistenceFailure({
-            message: "Failed to load latest successful sync cursor",
-            cause,
-          }),
-      });
-    },
-    getRecentActivities(userId) {
+    recentActivities(userId) {
       return Effect.tryPromise({
         try: async () => {
           const activityRows = await db.query.importedActivity.findMany({
@@ -513,5 +534,29 @@ export function createIntervalsSyncRepository(
           }),
       });
     },
+  };
+}
+
+export function createIntervalsSyncRepository(
+  db: Database,
+): IntervalsSyncRepository {
+  const ledger = createSyncLedgerPort(db);
+  const activities = createImportedActivityPort(db);
+
+  return {
+    ...ledger,
+    ...activities,
+    hasInProgressSync: ledger.hasInProgress,
+    createSyncEvent: (userId, event) =>
+      ledger.begin(userId, {
+        eventId: event.id,
+        startedAt: event.startedAt,
+      }),
+    finalizeSyncSuccess: ledger.completeSuccess,
+    finalizeSyncFailure: ledger.completeFailure,
+    getLatestSyncSummary: ledger.latest,
+    getLatestSuccessfulSyncCursor: ledger.latestSuccessfulCursor,
+    upsertImportedActivity: activities.upsert,
+    getRecentActivities: activities.recentActivities,
   };
 }

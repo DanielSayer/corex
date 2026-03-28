@@ -48,9 +48,9 @@ describe("http integration", () => {
     const router = createAppRouter({
       intervalsSync: createIntervalsSyncRouter({
         service: {
-          latestForUser: () => Effect.die("not used"),
-          triggerForUser: () => Effect.die("not used"),
-          recentActivitiesForUser: () => Effect.die("not used"),
+          latest: () => Effect.die("not used"),
+          syncNow: () => Effect.die("not used"),
+          recentActivities: () => Effect.die("not used"),
         },
       }),
     });
@@ -67,7 +67,7 @@ describe("http integration", () => {
     const router = createAppRouter({
       intervalsSync: createIntervalsSyncRouter({
         service: {
-          latestForUser: () =>
+          latest: () =>
             Effect.succeed({
               eventId: "sync-1",
               status: "success",
@@ -95,8 +95,8 @@ describe("http integration", () => {
               startedAt: "2026-03-21T00:00:00.000Z",
               completedAt: "2026-03-21T00:05:00.000Z",
             }),
-          triggerForUser: () => Effect.die("not used"),
-          recentActivitiesForUser: () => Effect.die("not used"),
+          syncNow: () => Effect.die("not used"),
+          recentActivities: () => Effect.die("not used"),
         },
       }),
     });

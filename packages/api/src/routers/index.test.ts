@@ -200,9 +200,9 @@ describe("appRouter", () => {
       }),
       intervalsSync: createIntervalsSyncRouter({
         service: {
-          triggerForUser: () => Effect.die("not used"),
-          latestForUser: () => Effect.die("not used"),
-          recentActivitiesForUser: (userId) => {
+          syncNow: () => Effect.die("not used"),
+          latest: () => Effect.die("not used"),
+          recentActivities: (userId) => {
             requestedUserId = userId;
             return Effect.succeed([]);
           },

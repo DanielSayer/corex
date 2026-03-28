@@ -1,30 +1,35 @@
 import { describe, expect, it } from "bun:test";
 import { Cause, Effect, Exit, Option } from "effect";
 
+import type { IntervalsAccountPort } from "../intervals/account";
+import type { IntervalsUpstreamPort } from "./adapter";
 import { InvalidIntervalsCredentials, SyncAlreadyInProgress } from "./errors";
-import type { IntervalsAdapter } from "./adapter";
-import type { DerivedPerformanceService } from "./derived-performance-service";
+import type { DerivedPerformancePort } from "./derived-performance-service";
+import { createIntervalsSyncModule } from "./module";
 import type { RecentActivityPreview } from "./recent-activity";
-import { createIntervalsSyncService } from "./service";
-import type { IntervalsAccountService } from "../intervals/account";
-import type { IntervalsSyncRepository } from "./repository";
+import type {
+  ImportedActivityPort,
+  SyncLedgerPort,
+  SyncSummary,
+  UpsertImportedActivityRecord,
+} from "./repository";
 
-function createAccountService(
-  overrides: Partial<IntervalsAccountService> = {},
-): IntervalsAccountService {
+function createAccountPort(
+  overrides: Partial<IntervalsAccountPort> = {},
+): IntervalsAccountPort {
   return {
-    loadAccountForUser: () =>
+    load: () =>
       Effect.succeed({
         username: "runner@example.com",
         apiKey: "intervals-secret",
         athleteId: null,
       }),
-    recordResolvedAthleteIdentity: () => Effect.void,
+    saveResolvedAthlete: () => Effect.void,
     ...overrides,
   };
 }
 
-function createAdapter(): IntervalsAdapter {
+function createUpstreamPort(): IntervalsUpstreamPort {
   return {
     getProfile: async () => ({
       id: "i509216",
@@ -41,7 +46,7 @@ function createAdapter(): IntervalsAdapter {
         start_date: "2026-03-19T00:00:00.000Z",
       },
     ],
-    getActivityDetail: async ({ activityId }) => ({
+    getDetail: async ({ activityId }) => ({
       id: activityId,
       icu_athlete_id: "i509216",
       type: "Run",
@@ -50,7 +55,7 @@ function createAdapter(): IntervalsAdapter {
       elapsed_time: 1820,
       distance: 5000,
     }),
-    getActivityMap: async () => ({
+    getMap: async () => ({
       latlngs: [
         [-27.47, 153.02],
         [-27.46, 153.03],
@@ -59,7 +64,7 @@ function createAdapter(): IntervalsAdapter {
         name: "River loop",
       },
     }),
-    getActivityStreams: async () => [
+    getStreams: async () => [
       {
         type: "cadence",
         data: [82, 83, 84],
@@ -84,14 +89,13 @@ function createAdapter(): IntervalsAdapter {
   };
 }
 
-function createSyncRepo(
-  overrides: Partial<IntervalsSyncRepository> = {},
-): IntervalsSyncRepository {
+function createLedger(overrides: Partial<SyncLedgerPort> = {}): SyncLedgerPort {
   return {
-    hasInProgressSync: () => Effect.succeed(false),
-    createSyncEvent: () => Effect.void,
-    upsertImportedActivity: () => Effect.succeed("inserted"),
-    finalizeSyncSuccess: (input) =>
+    hasInProgress: () => Effect.succeed(false),
+    begin: () => Effect.void,
+    latest: () => Effect.succeed(null),
+    latestSuccessfulCursor: () => Effect.succeed(null),
+    completeSuccess: (input) =>
       Effect.succeed({
         eventId: input.eventId,
         status: "success",
@@ -120,7 +124,7 @@ function createSyncRepo(
         startedAt: new Date("2026-03-21T00:00:00.000Z").toISOString(),
         completedAt: input.completedAt.toISOString(),
       }),
-    finalizeSyncFailure: (input) =>
+    completeFailure: (input) =>
       Effect.succeed({
         eventId: input.eventId,
         status: "failure",
@@ -148,25 +152,25 @@ function createSyncRepo(
         startedAt: new Date("2026-03-21T00:00:00.000Z").toISOString(),
         completedAt: input.completedAt.toISOString(),
       }),
-    getLatestSyncSummary: () => Effect.succeed(null),
-    getLatestSuccessfulSyncCursor: () => Effect.succeed(null),
-    getRecentActivities: () => Effect.succeed([]),
     ...overrides,
   };
 }
 
-function createDerivedPerformanceService(
-  overrides: Partial<DerivedPerformanceService> = {},
-): DerivedPerformanceService {
+function createActivities(
+  overrides: Partial<ImportedActivityPort> = {},
+): ImportedActivityPort {
   return {
-    recomputeRunEffortsForImportedRun: () =>
-      Effect.succeed({
-        effortCount: 0,
-        warningCount: 0,
-        allTimePrCount: 0,
-        monthlyBestCount: 0,
-      }),
-    deleteRunDerivedPerformance: () =>
+    upsert: () => Effect.succeed("inserted"),
+    recentActivities: () => Effect.succeed([]),
+    ...overrides,
+  };
+}
+
+function createDerivedPort(
+  overrides: Partial<DerivedPerformancePort> = {},
+): DerivedPerformancePort {
+  return {
+    recompute: () =>
       Effect.succeed({
         effortCount: 0,
         warningCount: 0,
@@ -177,18 +181,20 @@ function createDerivedPerformanceService(
   };
 }
 
-describe("intervals sync service", () => {
+describe("intervals sync module", () => {
   it("rejects when a sync is already in progress", async () => {
-    const service = createIntervalsSyncService({
-      account: createAccountService(),
-      syncRepo: createSyncRepo({
-        hasInProgressSync: () => Effect.succeed(true),
+    const service = createIntervalsSyncModule({
+      accounts: createAccountPort(),
+      ledger: createLedger({
+        hasInProgress: () => Effect.succeed(true),
       }),
-      adapter: createAdapter(),
-      derivedPerformance: createDerivedPerformanceService(),
+      activities: createActivities(),
+      upstream: createUpstreamPort(),
+      derived: createDerivedPort(),
+      idGenerator: () => "event-1",
     });
 
-    const exit = await Effect.runPromiseExit(service.triggerForUser("user-1"));
+    const exit = await Effect.runPromiseExit(service.syncNow("user-1"));
 
     expect(Exit.isFailure(exit)).toBe(true);
 
@@ -205,31 +211,31 @@ describe("intervals sync service", () => {
 
   it("derives athlete identity, imports running activities, and reports skipped unsupported types", async () => {
     let savedAthleteId: string | undefined;
-    let lastUpsert:
-      | Parameters<IntervalsSyncRepository["upsertImportedActivity"]>[0]
-      | undefined;
+    let lastUpsert: UpsertImportedActivityRecord | undefined;
 
-    const service = createIntervalsSyncService({
-      account: createAccountService({
-        recordResolvedAthleteIdentity: (_userId, identity) => {
+    const service = createIntervalsSyncModule({
+      accounts: createAccountPort({
+        saveResolvedAthlete: (_userId, identity) => {
           savedAthleteId = identity.athleteId;
           return Effect.void;
         },
       }),
-      syncRepo: createSyncRepo({
-        upsertImportedActivity: (record) => {
+      ledger: createLedger(),
+      activities: createActivities({
+        upsert: (record) => {
           lastUpsert = record;
           return Effect.succeed("inserted");
         },
       }),
-      adapter: createAdapter(),
-      derivedPerformance: createDerivedPerformanceService(),
+      upstream: createUpstreamPort(),
+      derived: createDerivedPort(),
       clock: {
         now: () => new Date("2026-03-21T00:00:00.000Z"),
       },
+      idGenerator: () => "event-1",
     });
 
-    const result = await Effect.runPromise(service.triggerForUser("user-1"));
+    const result = await Effect.runPromise(service.syncNow("user-1"));
 
     expect(savedAthleteId).toBe("i509216");
     expect(result.insertedCount).toBe(1);
@@ -244,21 +250,23 @@ describe("intervals sync service", () => {
   });
 
   it("fails clearly when the initial Intervals identity lookup rejects credentials", async () => {
-    const service = createIntervalsSyncService({
-      account: createAccountService(),
-      syncRepo: createSyncRepo(),
-      adapter: {
-        ...createAdapter(),
+    const service = createIntervalsSyncModule({
+      accounts: createAccountPort(),
+      ledger: createLedger(),
+      activities: createActivities(),
+      upstream: {
+        ...createUpstreamPort(),
         getProfile: async () => {
           throw new InvalidIntervalsCredentials({
             message: "Intervals credentials were rejected",
           });
         },
       },
-      derivedPerformance: createDerivedPerformanceService(),
+      derived: createDerivedPort(),
+      idGenerator: () => "event-1",
     });
 
-    const exit = await Effect.runPromiseExit(service.triggerForUser("user-1"));
+    const exit = await Effect.runPromiseExit(service.syncNow("user-1"));
 
     expect(Exit.isFailure(exit)).toBe(true);
 
@@ -274,26 +282,26 @@ describe("intervals sync service", () => {
   });
 
   it("treats null maps as expected absence and does not count them as failures", async () => {
-    let lastUpsert:
-      | Parameters<IntervalsSyncRepository["upsertImportedActivity"]>[0]
-      | undefined;
+    let lastUpsert: UpsertImportedActivityRecord | undefined;
 
-    const service = createIntervalsSyncService({
-      account: createAccountService(),
-      syncRepo: createSyncRepo({
-        upsertImportedActivity: (record) => {
+    const service = createIntervalsSyncModule({
+      accounts: createAccountPort(),
+      ledger: createLedger(),
+      activities: createActivities({
+        upsert: (record) => {
           lastUpsert = record;
           return Effect.succeed("inserted");
         },
       }),
-      adapter: {
-        ...createAdapter(),
-        getActivityMap: async () => null,
+      upstream: {
+        ...createUpstreamPort(),
+        getMap: async () => null,
       },
-      derivedPerformance: createDerivedPerformanceService(),
+      derived: createDerivedPort(),
+      idGenerator: () => "event-1",
     });
 
-    const result = await Effect.runPromise(service.triggerForUser("user-1"));
+    const result = await Effect.runPromise(service.syncNow("user-1"));
 
     expect(result.status).toBe("success");
     expect(result.failedMapCount).toBe(0);
@@ -302,22 +310,24 @@ describe("intervals sync service", () => {
   });
 
   it("records map and stream failures independently while still importing the activity", async () => {
-    const service = createIntervalsSyncService({
-      account: createAccountService(),
-      syncRepo: createSyncRepo(),
-      adapter: {
-        ...createAdapter(),
-        getActivityMap: async () => {
+    const service = createIntervalsSyncModule({
+      accounts: createAccountPort(),
+      ledger: createLedger(),
+      activities: createActivities(),
+      upstream: {
+        ...createUpstreamPort(),
+        getMap: async () => {
           throw new Error("map unavailable");
         },
-        getActivityStreams: async () => {
+        getStreams: async () => {
           throw new Error("streams unavailable");
         },
       },
-      derivedPerformance: createDerivedPerformanceService(),
+      derived: createDerivedPort(),
+      idGenerator: () => "event-1",
     });
 
-    const result = await Effect.runPromise(service.triggerForUser("user-1"));
+    const result = await Effect.runPromise(service.syncNow("user-1"));
 
     expect(result.status).toBe("success");
     expect(result.insertedCount).toBe(1);
@@ -337,7 +347,7 @@ describe("intervals sync service", () => {
     );
   });
 
-  it("returns recent activities from the repository unchanged", async () => {
+  it("returns recent activities from the activities port unchanged", async () => {
     const recentActivities: RecentActivityPreview[] = [
       {
         id: "run-1",
@@ -355,19 +365,64 @@ describe("intervals sync service", () => {
       },
     ];
 
-    const service = createIntervalsSyncService({
-      account: createAccountService(),
-      syncRepo: createSyncRepo({
-        getRecentActivities: () => Effect.succeed(recentActivities),
+    const service = createIntervalsSyncModule({
+      accounts: createAccountPort(),
+      ledger: createLedger(),
+      activities: createActivities({
+        recentActivities: () => Effect.succeed(recentActivities),
       }),
-      adapter: createAdapter(),
-      derivedPerformance: createDerivedPerformanceService(),
+      upstream: createUpstreamPort(),
+      derived: createDerivedPort(),
+      idGenerator: () => "event-1",
     });
 
-    const result = await Effect.runPromise(
-      service.recentActivitiesForUser("user-1"),
-    );
+    const result = await Effect.runPromise(service.recentActivities("user-1"));
 
     expect(result).toEqual(recentActivities);
+  });
+
+  it("returns the latest sync summary unchanged", async () => {
+    const latestSummary: SyncSummary = {
+      eventId: "event-1",
+      status: "success",
+      historyCoverage: "initial_30d_window",
+      cursorStartUsed: "2026-03-01T00:00:00.000Z",
+      coveredDateRange: {
+        start: "2026-03-20T00:00:00.000Z",
+        end: "2026-03-20T00:00:00.000Z",
+      },
+      newestImportedActivityStart: "2026-03-20T00:00:00.000Z",
+      insertedCount: 1,
+      updatedCount: 0,
+      skippedNonRunningCount: 0,
+      skippedInvalidCount: 0,
+      failedDetailCount: 0,
+      failedMapCount: 0,
+      failedStreamCount: 0,
+      storedMapCount: 1,
+      storedStreamCount: 5,
+      unknownActivityTypes: [],
+      warnings: [],
+      failedDetails: [],
+      failureCategory: null,
+      failureMessage: null,
+      startedAt: "2026-03-21T00:00:00.000Z",
+      completedAt: "2026-03-21T00:05:00.000Z",
+    };
+
+    const service = createIntervalsSyncModule({
+      accounts: createAccountPort(),
+      ledger: createLedger({
+        latest: () => Effect.succeed(latestSummary),
+      }),
+      activities: createActivities(),
+      upstream: createUpstreamPort(),
+      derived: createDerivedPort(),
+      idGenerator: () => "event-1",
+    });
+
+    const result = await Effect.runPromise(service.latest("user-1"));
+
+    expect(result).toEqual(latestSummary);
   });
 });

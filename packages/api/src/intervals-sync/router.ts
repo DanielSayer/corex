@@ -10,11 +10,11 @@ import {
   SyncAlreadyInProgress,
   SyncPersistenceFailure,
 } from "./errors";
-import { createLiveIntervalsSyncService } from "./live";
-import type { IntervalsSyncService } from "./service";
+import { createLiveIntervalsSyncApi } from "./live";
+import type { IntervalsSyncApi } from "./module";
 
 type CreateIntervalsSyncRouterOptions = {
-  service?: IntervalsSyncService;
+  service?: IntervalsSyncApi;
 };
 
 function mapIntervalsSyncError(error: unknown) {
@@ -66,24 +66,21 @@ function mapIntervalsSyncError(error: unknown) {
 export function createIntervalsSyncRouter(
   options: CreateIntervalsSyncRouterOptions = {},
 ) {
-  const service = options.service ?? createLiveIntervalsSyncService();
+  const service = options.service ?? createLiveIntervalsSyncApi();
 
   return router({
     trigger: authedProcedure.mutation(({ ctx }) =>
       executeEffect(
-        service.triggerForUser(ctx.session.user.id),
+        service.syncNow(ctx.session.user.id),
         mapIntervalsSyncError,
       ),
     ),
     latest: authedProcedure.query(({ ctx }) =>
-      executeEffect(
-        service.latestForUser(ctx.session.user.id),
-        mapIntervalsSyncError,
-      ),
+      executeEffect(service.latest(ctx.session.user.id), mapIntervalsSyncError),
     ),
     recentActivities: authedProcedure.query(({ ctx }) =>
       executeEffect(
-        service.recentActivitiesForUser(ctx.session.user.id),
+        service.recentActivities(ctx.session.user.id),
         mapIntervalsSyncError,
       ),
     ),

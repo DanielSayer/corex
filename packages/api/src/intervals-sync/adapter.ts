@@ -38,12 +38,20 @@ export type IntervalsAdapter = {
   getActivityMap: (input: {
     credentials: IntervalsCredentials;
     activityId: string;
-  }) => Promise<IntervalsActivityMap>;
+  }) => Promise<IntervalsActivityMap | null>;
   getActivityStreams: (input: {
     credentials: IntervalsCredentials;
     activityId: string;
     types: string[];
   }) => Promise<IntervalsActivityStream[]>;
+};
+
+export type IntervalsUpstreamPort = {
+  getProfile: IntervalsAdapter["getProfile"];
+  listActivities: IntervalsAdapter["listActivities"];
+  getDetail: IntervalsAdapter["getActivityDetail"];
+  getMap: IntervalsAdapter["getActivityMap"];
+  getStreams: IntervalsAdapter["getActivityStreams"];
 };
 
 type CreateIntervalsAdapterOptions = {

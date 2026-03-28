@@ -18,6 +18,12 @@ export type DerivedPerformanceService = ReturnType<
   typeof createDerivedPerformanceService
 >;
 
+export type DerivedPerformancePort = {
+  recompute: (
+    input: ImportedRunForDerivedPerformance,
+  ) => Effect.Effect<DerivedPerformanceWriteSummary, SyncPersistenceFailure>;
+};
+
 export function createDerivedPerformanceService(options: {
   repo: DerivedPerformanceRepository;
 }) {
@@ -90,6 +96,11 @@ export function createDerivedPerformanceService(options: {
   };
 
   return {
+    recompute(
+      input: ImportedRunForDerivedPerformance,
+    ): Effect.Effect<DerivedPerformanceWriteSummary, SyncPersistenceFailure> {
+      return processRun(input);
+    },
     recomputeRunEffortsForImportedRun(
       input: ImportedRunForDerivedPerformance,
     ): Effect.Effect<DerivedPerformanceWriteSummary, SyncPersistenceFailure> {
