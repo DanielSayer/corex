@@ -29,12 +29,7 @@ export type IntervalsAccountPort = {
   ) => Effect.Effect<void, SyncPersistenceFailure>;
 };
 
-export type IntervalsAccountService = IntervalsAccountPort & {
-  loadAccountForUser: IntervalsAccountPort["load"];
-  recordResolvedAthleteIdentity: IntervalsAccountPort["saveResolvedAthlete"];
-};
-
-type CreateIntervalsAccountServiceOptions = {
+type CreateIntervalsAccountPortOptions = {
   store: IntervalsAccountStore;
   crypto: CredentialCrypto;
 };
@@ -47,9 +42,9 @@ function toPersistenceFailure(cause: { message: string; cause?: unknown }) {
 }
 
 export function createIntervalsAccountPort(
-  options: CreateIntervalsAccountServiceOptions,
-): IntervalsAccountService {
-  const port = {
+  options: CreateIntervalsAccountPortOptions,
+): IntervalsAccountPort {
+  return {
     load(userId) {
       return Effect.gen(function* () {
         const storedAccount = yield* options.store.findAccountByUserId(userId);
@@ -82,13 +77,5 @@ export function createIntervalsAccountPort(
     saveResolvedAthlete(userId, identity) {
       return options.store.saveAthleteIdentity(userId, identity);
     },
-  } satisfies IntervalsAccountPort;
-
-  return {
-    ...port,
-    loadAccountForUser: port.load,
-    recordResolvedAthleteIdentity: port.saveResolvedAthlete,
   };
 }
-
-export const createIntervalsAccountService = createIntervalsAccountPort;

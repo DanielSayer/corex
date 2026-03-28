@@ -20,7 +20,7 @@ type LiveIntervalsEnv = Pick<typeof env, "SETTINGS_MASTER_KEY_BASE64">;
 type Clock = {
   now: () => Date;
 };
-type CreateLiveIntervalsSyncServiceOptions = {
+type CreateLiveIntervalsSyncApiOptions = {
   db?: Database;
   env?: LiveIntervalsEnv;
   adapter?: IntervalsAdapter;
@@ -28,7 +28,7 @@ type CreateLiveIntervalsSyncServiceOptions = {
 };
 
 export function createLiveIntervalsSyncApi(
-  options: CreateLiveIntervalsSyncServiceOptions = {},
+  options: CreateLiveIntervalsSyncApiOptions = {},
 ): IntervalsSyncApi {
   const database = options.db ?? db;
   const runtimeEnv = options.env ?? env;
@@ -60,6 +60,4 @@ export function createLiveIntervalsSyncApi(
   });
 }
 
-export const createLiveIntervalsSyncService = createLiveIntervalsSyncApi;
 export type { IntervalsSyncApi } from "../intervals-sync/module";
-export type IntervalsSyncService = IntervalsSyncApi;
