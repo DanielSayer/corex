@@ -2,14 +2,17 @@ import { db, type Database } from "@corex/db";
 import { env } from "@corex/env/server";
 
 import type { IntervalsAdapter } from "../intervals-sync/adapter";
-import { createIntervalsSyncRepository } from "../intervals-sync/repository";
+import { createIntervalsAdapter } from "../intervals-sync/adapter";
 import { createLiveDerivedPerformanceService } from "../intervals-sync/derived-performance-live";
 import {
-  createIntervalsSyncService,
-  type IntervalsSyncService,
-} from "../intervals-sync/service";
-import { createIntervalsAdapter } from "../intervals-sync/adapter";
-import { createIntervalsAccountService } from "./account";
+  createIntervalsSyncModule,
+  type IntervalsSyncApi,
+} from "../intervals-sync/module";
+import {
+  createImportedActivityPort,
+  createSyncLedgerPort,
+} from "../intervals-sync/repository";
+import { createIntervalsAccountPort } from "./account";
 import { createIntervalsAccountStore } from "./account-repository";
 import { createCredentialCrypto } from "./crypto";
 
@@ -24,13 +27,14 @@ type CreateLiveIntervalsSyncServiceOptions = {
   clock?: Clock;
 };
 
-export function createLiveIntervalsSyncService(
+export function createLiveIntervalsSyncApi(
   options: CreateLiveIntervalsSyncServiceOptions = {},
-): IntervalsSyncService {
+): IntervalsSyncApi {
   const database = options.db ?? db;
   const runtimeEnv = options.env ?? env;
+  const upstreamAdapter = options.adapter ?? createIntervalsAdapter();
 
-  const account = createIntervalsAccountService({
+  const accounts = createIntervalsAccountPort({
     store: createIntervalsAccountStore(database),
     crypto: createCredentialCrypto({
       masterKeyBase64: runtimeEnv.SETTINGS_MASTER_KEY_BASE64,
@@ -38,15 +42,24 @@ export function createLiveIntervalsSyncService(
     }),
   });
 
-  return createIntervalsSyncService({
-    account,
-    syncRepo: createIntervalsSyncRepository(database),
-    adapter: options.adapter ?? createIntervalsAdapter(),
-    derivedPerformance: createLiveDerivedPerformanceService({
+  return createIntervalsSyncModule({
+    accounts,
+    ledger: createSyncLedgerPort(database),
+    activities: createImportedActivityPort(database),
+    upstream: {
+      getProfile: (input) => upstreamAdapter.getProfile(input),
+      listActivities: (input) => upstreamAdapter.listActivities(input),
+      getDetail: (input) => upstreamAdapter.getActivityDetail(input),
+      getMap: (input) => upstreamAdapter.getActivityMap(input),
+      getStreams: (input) => upstreamAdapter.getActivityStreams(input),
+    },
+    derived: createLiveDerivedPerformanceService({
       db: database,
     }),
     clock: options.clock,
   });
 }
 
-export type { IntervalsSyncService } from "../intervals-sync/service";
+export const createLiveIntervalsSyncService = createLiveIntervalsSyncApi;
+export type { IntervalsSyncApi } from "../intervals-sync/module";
+export type IntervalsSyncService = IntervalsSyncApi;

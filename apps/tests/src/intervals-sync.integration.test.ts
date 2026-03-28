@@ -154,7 +154,7 @@ describe("intervals sync integration", () => {
     );
 
     const service = await createConfiguredSyncService(createAdapter());
-    const result = await Effect.runPromise(service.triggerForUser(user.id));
+    const result = await Effect.runPromise(service.syncNow(user.id));
     const importedRows = await db.query.importedActivity.findMany({
       where: (table, { eq }) => eq(table.userId, user.id),
     });
@@ -240,7 +240,7 @@ describe("intervals sync integration", () => {
     );
 
     const service = await createConfiguredSyncService(createAdapter());
-    const result = await Effect.runPromise(service.triggerForUser(user.id));
+    const result = await Effect.runPromise(service.syncNow(user.id));
     const latest = await Effect.runPromise(
       createIntervalsSyncRepository(db).getLatestSyncSummary(user.id),
     );
@@ -291,7 +291,7 @@ describe("intervals sync integration", () => {
       }),
     );
 
-    const exit = await Effect.runPromiseExit(service.triggerForUser(user.id));
+    const exit = await Effect.runPromiseExit(service.syncNow(user.id));
 
     expect(Exit.isFailure(exit)).toBe(true);
 
@@ -372,7 +372,7 @@ describe("intervals sync integration", () => {
       }),
     );
 
-    const result = await Effect.runPromise(service.triggerForUser(user.id));
+    const result = await Effect.runPromise(service.syncNow(user.id));
 
     expect(result.status).toBe("success");
     expect(result.insertedCount).toBe(1);
@@ -423,7 +423,7 @@ describe("intervals sync integration", () => {
       }),
     );
 
-    const result = await Effect.runPromise(service.triggerForUser(user.id));
+    const result = await Effect.runPromise(service.syncNow(user.id));
     const importedMapRows = await db.query.importedActivityMap.findMany({
       where: (table, { eq }) => eq(table.userId, user.id),
     });
@@ -480,7 +480,7 @@ describe("intervals sync integration", () => {
       }),
     );
 
-    const result = await Effect.runPromise(service.triggerForUser(user.id));
+    const result = await Effect.runPromise(service.syncNow(user.id));
 
     expect(result.status).toBe("success");
     expect(result.insertedCount).toBe(1);
@@ -601,7 +601,7 @@ describe("intervals sync integration", () => {
     });
 
     const service = await createConfiguredSyncService(adapter);
-    const result = await Effect.runPromise(service.triggerForUser(user.id));
+    const result = await Effect.runPromise(service.syncNow(user.id));
     const importedMapRows = await db.query.importedActivityMap.findMany({
       where: (table, { eq }) => eq(table.userId, user.id),
     });
@@ -678,7 +678,7 @@ describe("intervals sync integration", () => {
       }),
     );
 
-    const result = await Effect.runPromise(service.triggerForUser(user.id));
+    const result = await Effect.runPromise(service.syncNow(user.id));
     const effortRows = await db.query.runBestEffort.findMany({
       where: (table, { eq }) => eq(table.userId, user.id),
     });
@@ -756,9 +756,9 @@ describe("intervals sync integration", () => {
 
     const service = await createConfiguredSyncService(adapter);
 
-    const first = await Effect.runPromise(service.triggerForUser(user.id));
+    const first = await Effect.runPromise(service.syncNow(user.id));
     distance = 9000;
-    const second = await Effect.runPromise(service.triggerForUser(user.id));
+    const second = await Effect.runPromise(service.syncNow(user.id));
     const importedRows = await db.query.importedActivity.findMany({
       where: (table, { eq }) => eq(table.userId, user.id),
     });
@@ -855,11 +855,11 @@ describe("intervals sync integration", () => {
       }),
     );
 
-    await Effect.runPromise(service.triggerForUser(user.id));
+    await Effect.runPromise(service.syncNow(user.id));
 
     streamDistanceStep = 5;
 
-    await Effect.runPromise(service.triggerForUser(user.id));
+    await Effect.runPromise(service.syncNow(user.id));
 
     const effortRows = await db.query.runBestEffort.findMany({
       where: (table, { eq }) => eq(table.userId, user.id),
