@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
 
 import { EncryptionFailure } from "../training-settings/errors";
-import { createIntervalsAccountService } from "./account";
+import { createIntervalsAccountPort } from "./account";
 import type { IntervalsAccountStore } from "./account-repository";
 
 function createStore(
@@ -25,7 +25,7 @@ function createStore(
 
 describe("intervals account service", () => {
   it("loads decrypted account credentials for a user", async () => {
-    const service = createIntervalsAccountService({
+    const service = createIntervalsAccountPort({
       store: createStore(),
       crypto: {
         encrypt: () => Effect.die("not used"),
@@ -33,9 +33,7 @@ describe("intervals account service", () => {
       },
     });
 
-    await expect(
-      Effect.runPromise(service.loadAccountForUser("user-1")),
-    ).resolves.toEqual({
+    await expect(Effect.runPromise(service.load("user-1"))).resolves.toEqual({
       username: "runner@example.com",
       apiKey: "intervals-secret",
       athleteId: null,
@@ -47,7 +45,7 @@ describe("intervals account service", () => {
       | Parameters<IntervalsAccountStore["saveAthleteIdentity"]>[1]
       | undefined;
 
-    const service = createIntervalsAccountService({
+    const service = createIntervalsAccountPort({
       store: createStore({
         saveAthleteIdentity: (_userId, identity) => {
           persisted = identity;
@@ -61,7 +59,7 @@ describe("intervals account service", () => {
     });
 
     await Effect.runPromise(
-      service.recordResolvedAthleteIdentity("user-1", {
+      service.saveResolvedAthlete("user-1", {
         athleteId: "i509216",
         resolvedAt: new Date("2026-03-21T00:00:00.000Z"),
       }),
@@ -74,7 +72,7 @@ describe("intervals account service", () => {
   });
 
   it("maps credential decryption failures to intervals persistence failures", async () => {
-    const service = createIntervalsAccountService({
+    const service = createIntervalsAccountPort({
       store: createStore(),
       crypto: {
         encrypt: () => Effect.die("not used"),
@@ -88,7 +86,7 @@ describe("intervals account service", () => {
     });
 
     await expect(
-      Effect.runPromise(service.loadAccountForUser("user-1")),
+      Effect.runPromise(service.load("user-1")),
     ).rejects.toMatchObject({
       message: "Failed to decrypt Intervals API key",
     });

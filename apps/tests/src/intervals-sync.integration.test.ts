@@ -4,8 +4,11 @@ import { Cause, Effect, Exit, Option } from "effect";
 import { createUser } from "@corex/api/application/commands/create-user";
 import { createIntervalsAdapter } from "@corex/api/intervals-sync/adapter";
 import type { IntervalsAdapter } from "@corex/api/intervals-sync/adapter";
-import { createLiveIntervalsSyncService } from "@corex/api/intervals-sync/live";
-import { createIntervalsSyncRepository } from "@corex/api/intervals-sync/repository";
+import { createLiveIntervalsSyncApi } from "@corex/api/intervals-sync/live";
+import {
+  createImportedActivityPort,
+  createSyncLedgerPort,
+} from "@corex/api/intervals-sync/repository";
 import { createCredentialCrypto } from "@corex/api/training-settings/crypto";
 import { createTrainingSettingsRepository } from "@corex/api/training-settings/repository";
 import { createTrainingSettingsService } from "@corex/api/training-settings/service";
@@ -93,7 +96,7 @@ function createAdapter(
 async function createConfiguredSyncService(adapter: IntervalsAdapter) {
   const { db } = await getIntegrationHarness();
 
-  return createLiveIntervalsSyncService({
+  return createLiveIntervalsSyncApi({
     db,
     env: {
       SETTINGS_MASTER_KEY_BASE64: masterKeyBase64,
@@ -120,7 +123,7 @@ async function createConfiguredTrainingSettingsService() {
 describe("intervals sync integration", () => {
   beforeEach(async () => {
     await resetDatabase();
-  });
+  }, 15_000);
 
   it("resolves athlete identity, imports local activity history, and records a sync summary", async () => {
     const { db } = await getIntegrationHarness();
@@ -242,7 +245,7 @@ describe("intervals sync integration", () => {
     const service = await createConfiguredSyncService(createAdapter());
     const result = await Effect.runPromise(service.syncNow(user.id));
     const latest = await Effect.runPromise(
-      createIntervalsSyncRepository(db).getLatestSyncSummary(user.id),
+      createSyncLedgerPort(db).latest(user.id),
     );
 
     expect(result.status).toBe("success");
@@ -302,7 +305,7 @@ describe("intervals sync integration", () => {
     }
 
     const latest = await Effect.runPromise(
-      createIntervalsSyncRepository(db).getLatestSyncSummary(user.id),
+      createSyncLedgerPort(db).latest(user.id),
     );
 
     expect(latest?.status).toBe("failure");
@@ -983,7 +986,7 @@ describe("intervals sync integration", () => {
     ]);
 
     const result = await Effect.runPromise(
-      createIntervalsSyncRepository(db).getRecentActivities(user.id),
+      createImportedActivityPort(db).recentActivities(user.id),
     );
 
     expect(result).toHaveLength(5);
