@@ -1,1 +1,8 @@
 @import "@corex/ui/globals.css";
+
+.leaflet-control,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 0 !important;
+}
