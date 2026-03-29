@@ -11,6 +11,14 @@ import { createDb, type Database } from "@corex/db";
 import { getServerTestEnv, installServerTestEnv } from "@corex/env/test";
 
 const execFileAsync = promisify(execFile);
+const containerLabel = "corex.integration-harness=true";
+const containerOwnerLabel = "corex.integration-owner-pid";
+const containerOwnerLabelValue = String(process.pid);
+const signalExitCodeByName = {
+  SIGINT: 130,
+  SIGTERM: 143,
+  SIGBREAK: 149,
+} as const;
 
 type IntegrationContainer = {
   stop: () => Promise<void>;
@@ -27,9 +35,13 @@ const rootDir = path.resolve(
   "../../..",
 );
 const migrationsFolder = path.join(rootDir, "packages/db/src/migrations");
+const externalDatabaseEnvKey = "COREX_INTEGRATION_EXTERNAL_DATABASE";
+const legacyContainerNamePrefix = "corex-test-";
 
 let harnessPromise: Promise<IntegrationHarness> | undefined;
 let harnessError: Error | undefined;
+let cleanupHandlersRegistered = false;
+let shutdownPromise: Promise<void> | undefined;
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -45,6 +57,138 @@ async function runDockerCommand(args: string[]) {
 
 function createContainerName() {
   return `corex-test-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+async function listHarnessContainerIds() {
+  const containerIds = await runDockerCommand([
+    "ps",
+    "--all",
+    "--quiet",
+    "--filter",
+    `label=${containerLabel}`,
+  ]);
+
+  if (!containerIds) {
+    return [];
+  }
+
+  return containerIds.split(/\s+/);
+}
+
+async function listLegacyHarnessContainerIds() {
+  const containerIds = await runDockerCommand([
+    "ps",
+    "--all",
+    "--quiet",
+    "--filter",
+    `name=${legacyContainerNamePrefix}`,
+  ]);
+
+  if (!containerIds) {
+    return [];
+  }
+
+  return containerIds.split(/\s+/);
+}
+
+async function removeContainer(containerId: string) {
+  await runDockerCommand(["rm", "--force", containerId]);
+}
+
+async function readContainerOwnerPid(containerId: string) {
+  const ownerPid = await runDockerCommand([
+    "inspect",
+    "--format",
+    `{{ index .Config.Labels "${containerOwnerLabel}" }}`,
+    containerId,
+  ]);
+
+  return Number.parseInt(ownerPid, 10);
+}
+
+function isProcessAlive(pid: number) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return false;
+  }
+
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error instanceof Error && "code" in error
+      ? error.code !== "ESRCH"
+      : false;
+  }
+}
+
+async function removeCurrentProcessHarnessContainers() {
+  const containerIds = await listHarnessContainerIds();
+
+  for (const containerId of containerIds) {
+    const ownerPid = await readContainerOwnerPid(containerId).catch(() => NaN);
+
+    if (ownerPid === process.pid) {
+      await removeContainer(containerId).catch(() => undefined);
+    }
+  }
+}
+
+async function removeStaleHarnessContainers() {
+  const containerIds = await listHarnessContainerIds();
+
+  for (const containerId of containerIds) {
+    const ownerPid = await readContainerOwnerPid(containerId).catch(() => NaN);
+
+    if (!isProcessAlive(ownerPid)) {
+      await removeContainer(containerId).catch(() => undefined);
+    }
+  }
+}
+
+async function removeLegacyHarnessContainers() {
+  const containerIds = await listLegacyHarnessContainerIds();
+
+  for (const containerId of containerIds) {
+    await removeContainer(containerId).catch(() => undefined);
+  }
+}
+
+function registerCleanupHandlers() {
+  if (cleanupHandlersRegistered) {
+    return;
+  }
+
+  cleanupHandlersRegistered = true;
+
+  const cleanup = () => {
+    shutdownPromise ??= stopIntegrationHarness();
+    return shutdownPromise;
+  };
+
+  const handleSignal = (signal: keyof typeof signalExitCodeByName) => {
+    void cleanup().finally(() => {
+      process.exit(signalExitCodeByName[signal]);
+    });
+  };
+
+  process.once("beforeExit", () => cleanup());
+  process.once("SIGINT", () => handleSignal("SIGINT"));
+  process.once("SIGTERM", () => handleSignal("SIGTERM"));
+  process.once("SIGBREAK", () => handleSignal("SIGBREAK"));
+  process.once("uncaughtException", (error) => {
+    void cleanup().finally(() => {
+      process.nextTick(() => {
+        throw error;
+      });
+    });
+  });
+  process.once("unhandledRejection", (reason) => {
+    void cleanup().finally(() => {
+      process.nextTick(() => {
+        throw reason;
+      });
+    });
+  });
 }
 
 async function waitForPostgres(databaseUrl: string) {
@@ -75,11 +219,17 @@ async function startDockerPostgres(): Promise<{
   container: IntegrationContainer;
   databaseUrl: string;
 }> {
+  await removeStaleHarnessContainers();
+
   const containerName = createContainerName();
 
   await runDockerCommand([
     "run",
     "--detach",
+    "--label",
+    containerLabel,
+    "--label",
+    `${containerOwnerLabel}=${containerOwnerLabelValue}`,
     "--publish-all",
     "--name",
     containerName,
@@ -135,14 +285,31 @@ function setIntegrationEnv(databaseUrl: string) {
   );
 }
 
+function isExternalDatabaseManaged() {
+  return Bun.env[externalDatabaseEnvKey] === "1";
+}
+
 export async function startIntegrationHarness() {
   if (harnessError) {
     throw harnessError;
   }
 
   if (!harnessPromise) {
+    registerCleanupHandlers();
     harnessPromise = (async () => {
       try {
+        if (isExternalDatabaseManaged()) {
+          const databaseUrl = getServerTestEnv().DATABASE_URL;
+
+          return {
+            container: {
+              async stop() {},
+            },
+            databaseUrl,
+            db: createDb(databaseUrl),
+          };
+        }
+
         const { container, databaseUrl } = await startDockerPostgres();
         setIntegrationEnv(databaseUrl);
 
@@ -212,11 +379,17 @@ export async function stopIntegrationHarness() {
   harnessError = undefined;
 
   if (!harnessPromise) {
+    await removeCurrentProcessHarnessContainers().catch(() => undefined);
+    await removeLegacyHarnessContainers().catch(() => undefined);
+    shutdownPromise = undefined;
     return;
   }
 
   const { container, db } = await harnessPromise;
   harnessPromise = undefined;
   await db.$client.end().catch(() => undefined);
-  await container.stop();
+  await container.stop().catch(() => undefined);
+  await removeCurrentProcessHarnessContainers().catch(() => undefined);
+  await removeLegacyHarnessContainers().catch(() => undefined);
+  shutdownPromise = undefined;
 }
