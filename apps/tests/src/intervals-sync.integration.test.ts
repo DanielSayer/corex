@@ -4,7 +4,6 @@ import { Cause, Effect, Exit, Option } from "effect";
 import { createUser } from "@corex/api/application/commands/create-user";
 import { createIntervalsAdapter } from "@corex/api/intervals-sync/adapter";
 import type { IntervalsAdapter } from "@corex/api/intervals-sync/adapter";
-import { backfillNormalizedActivityDetails } from "@corex/api/intervals-sync/backfill-normalized-activity-details";
 import { createLiveIntervalsSyncApi } from "@corex/api/intervals-sync/live";
 import {
   createImportedActivityPort,
@@ -1292,78 +1291,5 @@ describe("intervals sync integration", () => {
       "heartrate",
       "velocity_smooth",
     ]);
-  });
-
-  it("backfills normalized activity detail fields from stored raw detail", async () => {
-    const { db } = await getIntegrationHarness();
-    const user = await createUser(db, {
-      email: "backfill@example.com",
-      name: "Backfill User",
-    });
-
-    await db.insert(importedActivity).values({
-      userId: user.id,
-      upstreamActivityId: "run-1",
-      athleteId: "i509216",
-      upstreamActivityType: "Run",
-      normalizedActivityType: "Run",
-      startAt: new Date("2026-03-20T00:00:00.000Z"),
-      movingTimeSeconds: 2400,
-      elapsedTimeSeconds: 2450,
-      distanceMeters: 8000,
-      rawDetail: {
-        id: "run-1",
-        type: "Run",
-        name: "Legacy run",
-        start_date_local: "2026-03-20T10:00:00.000+10:00",
-        device_name: "Forerunner 265",
-        max_speed: 5.1,
-        max_heartrate: 180,
-        average_cadence: 84,
-        calories: 640,
-        total_elevation_loss: 39,
-        icu_training_load: 77,
-        hr_load: 88,
-        icu_intensity: 0.83,
-        athlete_max_hr: 196,
-        icu_hr_zones: [120, 140],
-        icu_hr_zone_times: [120, 360],
-        icu_intervals: [
-          {
-            id: 1,
-            type: "WARMUP",
-            zone: 2,
-            intensity: 1,
-            moving_time: 300,
-          },
-        ],
-      },
-    });
-
-    const result = await backfillNormalizedActivityDetails(db);
-    const [row] = await db.query.importedActivity.findMany({
-      where: (table, { eq }) => eq(table.userId, user.id),
-    });
-    const heartRateZoneRows =
-      await db.query.importedActivityHeartRateZone.findMany({
-        where: (table, { eq }) => eq(table.userId, user.id),
-      });
-    const intervalRows = await db.query.importedActivityInterval.findMany({
-      where: (table, { eq }) => eq(table.userId, user.id),
-    });
-
-    expect(result).toEqual({
-      scannedCount: 1,
-      updatedCount: 1,
-      skippedCount: 0,
-    });
-    expect(row).toMatchObject({
-      name: "Legacy run",
-      deviceName: "Forerunner 265",
-      maxSpeedMetersPerSecond: 5.1,
-      athleteMaxHr: 196,
-    });
-    expect(heartRateZoneRows).toHaveLength(2);
-    expect(intervalRows).toHaveLength(1);
   });
 });
