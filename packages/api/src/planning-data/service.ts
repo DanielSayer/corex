@@ -1,9 +1,6 @@
 import { Effect } from "effect";
 
-import {
-  intervalsActivityDetailSchema,
-  intervalsActivityStreamSchema,
-} from "../intervals-sync/schemas";
+import { intervalsActivityStreamSchema } from "../intervals-sync/schemas";
 import { TARGET_EFFORT_DISTANCES_METERS } from "../intervals-sync/derived-performance";
 import type {
   PlanningHistoryQuality,
@@ -40,8 +37,6 @@ function toIsoString(value: Date) {
 }
 
 function mapDetailedRun(row: PlanningHistorySourceRow) {
-  const detailResult = intervalsActivityDetailSchema.safeParse(row.rawDetail);
-  const detail = detailResult.success ? detailResult.data : null;
   const streamResult = row.rawHeartrateStream
     ? intervalsActivityStreamSchema.safeParse(row.rawHeartrateStream)
     : null;
@@ -50,7 +45,7 @@ function mapDetailedRun(row: PlanningHistorySourceRow) {
     : null;
   const zoneTimes = deriveHeartRateZoneTimes({
     heartRateSamples: heartRateStream,
-    athleteMaxHeartRate: detail?.athlete_max_hr ?? null,
+    athleteMaxHeartRate: row.athleteMaxHr,
     movingTimeSeconds: row.movingTimeSeconds,
   });
 

@@ -58,6 +58,7 @@ describe("planning data integration", () => {
         totalElevationGainMeters: 20 + index,
         averageSpeedMetersPerSecond: 3.5,
         averageHeartrate: 150,
+        athleteMaxHr: 200,
         rawDetail: {
           id: `run-${index + 1}`,
           type: "Run",
@@ -199,6 +200,57 @@ describe("planning data integration", () => {
       z3Seconds: null,
       z4Seconds: null,
       z5Seconds: null,
+    });
+  });
+
+  it("uses normalized athlete max HR instead of raw detail when deriving zone times", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "normalized-zones@example.com",
+      name: "Normalized Zone User",
+    });
+
+    await db.insert(importedActivity).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      athleteId: "i509216",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      startAt: new Date("2026-03-24T12:00:00.000Z"),
+      movingTimeSeconds: 300,
+      elapsedTimeSeconds: 310,
+      distanceMeters: 5000,
+      athleteMaxHr: 200,
+      rawDetail: {
+        malformed: true,
+      },
+    });
+
+    await db.insert(importedActivityStream).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      streamType: "heartrate",
+      rawStream: {
+        type: "heartrate",
+        data: [100, 125, 145, 165, 185],
+      },
+    });
+
+    const service = createLivePlanningDataService({
+      db,
+      clock: { now: () => new Date("2026-03-25T12:00:00.000Z") },
+    });
+
+    const snapshot = await Effect.runPromise(
+      service.getPlanningHistorySnapshot(user.id),
+    );
+
+    expect(snapshot.detailedRuns[0]?.heartRateZoneTimes).toEqual({
+      z1Seconds: 60,
+      z2Seconds: 60,
+      z3Seconds: 60,
+      z4Seconds: 60,
+      z5Seconds: 60,
     });
   });
 

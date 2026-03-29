@@ -35,13 +35,25 @@ export const importedActivity = pgTable(
     athleteId: text("athlete_id").notNull(),
     upstreamActivityType: text("upstream_activity_type").notNull(),
     normalizedActivityType: text("normalized_activity_type").notNull(),
+    name: text("name"),
     startAt: timestamp("start_at").notNull(),
+    startDateLocal: timestamp("start_date_local"),
+    deviceName: text("device_name"),
     movingTimeSeconds: integer("moving_time_seconds").notNull(),
     elapsedTimeSeconds: integer("elapsed_time_seconds"),
     distanceMeters: real("distance_meters").notNull(),
     totalElevationGainMeters: real("total_elevation_gain_meters"),
+    totalElevationLossMeters: real("total_elevation_loss_meters"),
     averageSpeedMetersPerSecond: real("average_speed_meters_per_second"),
+    maxSpeedMetersPerSecond: real("max_speed_meters_per_second"),
     averageHeartrate: real("average_heartrate"),
+    maxHeartrate: real("max_heartrate"),
+    averageCadence: real("average_cadence"),
+    calories: real("calories"),
+    trainingLoad: real("training_load"),
+    hrLoad: real("hr_load"),
+    intensity: real("intensity"),
+    athleteMaxHr: real("athlete_max_hr"),
     rawDetail: jsonb("raw_detail").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -52,6 +64,73 @@ export const importedActivity = pgTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.upstreamActivityId] }),
     index("imported_activity_user_start_idx").on(table.userId, table.startAt),
+  ],
+);
+
+export const importedActivityHeartRateZone = pgTable(
+  "imported_activity_heart_rate_zone",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    upstreamActivityId: text("upstream_activity_id").notNull(),
+    zoneIndex: integer("zone_index").notNull(),
+    lowerBpm: real("lower_bpm").notNull(),
+    durationSeconds: real("duration_seconds").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.upstreamActivityId, table.zoneIndex],
+    }),
+    index("imported_activity_hr_zone_user_activity_idx").on(
+      table.userId,
+      table.upstreamActivityId,
+    ),
+  ],
+);
+
+export const importedActivityInterval = pgTable(
+  "imported_activity_interval",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    upstreamActivityId: text("upstream_activity_id").notNull(),
+    intervalIndex: integer("interval_index").notNull(),
+    intervalType: text("interval_type"),
+    zone: real("zone"),
+    intensity: real("intensity"),
+    distanceMeters: real("distance_meters"),
+    movingTimeSeconds: real("moving_time_seconds"),
+    elapsedTimeSeconds: real("elapsed_time_seconds"),
+    startTimeSeconds: real("start_time_seconds"),
+    endTimeSeconds: real("end_time_seconds"),
+    averageSpeedMetersPerSecond: real("average_speed_meters_per_second"),
+    maxSpeedMetersPerSecond: real("max_speed_meters_per_second"),
+    averageHeartrate: real("average_heartrate"),
+    maxHeartrate: real("max_heartrate"),
+    averageCadence: real("average_cadence"),
+    averageStride: real("average_stride"),
+    totalElevationGainMeters: real("total_elevation_gain_meters"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.upstreamActivityId, table.intervalIndex],
+    }),
+    index("imported_activity_interval_user_activity_idx").on(
+      table.userId,
+      table.upstreamActivityId,
+    ),
   ],
 );
 
@@ -273,6 +352,8 @@ export const importedActivityRelations = relations(
     }),
     map: many(importedActivityMap),
     streams: many(importedActivityStream),
+    heartRateZones: many(importedActivityHeartRateZone),
+    intervals: many(importedActivityInterval),
   }),
 );
 
@@ -307,6 +388,46 @@ export const importedActivityStreamRelations = relations(
       fields: [
         importedActivityStream.userId,
         importedActivityStream.upstreamActivityId,
+      ],
+      references: [
+        importedActivity.userId,
+        importedActivity.upstreamActivityId,
+      ],
+    }),
+  }),
+);
+
+export const importedActivityHeartRateZoneRelations = relations(
+  importedActivityHeartRateZone,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [importedActivityHeartRateZone.userId],
+      references: [user.id],
+    }),
+    activity: one(importedActivity, {
+      fields: [
+        importedActivityHeartRateZone.userId,
+        importedActivityHeartRateZone.upstreamActivityId,
+      ],
+      references: [
+        importedActivity.userId,
+        importedActivity.upstreamActivityId,
+      ],
+    }),
+  }),
+);
+
+export const importedActivityIntervalRelations = relations(
+  importedActivityInterval,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [importedActivityInterval.userId],
+      references: [user.id],
+    }),
+    activity: one(importedActivity, {
+      fields: [
+        importedActivityInterval.userId,
+        importedActivityInterval.upstreamActivityId,
       ],
       references: [
         importedActivity.userId,

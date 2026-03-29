@@ -206,6 +206,7 @@ describe("appRouter", () => {
             requestedUserId = userId;
             return Effect.succeed([]);
           },
+          activityDetails: () => Effect.die("not used"),
         },
       }),
     });

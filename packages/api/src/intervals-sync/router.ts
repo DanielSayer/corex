@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
@@ -84,6 +85,18 @@ export function createIntervalsSyncRouter(
         mapIntervalsSyncError,
       ),
     ),
+    activityDetails: authedProcedure
+      .input(
+        z.object({
+          activityId: z.string().min(1),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        executeEffect(
+          service.activityDetails(ctx.session.user.id, input.activityId),
+          mapIntervalsSyncError,
+        ),
+      ),
   });
 }
 
