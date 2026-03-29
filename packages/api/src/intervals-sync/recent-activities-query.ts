@@ -6,10 +6,7 @@ import {
   importedActivityMap,
 } from "@corex/db/schema/intervals-sync";
 
-import {
-  intervalsActivityDetailSchema,
-  intervalsActivityMapSchema,
-} from "./schemas";
+import { intervalsActivityMapSchema } from "./schemas";
 
 export async function loadRecentActivities(db: Database, userId: string) {
   const activityRows = await db.query.importedActivity.findMany({
@@ -37,8 +34,6 @@ export async function loadRecentActivities(db: Database, userId: string) {
   );
 
   return activityRows.map((row) => {
-    const detailResult = intervalsActivityDetailSchema.safeParse(row.rawDetail);
-    const detail = detailResult.success ? detailResult.data : null;
     const mapRow = mapByActivityId.get(row.upstreamActivityId);
     const mapResult = mapRow
       ? intervalsActivityMapSchema.safeParse(mapRow.rawMap)
@@ -48,19 +43,13 @@ export async function loadRecentActivities(db: Database, userId: string) {
     return {
       id: row.upstreamActivityId,
       name:
-        typeof detail?.name === "string" && detail.name.trim().length > 0
-          ? detail.name
+        typeof row.name === "string" && row.name.trim().length > 0
+          ? row.name
           : "Untitled run",
       startDate: row.startAt.toISOString(),
-      distance: detail?.distance ?? 0,
-      elapsedTime:
-        detail?.elapsed_time == null
-          ? row.elapsedTimeSeconds
-          : Math.round(detail.elapsed_time),
-      averageHeartrate:
-        detail?.average_heartrate == null
-          ? row.averageHeartrate
-          : detail.average_heartrate,
+      distance: row.distanceMeters,
+      elapsedTime: row.elapsedTimeSeconds,
+      averageHeartrate: row.averageHeartrate,
       routePreview:
         map?.latlngs && Array.isArray(map.latlngs)
           ? { latlngs: map.latlngs }

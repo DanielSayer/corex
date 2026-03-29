@@ -43,6 +43,9 @@ export function createIntervalsSyncModule(
     recentActivities(userId) {
       return options.activities.recentActivities(userId);
     },
+    activityDetails(userId, activityId) {
+      return options.activities.activityDetails(userId, activityId);
+    },
     syncNow(userId) {
       return Effect.suspend(() =>
         runIntervalsSyncNow(

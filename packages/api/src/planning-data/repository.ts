@@ -22,8 +22,8 @@ export type PlanningHistorySourceRow = {
   elevationGainMeters: number | null;
   averageHeartrate: number | null;
   averageSpeedMetersPerSecond: number | null;
+  athleteMaxHr: number | null;
   normalizedActivityType: string;
-  rawDetail: unknown;
   rawHeartrateStream: unknown | null;
 };
 
@@ -109,8 +109,8 @@ export function createPlanningDataRepository(
               averageHeartrate: importedActivity.averageHeartrate,
               averageSpeedMetersPerSecond:
                 importedActivity.averageSpeedMetersPerSecond,
+              athleteMaxHr: importedActivity.athleteMaxHr,
               normalizedActivityType: importedActivity.normalizedActivityType,
-              rawDetail: importedActivity.rawDetail,
               rawHeartrateStream: importedActivityStream.rawStream,
             })
             .from(importedActivity)

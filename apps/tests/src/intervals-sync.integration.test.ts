@@ -4,6 +4,7 @@ import { Cause, Effect, Exit, Option } from "effect";
 import { createUser } from "@corex/api/application/commands/create-user";
 import { createIntervalsAdapter } from "@corex/api/intervals-sync/adapter";
 import type { IntervalsAdapter } from "@corex/api/intervals-sync/adapter";
+import { backfillNormalizedActivityDetails } from "@corex/api/intervals-sync/backfill-normalized-activity-details";
 import { createLiveIntervalsSyncApi } from "@corex/api/intervals-sync/live";
 import {
   createImportedActivityPort,
@@ -14,7 +15,11 @@ import { createTrainingSettingsRepository } from "@corex/api/training-settings/r
 import { createTrainingSettingsService } from "@corex/api/training-settings/service";
 import {
   importedActivity,
+  importedActivityHeartRateZone,
+  importedActivityInterval,
   importedActivityMap,
+  importedActivityStream,
+  runBestEffort,
 } from "@corex/db/schema/intervals-sync";
 
 import { getIntegrationHarness, resetDatabase } from "./harness";
@@ -47,11 +52,46 @@ function createAdapter(
       id: activityId,
       icu_athlete_id: "i509216",
       type: "Run",
+      name: "Morning run",
       start_date: "2026-03-20T00:00:00.000Z",
+      start_date_local: "2026-03-20T10:00:00.000+10:00",
       moving_time: 2400,
       elapsed_time: 2450,
       distance: 8000,
+      max_speed: 5.1,
       average_heartrate: 152,
+      max_heartrate: 180,
+      average_cadence: 84,
+      calories: 640,
+      device_name: "Forerunner 265",
+      total_elevation_gain: 42,
+      total_elevation_loss: 39,
+      icu_training_load: 77,
+      hr_load: 88,
+      icu_intensity: 0.83,
+      athlete_max_hr: 196,
+      icu_hr_zones: [120, 140, 155, 170, 182],
+      icu_hr_zone_times: [120, 360, 840, 720, 360],
+      icu_intervals: [
+        {
+          id: 1,
+          type: "WARMUP",
+          zone: 2,
+          intensity: 1,
+          distance: 1000,
+          moving_time: 300,
+          elapsed_time: 305,
+          start_time: 0,
+          end_time: 300,
+          average_speed: 3.33,
+          max_speed: 4.4,
+          average_heartrate: 132,
+          max_heartrate: 145,
+          average_cadence: 82,
+          average_stride: 1.03,
+          total_elevation_gain: 5,
+        },
+      ],
     }),
     getActivityMap: async () => ({
       latlngs: [
@@ -167,6 +207,13 @@ describe("intervals sync integration", () => {
     const importedStreamRows = await db.query.importedActivityStream.findMany({
       where: (table, { eq }) => eq(table.userId, user.id),
     });
+    const heartRateZoneRows =
+      await db.query.importedActivityHeartRateZone.findMany({
+        where: (table, { eq }) => eq(table.userId, user.id),
+      });
+    const intervalRows = await db.query.importedActivityInterval.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
     const runBestEffortRows = await db.query.runBestEffort.findMany({
       where: (table, { eq }) => eq(table.userId, user.id),
     });
@@ -190,6 +237,8 @@ describe("intervals sync integration", () => {
     expect(importedRows).toHaveLength(1);
     expect(importedMapRows).toHaveLength(1);
     expect(importedStreamRows).toHaveLength(5);
+    expect(heartRateZoneRows).toHaveLength(5);
+    expect(intervalRows).toHaveLength(1);
     expect(runBestEffortRows.length).toBeGreaterThan(0);
     expect(allTimePrRows.length).toBeGreaterThan(0);
     expect(monthlyBestRows.length).toBeGreaterThan(0);
@@ -199,6 +248,20 @@ describe("intervals sync integration", () => {
     expect(importedRows[0]?.rawDetail).toMatchObject({
       id: "run-1",
       distance: 8000,
+    });
+    expect(importedRows[0]).toMatchObject({
+      name: "Morning run",
+      deviceName: "Forerunner 265",
+      maxSpeedMetersPerSecond: 5.1,
+      maxHeartrate: 180,
+      averageCadence: 84,
+      calories: 640,
+      totalElevationGainMeters: 42,
+      totalElevationLossMeters: 39,
+      trainingLoad: 77,
+      hrLoad: 88,
+      intensity: 0.83,
+      athleteMaxHr: 196,
     });
     expect(importedMapRows[0]?.rawMap).toMatchObject({
       route: { name: "River loop" },
@@ -919,6 +982,7 @@ describe("intervals sync integration", () => {
         athleteId: "i509216",
         upstreamActivityType: "Run",
         normalizedActivityType: "Run",
+        name: index === 1 || index === 2 ? null : `Run ${index + 1}`,
         startAt,
         movingTimeSeconds: 1800,
         elapsedTimeSeconds: 1810 + index,
@@ -946,6 +1010,7 @@ describe("intervals sync integration", () => {
       athleteId: "i509216",
       upstreamActivityType: "Run",
       normalizedActivityType: "Run",
+      name: "Other run",
       startAt: new Date("2026-03-25T00:00:00.000Z"),
       movingTimeSeconds: 1800,
       elapsedTimeSeconds: 1800,
@@ -1021,5 +1086,284 @@ describe("intervals sync integration", () => {
     expect(result.some((activity) => activity.id === "other-run-1")).toBe(
       false,
     );
+  });
+
+  it("returns normalized activity details without parsing raw detail", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "details@example.com",
+      name: "Details User",
+    });
+
+    await db.insert(importedActivity).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      athleteId: "i509216",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      name: "Morning run",
+      startAt: new Date("2026-03-20T00:00:00.000Z"),
+      startDateLocal: new Date("2026-03-20T10:00:00.000Z"),
+      deviceName: "Forerunner 265",
+      movingTimeSeconds: 2400,
+      elapsedTimeSeconds: 2450,
+      distanceMeters: 8000,
+      totalElevationGainMeters: 42,
+      totalElevationLossMeters: 39,
+      averageSpeedMetersPerSecond: 3.5,
+      maxSpeedMetersPerSecond: 5.1,
+      averageHeartrate: 152,
+      maxHeartrate: 180,
+      averageCadence: 84,
+      calories: 640,
+      trainingLoad: 77,
+      hrLoad: 88,
+      intensity: 0.83,
+      athleteMaxHr: 196,
+      rawDetail: { malformed: true },
+    });
+    await db.insert(importedActivityMap).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      hasRoute: true,
+      hasWeather: false,
+      rawMap: {
+        bounds: [
+          [-27.48, 153.01],
+          [-27.47, 153.03],
+        ],
+        latlngs: [
+          [-27.4748, 153.0192],
+          [-27.4734, 153.0211],
+        ],
+      },
+    });
+    await db.insert(importedActivityHeartRateZone).values([
+      {
+        userId: user.id,
+        upstreamActivityId: "run-1",
+        zoneIndex: 0,
+        lowerBpm: 120,
+        durationSeconds: 120,
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "run-1",
+        zoneIndex: 1,
+        lowerBpm: 140,
+        durationSeconds: 360,
+      },
+    ]);
+    await db.insert(importedActivityInterval).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      intervalIndex: 0,
+      intervalType: "WARMUP",
+      zone: 2,
+      intensity: 1,
+      distanceMeters: 1000,
+      movingTimeSeconds: 300,
+      elapsedTimeSeconds: 305,
+      startTimeSeconds: 0,
+      endTimeSeconds: 300,
+      averageSpeedMetersPerSecond: 3.33,
+      maxSpeedMetersPerSecond: 4.4,
+      averageHeartrate: 132,
+      maxHeartrate: 145,
+      averageCadence: 82,
+      averageStride: 1.03,
+      totalElevationGainMeters: 5,
+    });
+    await db.insert(importedActivityStream).values([
+      {
+        userId: user.id,
+        upstreamActivityId: "run-1",
+        streamType: "distance",
+        rawStream: {
+          type: "distance",
+          data: [0, 500, 1000, 1500, 2000],
+        },
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "run-1",
+        streamType: "heartrate",
+        rawStream: {
+          type: "heartrate",
+          data: [120, 130, 140],
+        },
+      },
+    ]);
+    await db.insert(importedActivityStream).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      streamType: "cadence",
+      rawStream: {
+        type: "cadence",
+        data: [82, 83, 84],
+      },
+    });
+    await db.insert(importedActivityStream).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      streamType: "velocity_smooth",
+      rawStream: {
+        type: "velocity_smooth",
+        data: [3.3, 3.4, 3.5],
+      },
+    });
+    await db.insert(importedActivityStream).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      streamType: "fixed_altitude",
+      rawStream: {
+        type: "fixed_altitude",
+        data: [10, 11, 12],
+      },
+    });
+    await db.insert(importedActivityStream).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      streamType: "invalid",
+      rawStream: {
+        type: "invalid",
+        data: "nope",
+      },
+    });
+    await db.insert(runBestEffort).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      distanceMeters: 1000,
+      durationSeconds: 240,
+      startSampleIndex: 0,
+      endSampleIndex: 2,
+    });
+
+    const result = await Effect.runPromise(
+      createImportedActivityPort(db).activityDetails(user.id, "run-1"),
+    );
+
+    expect(result).toMatchObject({
+      name: "Morning run",
+      type: "Run",
+      deviceName: "Forerunner 265",
+      distance: 8000,
+      movingTime: 2400,
+      elapsedTime: 2450,
+      averageSpeed: 3.5,
+      maxSpeed: 5.1,
+      averageHeartrate: 152,
+      maxHeartrate: 180,
+      averageCadence: 84,
+      calories: 640,
+      totalElevationGain: 42,
+      totalElevationLoss: 39,
+      trainingLoad: 77,
+      hrLoad: 88,
+      intensity: 0.83,
+      athleteMaxHr: 196,
+      heartRateZonesBpm: [120, 140],
+      heartRateZoneDurationsSeconds: [120, 360],
+      bestEfforts: [{ targetDistanceMeters: 1000, durationSeconds: 240 }],
+    });
+    expect(result?.intervals).toEqual([
+      expect.objectContaining({
+        intervalType: "WARMUP",
+        zone: "2",
+        intensity: "1",
+      }),
+    ]);
+    expect(result?.oneKmSplitTimesSeconds).toEqual([
+      {
+        splitNumber: 1,
+        splitDistanceMeters: 1000,
+        durationSeconds: 2,
+      },
+      {
+        splitNumber: 2,
+        splitDistanceMeters: 2000,
+        durationSeconds: 2,
+      },
+    ]);
+    expect(result?.streams.map((stream) => stream.streamType)).toEqual([
+      "cadence",
+      "distance",
+      "fixed_altitude",
+      "heartrate",
+      "velocity_smooth",
+    ]);
+  });
+
+  it("backfills normalized activity detail fields from stored raw detail", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "backfill@example.com",
+      name: "Backfill User",
+    });
+
+    await db.insert(importedActivity).values({
+      userId: user.id,
+      upstreamActivityId: "run-1",
+      athleteId: "i509216",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      startAt: new Date("2026-03-20T00:00:00.000Z"),
+      movingTimeSeconds: 2400,
+      elapsedTimeSeconds: 2450,
+      distanceMeters: 8000,
+      rawDetail: {
+        id: "run-1",
+        type: "Run",
+        name: "Legacy run",
+        start_date_local: "2026-03-20T10:00:00.000+10:00",
+        device_name: "Forerunner 265",
+        max_speed: 5.1,
+        max_heartrate: 180,
+        average_cadence: 84,
+        calories: 640,
+        total_elevation_loss: 39,
+        icu_training_load: 77,
+        hr_load: 88,
+        icu_intensity: 0.83,
+        athlete_max_hr: 196,
+        icu_hr_zones: [120, 140],
+        icu_hr_zone_times: [120, 360],
+        icu_intervals: [
+          {
+            id: 1,
+            type: "WARMUP",
+            zone: 2,
+            intensity: 1,
+            moving_time: 300,
+          },
+        ],
+      },
+    });
+
+    const result = await backfillNormalizedActivityDetails(db);
+    const [row] = await db.query.importedActivity.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const heartRateZoneRows =
+      await db.query.importedActivityHeartRateZone.findMany({
+        where: (table, { eq }) => eq(table.userId, user.id),
+      });
+    const intervalRows = await db.query.importedActivityInterval.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+
+    expect(result).toEqual({
+      scannedCount: 1,
+      updatedCount: 1,
+      skippedCount: 0,
+    });
+    expect(row).toMatchObject({
+      name: "Legacy run",
+      deviceName: "Forerunner 265",
+      maxSpeedMetersPerSecond: 5.1,
+      athleteMaxHr: 196,
+    });
+    expect(heartRateZoneRows).toHaveLength(2);
+    expect(intervalRows).toHaveLength(1);
   });
 });

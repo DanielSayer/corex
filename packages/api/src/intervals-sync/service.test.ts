@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Cause, Effect, Exit, Option } from "effect";
 
+import type { ActivityDetailsPageData } from "./activity-details";
 import type { IntervalsAccountPort } from "../intervals/account";
 import type { IntervalsUpstreamPort } from "./adapter";
 import { InvalidIntervalsCredentials, SyncAlreadyInProgress } from "./errors";
@@ -162,6 +163,7 @@ function createActivities(
   return {
     upsert: () => Effect.succeed("inserted"),
     recentActivities: () => Effect.succeed([]),
+    activityDetails: () => Effect.succeed(null),
     ...overrides,
   };
 }
@@ -424,5 +426,59 @@ describe("intervals sync module", () => {
     const result = await Effect.runPromise(service.latest("user-1"));
 
     expect(result).toEqual(latestSummary);
+  });
+
+  it("returns activity details from the activities port unchanged", async () => {
+    const details: ActivityDetailsPageData = {
+      name: "Morning run",
+      startDateLocal: "2026-03-20T10:00:00.000+10:00",
+      type: "Run",
+      deviceName: "Forerunner",
+      mapData: null,
+      distance: 1000,
+      movingTime: 240,
+      elapsedTime: 250,
+      averageSpeed: 4.1,
+      maxSpeed: 5.2,
+      averageHeartrate: 152,
+      maxHeartrate: 182,
+      averageCadence: 84,
+      calories: 100,
+      totalElevationGain: 10,
+      totalElevationLoss: 9,
+      trainingLoad: 35,
+      hrLoad: 40,
+      intensity: 0.8,
+      athleteMaxHr: 196,
+      heartRateZonesBpm: [120, 140, 155],
+      heartRateZoneDurationsSeconds: [120, 90, 30],
+      oneKmSplitTimesSeconds: [
+        {
+          splitNumber: 1,
+          splitDistanceMeters: 1000,
+          durationSeconds: 240,
+        },
+      ],
+      intervals: [],
+      streams: [],
+      bestEfforts: [],
+    };
+
+    const service = createIntervalsSyncModule({
+      accounts: createAccountPort(),
+      ledger: createLedger(),
+      activities: createActivities({
+        activityDetails: () => Effect.succeed(details),
+      }),
+      upstream: createUpstreamPort(),
+      derived: createDerivedPort(),
+      idGenerator: () => "event-1",
+    });
+
+    const result = await Effect.runPromise(
+      service.activityDetails("user-1", "run-1"),
+    );
+
+    expect(result).toEqual(details);
   });
 });
