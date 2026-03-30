@@ -1,6 +1,8 @@
 import type { IntervalsActivityStream } from "./schemas";
 
-function normalizeCadenceStreamData(data: unknown) {
+function normalizeCadenceStreamData(
+  data: IntervalsActivityStream["data"],
+): IntervalsActivityStream["data"] {
   if (!Array.isArray(data)) {
     return data;
   }

@@ -22,17 +22,20 @@ export const Route = createFileRoute("/_app/activity/$activityId")({
 
 function RouteComponent() {
   const { activityId } = Route.useParams();
-  const activityQuery = useQuery(
-    trpc.intervalsSync.activityDetails.queryOptions({ activityId }),
+  const activitySummaryQuery = useQuery(
+    trpc.intervalsSync.activitySummary.queryOptions({ activityId }),
   );
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-3 px-4 py-4">
-      <LoadingWrapper isLoading={activityQuery.isLoading}>
-        {activityQuery.isError ? (
+      <LoadingWrapper isLoading={activitySummaryQuery.isLoading}>
+        {activitySummaryQuery.isError ? (
           <p className="text-destructive text-sm">Failed to load activity.</p>
-        ) : activityQuery.data ? (
-          <ActivityDetailView activity={activityQuery.data} />
+        ) : activitySummaryQuery.data ? (
+          <ActivityDetailView
+            activity={activitySummaryQuery.data}
+            activityId={activityId}
+          />
         ) : null}
       </LoadingWrapper>
     </div>

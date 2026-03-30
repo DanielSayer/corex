@@ -13,15 +13,14 @@ import {
   getAvailableMetrics,
   metricSpecs,
   type CompareChartPoint,
-  type MetricKey,
 } from "./utils/chart-data";
 import { formatSecondsToHms } from "./utils/formatters";
-import type { ActivityDetails } from "./utils/types";
+import type { ActivityAnalysis, ActivityMetricKey } from "./utils/types";
 
 type AxisSide = "left" | "right";
 
-function getDefaultSelectedMetrics(availableMetrics: MetricKey[]) {
-  const preferred: MetricKey[] = ["heartrate", "velocity_smooth"];
+function getDefaultSelectedMetrics(availableMetrics: ActivityMetricKey[]) {
+  const preferred: ActivityMetricKey[] = ["heartrate", "velocity_smooth"];
   const selected = preferred.filter((metric) =>
     availableMetrics.includes(metric),
   );
@@ -34,11 +33,11 @@ function getDefaultSelectedMetrics(availableMetrics: MetricKey[]) {
 }
 
 function mapMetricsToAxes(
-  selectedMetrics: MetricKey[],
-): Partial<Record<MetricKey, AxisSide>> {
+  selectedMetrics: ActivityMetricKey[],
+): Partial<Record<ActivityMetricKey, AxisSide>> {
   const leftPrimary = selectedMetrics[0];
   const rightPrimary = selectedMetrics[1];
-  const axisByMetric: Partial<Record<MetricKey, AxisSide>> = {};
+  const axisByMetric: Partial<Record<ActivityMetricKey, AxisSide>> = {};
 
   for (const metric of selectedMetrics) {
     if (metric === leftPrimary) {
@@ -75,7 +74,7 @@ function mapMetricsToAxes(
 
 function getAxisDomain(
   chartData: CompareChartPoint[],
-  metrics: MetricKey[],
+  metrics: ActivityMetricKey[],
 ): [number, number] {
   const values = chartData.flatMap((point) =>
     metrics
@@ -113,16 +112,16 @@ function getAxisDomain(
   return [min - pad, max + pad];
 }
 
-function CompareChart({ activity }: { activity: ActivityDetails }) {
+function CompareChart({ analysis }: { analysis: ActivityAnalysis }) {
   const availableMetrics = useMemo(
-    () => getAvailableMetrics(activity),
-    [activity],
+    () => getAvailableMetrics(analysis),
+    [analysis],
   );
   const defaultSelectedMetrics = useMemo(
     () => getDefaultSelectedMetrics(availableMetrics),
     [availableMetrics],
   );
-  const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(
+  const [selectedMetrics, setSelectedMetrics] = useState<ActivityMetricKey[]>(
     defaultSelectedMetrics,
   );
 
@@ -141,8 +140,8 @@ function CompareChart({ activity }: { activity: ActivityDetails }) {
   }, [availableMetrics, defaultSelectedMetrics]);
 
   const chartData = useMemo(
-    () => buildCompareChartData(activity, selectedMetrics),
-    [activity, selectedMetrics],
+    () => buildCompareChartData(analysis, selectedMetrics),
+    [analysis, selectedMetrics],
   );
   const axisByMetric = useMemo(
     () => mapMetricsToAxes(selectedMetrics),
@@ -173,7 +172,7 @@ function CompareChart({ activity }: { activity: ActivityDetails }) {
     return null;
   }
 
-  function toggleMetric(metric: MetricKey) {
+  function toggleMetric(metric: ActivityMetricKey) {
     setSelectedMetrics((previous) => {
       if (previous.includes(metric)) {
         if (previous.length === 1) {
@@ -294,7 +293,7 @@ function CompareChartTooltip({
 }: {
   active?: boolean;
   payload?: Array<{ payload: CompareChartPoint }>;
-  selectedMetrics: MetricKey[];
+  selectedMetrics: ActivityMetricKey[];
 }) {
   if (!active || !payload?.length) {
     return null;
@@ -321,8 +320,11 @@ function CompareChartTooltip({
     .filter(
       (
         metricRow,
-      ): metricRow is { label: string; metric: MetricKey; value: string } =>
-        metricRow !== null,
+      ): metricRow is {
+        label: string;
+        metric: ActivityMetricKey;
+        value: string;
+      } => metricRow !== null,
     );
 
   if (visibleMetricRows.length === 0) {

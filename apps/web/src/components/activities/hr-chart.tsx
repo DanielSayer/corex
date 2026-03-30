@@ -16,8 +16,7 @@ import {
 } from "@/components/chart";
 
 import { formatSecondsToHms } from "./utils/formatters";
-import { mapStreamIndexToSecond } from "./utils/chart-data";
-import type { ActivityDetails } from "./utils/types";
+import type { ActivityMetricPoint } from "./utils/types";
 
 type HrPoint = {
   heartrate: number;
@@ -31,31 +30,19 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-function HrChart({ activity }: { activity: ActivityDetails }) {
-  const hrData = activity.streams.find(
-    (stream) => stream.streamType === "heartrate",
-  );
-
-  if (!hrData || !hrData.data || !Array.isArray(hrData.data)) {
-    return null;
-  }
-
-  const chartData = hrData.data
-    .map((value, index) => {
-      if (typeof value !== "number" || !Number.isFinite(value)) {
-        return null;
-      }
-
-      return {
-        heartrate: value,
-        second: mapStreamIndexToSecond({
-          activity,
-          index,
-          streamPointCount: Number(hrData.data.length),
-        }),
-      } satisfies HrPoint;
-    })
-    .filter((point): point is HrPoint => point !== null);
+function HrChart({
+  averageHeartrate,
+  maxHeartrate,
+  series,
+}: {
+  averageHeartrate: number | null;
+  maxHeartrate: number | null;
+  series: ActivityMetricPoint[];
+}) {
+  const chartData = series.map((point) => ({
+    heartrate: point.value,
+    second: point.second,
+  }));
 
   if (chartData.length === 0) {
     return null;
@@ -67,12 +54,11 @@ function HrChart({ activity }: { activity: ActivityDetails }) {
         <h2 className="text-3xl font-bold tracking-tight">Heart Rate</h2>
         <p className="text-muted-foreground text-sm">
           Average heart rate:{" "}
-          <span className="font-bold">{activity.averageHeartrate}</span>{" "}
+          <span className="font-bold">{averageHeartrate}</span>{" "}
           <span className="text-muted-foreground text-sm">bpm</span>.
         </p>
         <p className="text-muted-foreground text-sm">
-          Max heart rate:{" "}
-          <span className="font-bold">{activity.maxHeartrate}</span>{" "}
+          Max heart rate: <span className="font-bold">{maxHeartrate}</span>{" "}
           <span className="text-muted-foreground text-sm">bpm</span>.
         </p>
       </div>
@@ -115,17 +101,13 @@ function HrChart({ activity }: { activity: ActivityDetails }) {
             width={40}
           />
           <ChartTooltip cursor={false} content={<HeartrateTooltip />} />
-          {activity.averageHeartrate ? (
+          {averageHeartrate ? (
             <ReferenceLine
               stroke="var(--color-heartrate)"
               strokeDasharray="5 5"
-              y={activity.averageHeartrate}
+              y={averageHeartrate}
             >
-              <Label
-                offset={10}
-                position="left"
-                value={activity.averageHeartrate}
-              />
+              <Label offset={10} position="left" value={averageHeartrate} />
             </ReferenceLine>
           ) : null}
 

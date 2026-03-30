@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { Cause, Effect, Exit, Option } from "effect";
 
-import type { ActivityDetailsPageData } from "./activity-details";
+import type {
+  ActivityAnalysisData,
+  ActivitySummaryPageData,
+} from "./activity-details";
 import type { IntervalsAccountPort } from "../intervals/account";
 import type { IntervalsUpstreamPort } from "./adapter";
 import { InvalidIntervalsCredentials, SyncAlreadyInProgress } from "./errors";
@@ -163,7 +166,8 @@ function createActivities(
   return {
     upsert: () => Effect.succeed("inserted"),
     recentActivities: () => Effect.succeed([]),
-    activityDetails: () => Effect.succeed(null),
+    activitySummary: () => Effect.succeed(null),
+    activityAnalysis: () => Effect.succeed(null),
     ...overrides,
   };
 }
@@ -428,13 +432,13 @@ describe("intervals sync module", () => {
     expect(result).toEqual(latestSummary);
   });
 
-  it("returns activity details from the activities port unchanged", async () => {
-    const details: ActivityDetailsPageData = {
+  it("returns activity summary from the activities port unchanged", async () => {
+    const summary: ActivitySummaryPageData = {
       name: "Morning run",
       startDateLocal: "2026-03-20T10:00:00.000+10:00",
       type: "Run",
       deviceName: "Forerunner",
-      mapData: null,
+      mapPreview: null,
       distance: 1000,
       movingTime: 240,
       elapsedTime: 250,
@@ -460,25 +464,35 @@ describe("intervals sync module", () => {
         },
       ],
       intervals: [],
-      streams: [],
       bestEfforts: [],
+    };
+    const analysis: ActivityAnalysisData = {
+      heartrate: [],
+      cadence: [],
+      velocity_smooth: [],
+      fixed_altitude: [],
     };
 
     const service = createIntervalsSyncModule({
       accounts: createAccountPort(),
       ledger: createLedger(),
       activities: createActivities({
-        activityDetails: () => Effect.succeed(details),
+        activitySummary: () => Effect.succeed(summary),
+        activityAnalysis: () => Effect.succeed(analysis),
       }),
       upstream: createUpstreamPort(),
       derived: createDerivedPort(),
       idGenerator: () => "event-1",
     });
 
-    const result = await Effect.runPromise(
-      service.activityDetails("user-1", "run-1"),
+    const summaryResult = await Effect.runPromise(
+      service.activitySummary("user-1", "run-1"),
+    );
+    const analysisResult = await Effect.runPromise(
+      service.activityAnalysis("user-1", "run-1"),
     );
 
-    expect(result).toEqual(details);
+    expect(summaryResult).toEqual(summary);
+    expect(analysisResult).toEqual(analysis);
   });
 });

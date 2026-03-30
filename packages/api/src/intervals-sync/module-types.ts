@@ -1,6 +1,9 @@
 import type { Effect } from "effect";
 
-import type { ActivityDetailsPageData } from "./activity-details";
+import type {
+  ActivityAnalysisData,
+  ActivitySummaryPageData,
+} from "./activity-details";
 import type { IntervalsAccountPort } from "../intervals/account";
 import type { IntervalsUpstreamPort } from "./adapter";
 import type { DerivedPerformancePort } from "./derived-performance-service";
@@ -57,8 +60,12 @@ export type IntervalsSyncApi = {
   recentActivities: (
     userId: string,
   ) => Effect.Effect<RecentActivityPreview[], SyncPersistenceFailure>;
-  activityDetails: (
+  activitySummary: (
     userId: string,
     activityId: string,
-  ) => Effect.Effect<ActivityDetailsPageData | null, SyncPersistenceFailure>;
+  ) => Effect.Effect<ActivitySummaryPageData | null, SyncPersistenceFailure>;
+  activityAnalysis: (
+    userId: string,
+    activityId: string,
+  ) => Effect.Effect<ActivityAnalysisData | null, SyncPersistenceFailure>;
 };

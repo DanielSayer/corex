@@ -1,12 +1,46 @@
-export type ActivityDetailsPageData = {
+export const MAX_ACTIVITY_ANALYSIS_POINTS = 1200;
+export const MAX_ACTIVITY_MAP_PREVIEW_POINTS = 2000;
+
+export type ActivityMapPreviewData = {
+  bounds: number[][];
+  latlngs: Array<[number, number] | null>;
+} | null;
+
+export type ActivityIntervalSummary = {
+  intervalType: string | null;
+  zone: string | null;
+  intensity: string | null;
+  distance: number | null;
+  movingTime: number | null;
+  elapsedTime: number | null;
+  startTime: number | null;
+  endTime: number | null;
+  averageSpeed: number | null;
+  maxSpeed: number | null;
+  averageHeartrate: number | null;
+  maxHeartrate: number | null;
+  averageCadence: number | null;
+  averageStride: number | null;
+  totalElevationGain: number | null;
+};
+
+export type ActivityMetricKey =
+  | "heartrate"
+  | "cadence"
+  | "velocity_smooth"
+  | "fixed_altitude";
+
+export type ActivityMetricPoint = {
+  second: number;
+  value: number;
+};
+
+export type ActivitySummaryPageData = {
   name: string | null;
   startDateLocal: Date | string | null;
   type: string | null;
   deviceName: string | null;
-  mapData: {
-    bounds: number[][];
-    latlngs: Array<[number, number] | null>;
-  } | null;
+  mapPreview: ActivityMapPreviewData;
   distance: number | null;
   movingTime: number | null;
   elapsedTime: number | null;
@@ -29,29 +63,14 @@ export type ActivityDetailsPageData = {
     splitDistanceMeters: number;
     durationSeconds: number;
   }> | null;
-  intervals: Array<{
-    intervalType: string | null;
-    zone: string | null;
-    intensity: string | null;
-    distance: number | null;
-    movingTime: number | null;
-    elapsedTime: number | null;
-    startTime: number | null;
-    endTime: number | null;
-    averageSpeed: number | null;
-    maxSpeed: number | null;
-    averageHeartrate: number | null;
-    maxHeartrate: number | null;
-    averageCadence: number | null;
-    averageStride: number | null;
-    totalElevationGain: number | null;
-  }>;
-  streams: Array<{
-    streamType: string;
-    data: unknown[];
-  }>;
+  intervals: ActivityIntervalSummary[];
   bestEfforts: Array<{
     targetDistanceMeters: number;
     durationSeconds: number;
   }>;
 };
+
+export type ActivityAnalysisData = Record<
+  ActivityMetricKey,
+  ActivityMetricPoint[]
+>;
