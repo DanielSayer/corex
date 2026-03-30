@@ -247,13 +247,14 @@ describe("intervals sync integration", () => {
     expect(importedRows[0]?.rawDetail).toMatchObject({
       id: "run-1",
       distance: 8000,
+      average_cadence: 84,
     });
     expect(importedRows[0]).toMatchObject({
       name: "Morning run",
       deviceName: "Forerunner 265",
       maxSpeedMetersPerSecond: 5.1,
       maxHeartrate: 180,
-      averageCadence: 84,
+      averageCadence: 168,
       calories: 640,
       totalElevationGainMeters: 42,
       totalElevationLossMeters: 39,
@@ -261,6 +262,12 @@ describe("intervals sync integration", () => {
       hrLoad: 88,
       intensity: 0.83,
       athleteMaxHr: 196,
+    });
+    expect(
+      importedStreamRows.find((row) => row.streamType === "cadence")?.rawStream,
+    ).toMatchObject({
+      type: "cadence",
+      data: expect.arrayContaining([164]),
     });
     expect(importedMapRows[0]?.rawMap).toMatchObject({
       route: { name: "River loop" },
@@ -1113,7 +1120,7 @@ describe("intervals sync integration", () => {
       maxSpeedMetersPerSecond: 5.1,
       averageHeartrate: 152,
       maxHeartrate: 180,
-      averageCadence: 84,
+      averageCadence: 168,
       calories: 640,
       trainingLoad: 77,
       hrLoad: 88,
@@ -1169,7 +1176,7 @@ describe("intervals sync integration", () => {
       maxSpeedMetersPerSecond: 4.4,
       averageHeartrate: 132,
       maxHeartrate: 145,
-      averageCadence: 82,
+      averageCadence: 164,
       averageStride: 1.03,
       totalElevationGainMeters: 5,
     });
@@ -1199,7 +1206,7 @@ describe("intervals sync integration", () => {
       streamType: "cadence",
       rawStream: {
         type: "cadence",
-        data: [82, 83, 84],
+        data: [164, 166, 168],
       },
     });
     await db.insert(importedActivityStream).values({
@@ -1253,7 +1260,7 @@ describe("intervals sync integration", () => {
       maxSpeed: 5.1,
       averageHeartrate: 152,
       maxHeartrate: 180,
-      averageCadence: 84,
+      averageCadence: 168,
       calories: 640,
       totalElevationGain: 42,
       totalElevationLoss: 39,
@@ -1270,6 +1277,7 @@ describe("intervals sync integration", () => {
         intervalType: "WARMUP",
         zone: "2",
         intensity: "1",
+        averageCadence: 164,
       }),
     ]);
     expect(result?.oneKmSplitTimesSeconds).toEqual([

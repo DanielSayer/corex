@@ -47,6 +47,7 @@ describe("activity detail normalization", () => {
       name: "Morning workout",
       deviceName: "Forerunner",
       maxSpeedMetersPerSecond: 5.2,
+      averageCadence: 172,
       trainingLoad: 73,
       athleteMaxHr: 196,
     });
@@ -73,7 +74,7 @@ describe("activity detail normalization", () => {
         maxSpeedMetersPerSecond: 4.8,
         averageHeartrate: 132,
         maxHeartrate: 145,
-        averageCadence: 82,
+        averageCadence: 164,
         averageStride: 1.03,
         totalElevationGainMeters: 5,
       },
