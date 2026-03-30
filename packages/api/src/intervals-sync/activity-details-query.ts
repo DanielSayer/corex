@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import type { Database } from "@corex/db";
 import {
@@ -10,11 +10,30 @@ import {
   runBestEffort,
 } from "@corex/db/schema/intervals-sync";
 
-import type { ActivityDetailsPageData } from "./activity-details";
+import {
+  MAX_ACTIVITY_ANALYSIS_POINTS,
+  MAX_ACTIVITY_MAP_PREVIEW_POINTS,
+  type ActivityAnalysisData,
+  type ActivityIntervalSummary,
+  type ActivityMapPreviewData,
+  type ActivityMetricKey,
+  type ActivitySummaryPageData,
+} from "./activity-details";
+import {
+  buildActivityMetricSeries,
+  downsampleMapLatLngs,
+} from "./activity-series";
 import {
   intervalsActivityMapSchema,
   intervalsActivityStreamSchema,
 } from "./schemas";
+
+const ANALYSIS_STREAM_TYPES = [
+  "heartrate",
+  "cadence",
+  "velocity_smooth",
+  "fixed_altitude",
+] as const satisfies readonly ActivityMetricKey[];
 
 function normalizeNumericArray(data: unknown): number[] | null {
   if (!Array.isArray(data)) {
@@ -91,11 +110,85 @@ function formatNullableNumber(value: number | null) {
   return value == null ? null : String(value);
 }
 
-export async function loadActivityDetails(
+function getActivityDurationSeconds(activity: {
+  elapsedTimeSeconds: number | null;
+  movingTimeSeconds: number | null;
+}) {
+  return activity.elapsedTimeSeconds ?? activity.movingTimeSeconds;
+}
+
+function parseMapPreview(rawMap: unknown): ActivityMapPreviewData {
+  const parsedMap = intervalsActivityMapSchema.safeParse(rawMap);
+
+  if (
+    !parsedMap.success ||
+    !parsedMap.data?.bounds ||
+    !parsedMap.data?.latlngs ||
+    !Array.isArray(parsedMap.data.bounds) ||
+    !Array.isArray(parsedMap.data.latlngs)
+  ) {
+    return null;
+  }
+
+  return {
+    bounds: parsedMap.data.bounds,
+    latlngs: downsampleMapLatLngs(
+      parsedMap.data.latlngs.map((latlng) =>
+        Array.isArray(latlng) &&
+        latlng.length >= 2 &&
+        typeof latlng[0] === "number" &&
+        typeof latlng[1] === "number"
+          ? ([latlng[0], latlng[1]] as [number, number])
+          : null,
+      ),
+      MAX_ACTIVITY_MAP_PREVIEW_POINTS,
+    ),
+  };
+}
+
+function mapIntervals(
+  intervalRows: Array<{
+    intervalType: string | null;
+    zone: number | null;
+    intensity: number | null;
+    distanceMeters: number | null;
+    movingTimeSeconds: number | null;
+    elapsedTimeSeconds: number | null;
+    startTimeSeconds: number | null;
+    endTimeSeconds: number | null;
+    averageSpeedMetersPerSecond: number | null;
+    maxSpeedMetersPerSecond: number | null;
+    averageHeartrate: number | null;
+    maxHeartrate: number | null;
+    averageCadence: number | null;
+    averageStride: number | null;
+    totalElevationGainMeters: number | null;
+  }>,
+): ActivityIntervalSummary[] {
+  return intervalRows.map((row) => ({
+    intervalType: row.intervalType,
+    zone: formatNullableNumber(row.zone),
+    intensity: formatNullableNumber(row.intensity),
+    distance: row.distanceMeters,
+    movingTime: row.movingTimeSeconds,
+    elapsedTime: row.elapsedTimeSeconds,
+    startTime: row.startTimeSeconds,
+    endTime: row.endTimeSeconds,
+    averageSpeed: row.averageSpeedMetersPerSecond,
+    maxSpeed: row.maxSpeedMetersPerSecond,
+    averageHeartrate: row.averageHeartrate,
+    maxHeartrate: row.maxHeartrate,
+    averageCadence: row.averageCadence,
+    averageStride: row.averageStride,
+    totalElevationGain: row.totalElevationGainMeters,
+  }));
+}
+
+async function loadActivityBaseRow(
   db: Database,
   userId: string,
   activityId: string,
-): Promise<ActivityDetailsPageData | null> {
+) {
   const activityRow = await db.query.importedActivity.findFirst({
     where: and(
       eq(importedActivity.userId, userId),
@@ -107,84 +200,70 @@ export async function loadActivityDetails(
     return null;
   }
 
-  const [mapRow, streamRows, bestEffortRows, heartRateZoneRows, intervalRows] =
-    await Promise.all([
-      db.query.importedActivityMap.findFirst({
-        where: and(
-          eq(importedActivityMap.userId, userId),
-          eq(importedActivityMap.upstreamActivityId, activityId),
-        ),
-      }),
-      db.query.importedActivityStream.findMany({
-        where: and(
-          eq(importedActivityStream.userId, userId),
-          eq(importedActivityStream.upstreamActivityId, activityId),
-        ),
-        orderBy: asc(importedActivityStream.streamType),
-      }),
-      db.query.runBestEffort.findMany({
-        where: and(
-          eq(runBestEffort.userId, userId),
-          eq(runBestEffort.upstreamActivityId, activityId),
-        ),
-        orderBy: asc(runBestEffort.distanceMeters),
-      }),
-      db.query.importedActivityHeartRateZone.findMany({
-        where: and(
-          eq(importedActivityHeartRateZone.userId, userId),
-          eq(importedActivityHeartRateZone.upstreamActivityId, activityId),
-        ),
-        orderBy: asc(importedActivityHeartRateZone.zoneIndex),
-      }),
-      db.query.importedActivityInterval.findMany({
-        where: and(
-          eq(importedActivityInterval.userId, userId),
-          eq(importedActivityInterval.upstreamActivityId, activityId),
-        ),
-        orderBy: asc(importedActivityInterval.intervalIndex),
-      }),
-    ]);
+  return activityRow;
+}
 
-  const parsedMap = mapRow
-    ? intervalsActivityMapSchema.safeParse(mapRow.rawMap)
+export async function loadActivitySummary(
+  db: Database,
+  userId: string,
+  activityId: string,
+): Promise<ActivitySummaryPageData | null> {
+  const activityRow = await loadActivityBaseRow(db, userId, activityId);
+
+  if (!activityRow) {
+    return null;
+  }
+
+  const [
+    mapRow,
+    distanceStreamRow,
+    bestEffortRows,
+    heartRateZoneRows,
+    intervalRows,
+  ] = await Promise.all([
+    db.query.importedActivityMap.findFirst({
+      where: and(
+        eq(importedActivityMap.userId, userId),
+        eq(importedActivityMap.upstreamActivityId, activityId),
+      ),
+    }),
+    db.query.importedActivityStream.findFirst({
+      where: and(
+        eq(importedActivityStream.userId, userId),
+        eq(importedActivityStream.upstreamActivityId, activityId),
+        eq(importedActivityStream.streamType, "distance"),
+      ),
+    }),
+    db.query.runBestEffort.findMany({
+      where: and(
+        eq(runBestEffort.userId, userId),
+        eq(runBestEffort.upstreamActivityId, activityId),
+      ),
+      orderBy: asc(runBestEffort.distanceMeters),
+    }),
+    db.query.importedActivityHeartRateZone.findMany({
+      where: and(
+        eq(importedActivityHeartRateZone.userId, userId),
+        eq(importedActivityHeartRateZone.upstreamActivityId, activityId),
+      ),
+      orderBy: asc(importedActivityHeartRateZone.zoneIndex),
+    }),
+    db.query.importedActivityInterval.findMany({
+      where: and(
+        eq(importedActivityInterval.userId, userId),
+        eq(importedActivityInterval.upstreamActivityId, activityId),
+      ),
+      orderBy: asc(importedActivityInterval.intervalIndex),
+    }),
+  ]);
+
+  const parsedDistanceStream = distanceStreamRow
+    ? intervalsActivityStreamSchema.safeParse(distanceStreamRow.rawStream)
     : null;
-  const mapData =
-    parsedMap?.success &&
-    parsedMap.data?.bounds &&
-    parsedMap.data?.latlngs &&
-    Array.isArray(parsedMap.data.bounds) &&
-    Array.isArray(parsedMap.data.latlngs)
-      ? {
-          bounds: parsedMap.data.bounds,
-          latlngs: parsedMap.data.latlngs.map((latlng) =>
-            Array.isArray(latlng) &&
-            latlng.length >= 2 &&
-            typeof latlng[0] === "number" &&
-            typeof latlng[1] === "number"
-              ? ([latlng[0], latlng[1]] as [number, number])
-              : null,
-          ),
-        }
-      : null;
-
-  const streams = streamRows.flatMap((row) => {
-    const parsed = intervalsActivityStreamSchema.safeParse(row.rawStream);
-
-    if (!parsed.success || !Array.isArray(parsed.data.data)) {
-      return [];
-    }
-
-    return {
-      streamType: row.streamType,
-      data: parsed.data.data,
-    };
-  });
-
-  const distanceStream = streams.find(
-    (stream) => stream.streamType === "distance",
-  );
   const oneKmSplitTimesSeconds = deriveOneKmSplitTimesSeconds(
-    normalizeNumericArray(distanceStream?.data),
+    normalizeNumericArray(
+      parsedDistanceStream?.success ? parsedDistanceStream.data.data : null,
+    ),
   );
 
   return {
@@ -192,7 +271,7 @@ export async function loadActivityDetails(
     startDateLocal: activityRow.startDateLocal?.toISOString() ?? null,
     type: activityRow.upstreamActivityType,
     deviceName: activityRow.deviceName,
-    mapData,
+    mapPreview: mapRow ? parseMapPreview(mapRow.rawMap) : null,
     distance: activityRow.distanceMeters,
     movingTime: activityRow.movingTimeSeconds,
     elapsedTime: activityRow.elapsedTimeSeconds,
@@ -217,27 +296,61 @@ export async function loadActivityDetails(
         ? heartRateZoneRows.map((row) => row.durationSeconds)
         : null,
     oneKmSplitTimesSeconds,
-    intervals: intervalRows.map((row) => ({
-      intervalType: row.intervalType,
-      zone: formatNullableNumber(row.zone),
-      intensity: formatNullableNumber(row.intensity),
-      distance: row.distanceMeters,
-      movingTime: row.movingTimeSeconds,
-      elapsedTime: row.elapsedTimeSeconds,
-      startTime: row.startTimeSeconds,
-      endTime: row.endTimeSeconds,
-      averageSpeed: row.averageSpeedMetersPerSecond,
-      maxSpeed: row.maxSpeedMetersPerSecond,
-      averageHeartrate: row.averageHeartrate,
-      maxHeartrate: row.maxHeartrate,
-      averageCadence: row.averageCadence,
-      averageStride: row.averageStride,
-      totalElevationGain: row.totalElevationGainMeters,
-    })),
-    streams,
+    intervals: mapIntervals(intervalRows),
     bestEfforts: bestEffortRows.map((row) => ({
       targetDistanceMeters: row.distanceMeters,
       durationSeconds: row.durationSeconds,
     })),
   };
+}
+
+export async function loadActivityAnalysis(
+  db: Database,
+  userId: string,
+  activityId: string,
+): Promise<ActivityAnalysisData | null> {
+  const activityRow = await loadActivityBaseRow(db, userId, activityId);
+
+  if (!activityRow) {
+    return null;
+  }
+
+  const streamRows = await db.query.importedActivityStream.findMany({
+    where: and(
+      eq(importedActivityStream.userId, userId),
+      eq(importedActivityStream.upstreamActivityId, activityId),
+      inArray(importedActivityStream.streamType, [...ANALYSIS_STREAM_TYPES]),
+    ),
+    orderBy: asc(importedActivityStream.streamType),
+  });
+
+  const analysis: ActivityAnalysisData = {
+    heartrate: [],
+    cadence: [],
+    velocity_smooth: [],
+    fixed_altitude: [],
+  };
+  const durationSeconds = getActivityDurationSeconds(activityRow);
+
+  for (const row of streamRows) {
+    if (!ANALYSIS_STREAM_TYPES.includes(row.streamType as ActivityMetricKey)) {
+      continue;
+    }
+
+    const parsed = intervalsActivityStreamSchema.safeParse(row.rawStream);
+
+    if (!parsed.success || !Array.isArray(parsed.data.data)) {
+      continue;
+    }
+
+    const metric = row.streamType as ActivityMetricKey;
+    analysis[metric] = buildActivityMetricSeries({
+      durationSeconds,
+      metric,
+      rawData: parsed.data.data,
+      maxPoints: MAX_ACTIVITY_ANALYSIS_POINTS,
+    });
+  }
+
+  return analysis;
 }

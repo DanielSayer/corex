@@ -43,8 +43,11 @@ export function createIntervalsSyncModule(
     recentActivities(userId) {
       return options.activities.recentActivities(userId);
     },
-    activityDetails(userId, activityId) {
-      return options.activities.activityDetails(userId, activityId);
+    activitySummary(userId, activityId) {
+      return options.activities.activitySummary(userId, activityId);
+    },
+    activityAnalysis(userId, activityId) {
+      return options.activities.activityAnalysis(userId, activityId);
     },
     syncNow(userId) {
       return Effect.suspend(() =>

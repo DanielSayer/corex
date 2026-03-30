@@ -85,7 +85,7 @@ export function createIntervalsSyncRouter(
         mapIntervalsSyncError,
       ),
     ),
-    activityDetails: authedProcedure
+    activitySummary: authedProcedure
       .input(
         z.object({
           activityId: z.string().min(1),
@@ -93,7 +93,19 @@ export function createIntervalsSyncRouter(
       )
       .query(({ ctx, input }) =>
         executeEffect(
-          service.activityDetails(ctx.session.user.id, input.activityId),
+          service.activitySummary(ctx.session.user.id, input.activityId),
+          mapIntervalsSyncError,
+        ),
+      ),
+    activityAnalysis: authedProcedure
+      .input(
+        z.object({
+          activityId: z.string().min(1),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        executeEffect(
+          service.activityAnalysis(ctx.session.user.id, input.activityId),
           mapIntervalsSyncError,
         ),
       ),

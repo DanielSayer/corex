@@ -1,10 +1,23 @@
 import type { IntervalsSyncRouterOutputs } from "@/utils/types";
 
-type ActivityDetails = NonNullable<
-  IntervalsSyncRouterOutputs["activityDetails"]
+type ActivitySummary = NonNullable<
+  IntervalsSyncRouterOutputs["activitySummary"]
 >;
-type ActivityMapData = NonNullable<ActivityDetails["mapData"]>;
-type ActivitySplit = ActivityDetails["intervals"][number];
-type BestEffort = ActivityDetails["bestEfforts"][number];
+type ActivityAnalysis = NonNullable<
+  IntervalsSyncRouterOutputs["activityAnalysis"]
+>;
+type ActivityMapData = NonNullable<ActivitySummary["mapPreview"]>;
+type ActivitySplit = ActivitySummary["intervals"][number];
+type BestEffort = ActivitySummary["bestEfforts"][number];
+type ActivityMetricKey = keyof ActivityAnalysis;
+type ActivityMetricPoint = ActivityAnalysis[ActivityMetricKey][number];
 
-export type { ActivityDetails, ActivityMapData, ActivitySplit, BestEffort };
+export type {
+  ActivitySummary,
+  ActivityAnalysis,
+  ActivityMapData,
+  ActivitySplit,
+  BestEffort,
+  ActivityMetricKey,
+  ActivityMetricPoint,
+};

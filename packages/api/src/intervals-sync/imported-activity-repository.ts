@@ -10,7 +10,10 @@ import {
   importedActivityStream,
 } from "@corex/db/schema/intervals-sync";
 
-import { loadActivityDetails } from "./activity-details-query";
+import {
+  loadActivityAnalysis,
+  loadActivitySummary,
+} from "./activity-details-query";
 import { normalizeActivityDetailForStorage } from "./detail-normalization";
 import { SyncPersistenceFailure } from "./errors";
 import { loadRecentActivities } from "./recent-activities-query";
@@ -238,12 +241,22 @@ export function createImportedActivityPort(db: Database): ImportedActivityPort {
           }),
       });
     },
-    activityDetails(userId, activityId) {
+    activitySummary(userId, activityId) {
       return Effect.tryPromise({
-        try: () => loadActivityDetails(db, userId, activityId),
+        try: () => loadActivitySummary(db, userId, activityId),
         catch: (cause) =>
           new SyncPersistenceFailure({
-            message: "Failed to load activity details",
+            message: "Failed to load activity summary",
+            cause,
+          }),
+      });
+    },
+    activityAnalysis(userId, activityId) {
+      return Effect.tryPromise({
+        try: () => loadActivityAnalysis(db, userId, activityId),
+        catch: (cause) =>
+          new SyncPersistenceFailure({
+            message: "Failed to load activity analysis",
             cause,
           }),
       });

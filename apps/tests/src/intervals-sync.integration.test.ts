@@ -4,6 +4,10 @@ import { Cause, Effect, Exit, Option } from "effect";
 import { createUser } from "@corex/api/application/commands/create-user";
 import { createIntervalsAdapter } from "@corex/api/intervals-sync/adapter";
 import type { IntervalsAdapter } from "@corex/api/intervals-sync/adapter";
+import {
+  MAX_ACTIVITY_ANALYSIS_POINTS,
+  MAX_ACTIVITY_MAP_PREVIEW_POINTS,
+} from "@corex/api/intervals-sync/activity-details";
 import { createLiveIntervalsSyncApi } from "@corex/api/intervals-sync/live";
 import {
   createImportedActivityPort,
@@ -1094,12 +1098,32 @@ describe("intervals sync integration", () => {
     );
   });
 
-  it("returns normalized activity details without parsing raw detail", async () => {
+  it("returns split activity summary and chart-ready analysis without exposing raw streams", async () => {
     const { db } = await getIntegrationHarness();
     const user = await createUser(db, {
       email: "details@example.com",
       name: "Details User",
     });
+    const mapLatLngs: Array<[number, number]> = Array.from(
+      { length: 2505 },
+      (_, index) => [-27.4748 + index / 100000, 153.0192 + index / 100000],
+    );
+    const heartrateSamples = Array.from(
+      { length: 2505 },
+      (_, index) => 120 + (index % 25),
+    );
+    const cadenceSamples = Array.from(
+      { length: 2505 },
+      (_, index) => 164 + (index % 8),
+    );
+    const velocitySamples = Array.from(
+      { length: 2505 },
+      (_, index) => 3.3 + (index % 12) / 10,
+    );
+    const altitudeSamples = Array.from(
+      { length: 2505 },
+      (_, index) => 10 + (index % 30),
+    );
 
     await db.insert(importedActivity).values({
       userId: user.id,
@@ -1138,10 +1162,7 @@ describe("intervals sync integration", () => {
           [-27.48, 153.01],
           [-27.47, 153.03],
         ],
-        latlngs: [
-          [-27.4748, 153.0192],
-          [-27.4734, 153.0211],
-        ],
+        latlngs: mapLatLngs,
       },
     });
     await db.insert(importedActivityHeartRateZone).values([
@@ -1196,7 +1217,7 @@ describe("intervals sync integration", () => {
         streamType: "heartrate",
         rawStream: {
           type: "heartrate",
-          data: [120, 130, 140],
+          data: heartrateSamples,
         },
       },
     ]);
@@ -1206,7 +1227,7 @@ describe("intervals sync integration", () => {
       streamType: "cadence",
       rawStream: {
         type: "cadence",
-        data: [164, 166, 168],
+        data: cadenceSamples,
       },
     });
     await db.insert(importedActivityStream).values({
@@ -1215,7 +1236,7 @@ describe("intervals sync integration", () => {
       streamType: "velocity_smooth",
       rawStream: {
         type: "velocity_smooth",
-        data: [3.3, 3.4, 3.5],
+        data: velocitySamples,
       },
     });
     await db.insert(importedActivityStream).values({
@@ -1224,7 +1245,7 @@ describe("intervals sync integration", () => {
       streamType: "fixed_altitude",
       rawStream: {
         type: "fixed_altitude",
-        data: [10, 11, 12],
+        data: altitudeSamples,
       },
     });
     await db.insert(importedActivityStream).values({
@@ -1245,11 +1266,14 @@ describe("intervals sync integration", () => {
       endSampleIndex: 2,
     });
 
-    const result = await Effect.runPromise(
-      createImportedActivityPort(db).activityDetails(user.id, "run-1"),
+    const summary = await Effect.runPromise(
+      createImportedActivityPort(db).activitySummary(user.id, "run-1"),
+    );
+    const analysis = await Effect.runPromise(
+      createImportedActivityPort(db).activityAnalysis(user.id, "run-1"),
     );
 
-    expect(result).toMatchObject({
+    expect(summary).toMatchObject({
       name: "Morning run",
       type: "Run",
       deviceName: "Forerunner 265",
@@ -1272,7 +1296,7 @@ describe("intervals sync integration", () => {
       heartRateZoneDurationsSeconds: [120, 360],
       bestEfforts: [{ targetDistanceMeters: 1000, durationSeconds: 240 }],
     });
-    expect(result?.intervals).toEqual([
+    expect(summary?.intervals).toEqual([
       expect.objectContaining({
         intervalType: "WARMUP",
         zone: "2",
@@ -1280,7 +1304,7 @@ describe("intervals sync integration", () => {
         averageCadence: 164,
       }),
     ]);
-    expect(result?.oneKmSplitTimesSeconds).toEqual([
+    expect(summary?.oneKmSplitTimesSeconds).toEqual([
       {
         splitNumber: 1,
         splitDistanceMeters: 1000,
@@ -1292,12 +1316,22 @@ describe("intervals sync integration", () => {
         durationSeconds: 2,
       },
     ]);
-    expect(result?.streams.map((stream) => stream.streamType)).toEqual([
-      "cadence",
-      "distance",
-      "fixed_altitude",
-      "heartrate",
-      "velocity_smooth",
-    ]);
+    expect(summary?.mapPreview?.latlngs).toHaveLength(
+      MAX_ACTIVITY_MAP_PREVIEW_POINTS,
+    );
+    expect(summary?.mapPreview?.latlngs[0]).toEqual(mapLatLngs[0]);
+    expect(summary?.mapPreview?.latlngs.at(-1)).toEqual(mapLatLngs.at(-1));
+    expect(analysis?.heartrate).toEqual(expect.any(Array));
+    expect(analysis?.cadence).toEqual(expect.any(Array));
+    expect(analysis?.velocity_smooth).toEqual(expect.any(Array));
+    expect(analysis?.fixed_altitude).toEqual(expect.any(Array));
+    expect(analysis?.heartrate).toHaveLength(MAX_ACTIVITY_ANALYSIS_POINTS);
+    expect(analysis?.cadence).toHaveLength(MAX_ACTIVITY_ANALYSIS_POINTS);
+    expect(analysis?.velocity_smooth).toHaveLength(
+      MAX_ACTIVITY_ANALYSIS_POINTS,
+    );
+    expect(analysis?.fixed_altitude).toHaveLength(MAX_ACTIVITY_ANALYSIS_POINTS);
+    expect(analysis?.heartrate[0]).toEqual({ second: 0, value: 120 });
+    expect(analysis?.heartrate.at(-1)?.value).toBe(heartrateSamples.at(-1));
   });
 });

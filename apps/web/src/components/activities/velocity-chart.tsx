@@ -16,8 +16,7 @@ import {
 } from "@/components/chart";
 
 import { formatSecondsToHms, formatSpeedToMinsPerKm } from "./utils/formatters";
-import { mapStreamIndexToSecond } from "./utils/chart-data";
-import type { ActivityDetails } from "./utils/types";
+import type { ActivityMetricPoint } from "./utils/types";
 
 type VelocityPoint = {
   second: number;
@@ -31,35 +30,19 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-function VelocityChart({ activity }: { activity: ActivityDetails }) {
-  const velocityStream = activity.streams.find(
-    (stream) => stream.streamType === "velocity_smooth",
-  );
-
-  if (
-    !velocityStream ||
-    !velocityStream.data ||
-    !Array.isArray(velocityStream.data)
-  ) {
-    return null;
-  }
-
-  const chartData: VelocityPoint[] = velocityStream.data
-    .map((value, index) => {
-      if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-        return null;
-      }
-
-      return {
-        second: mapStreamIndexToSecond({
-          activity,
-          index,
-          streamPointCount: Number(velocityStream.data.length),
-        }),
-        velocity: value,
-      };
-    })
-    .filter((point): point is VelocityPoint => point !== null);
+function VelocityChart({
+  averageSpeed,
+  maxSpeed,
+  series,
+}: {
+  averageSpeed: number | null;
+  maxSpeed: number | null;
+  series: ActivityMetricPoint[];
+}) {
+  const chartData: VelocityPoint[] = series.map((point) => ({
+    second: point.second,
+    velocity: point.value,
+  }));
 
   if (chartData.length === 0) {
     return null;
@@ -72,15 +55,13 @@ function VelocityChart({ activity }: { activity: ActivityDetails }) {
         <p className="text-muted-foreground text-sm">
           Average pace:{" "}
           <span className="font-bold">
-            {formatSpeedToMinsPerKm(activity.averageSpeed)}
+            {formatSpeedToMinsPerKm(averageSpeed)}
           </span>{" "}
           <span className="text-muted-foreground text-sm">/km</span>.
         </p>
         <p className="text-muted-foreground text-sm">
           Max pace:{" "}
-          <span className="font-bold">
-            {formatSpeedToMinsPerKm(activity.maxSpeed)}
-          </span>{" "}
+          <span className="font-bold">{formatSpeedToMinsPerKm(maxSpeed)}</span>{" "}
           <span className="text-muted-foreground text-sm">/km</span>.
         </p>
       </div>
@@ -127,12 +108,12 @@ function VelocityChart({ activity }: { activity: ActivityDetails }) {
           <ReferenceLine
             stroke="var(--color-velocity)"
             strokeDasharray="5 5"
-            y={activity.averageSpeed ?? undefined}
+            y={averageSpeed ?? undefined}
           >
             <Label
               offset={10}
               position="left"
-              value={formatSpeedToMinsPerKm(activity.averageSpeed)}
+              value={formatSpeedToMinsPerKm(averageSpeed)}
             />
           </ReferenceLine>
 

@@ -8,8 +8,7 @@ import {
 } from "@/components/chart";
 
 import { formatSecondsToHms } from "./utils/formatters";
-import { mapStreamIndexToSecond } from "./utils/chart-data";
-import type { ActivityDetails } from "./utils/types";
+import type { ActivityMetricPoint } from "./utils/types";
 
 type CadencePoint = {
   cadence: number;
@@ -49,35 +48,19 @@ function getCadenceColor(cadence: number) {
   return "#ef4444";
 }
 
-function CadenceChart({ activity }: { activity: ActivityDetails }) {
-  const cadenceStream = activity.streams.find(
-    (stream) => stream.streamType === "cadence",
-  );
-
-  if (
-    !cadenceStream ||
-    !cadenceStream.data ||
-    !Array.isArray(cadenceStream.data)
-  ) {
-    return null;
-  }
-
-  const chartData: CadencePoint[] = cadenceStream.data
-    .map((value, index) => {
-      if (typeof value !== "number" || !Number.isFinite(value) || value === 0) {
-        return null;
-      }
-
-      return {
-        cadence: value,
-        second: mapStreamIndexToSecond({
-          activity,
-          index,
-          streamPointCount: Number(cadenceStream.data.length),
-        }),
-      };
-    })
-    .filter((point): point is CadencePoint => point !== null);
+function CadenceChart({
+  averageCadence,
+  series,
+}: {
+  averageCadence: number | null;
+  series: ActivityMetricPoint[];
+}) {
+  const chartData: CadencePoint[] = series
+    .filter((point) => point.value !== 0)
+    .map((point) => ({
+      cadence: point.value,
+      second: point.second,
+    }));
 
   if (chartData.length === 0) {
     return null;
@@ -99,9 +82,7 @@ function CadenceChart({ activity }: { activity: ActivityDetails }) {
         <h2 className="text-3xl font-bold tracking-tight">Cadence</h2>
         <p className="text-muted-foreground text-sm">
           Average cadence:{" "}
-          <span className="font-bold">
-            {Math.round(activity.averageCadence ?? 0)}
-          </span>{" "}
+          <span className="font-bold">{Math.round(averageCadence ?? 0)}</span>{" "}
           <span className="text-muted-foreground text-sm">spm</span>.
         </p>
       </div>

@@ -8,8 +8,7 @@ import {
 } from "@/components/chart";
 
 import { formatSecondsToHms } from "./utils/formatters";
-import { mapStreamIndexToSecond } from "./utils/chart-data";
-import type { ActivityDetails } from "./utils/types";
+import type { ActivityMetricPoint } from "./utils/types";
 
 type AltitudePoint = {
   altitude: number;
@@ -23,35 +22,19 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-function AltitudeChart({ activity }: { activity: ActivityDetails }) {
-  const altitudeStream = activity.streams.find(
-    (stream) => stream.streamType === "fixed_altitude",
-  );
-
-  if (
-    !altitudeStream ||
-    !altitudeStream.data ||
-    !Array.isArray(altitudeStream.data)
-  ) {
-    return null;
-  }
-
-  const chartData: AltitudePoint[] = altitudeStream.data
-    .map((value, index) => {
-      if (typeof value !== "number" || !Number.isFinite(value)) {
-        return null;
-      }
-
-      return {
-        altitude: value,
-        second: mapStreamIndexToSecond({
-          activity,
-          index,
-          streamPointCount: Number(altitudeStream.data.length),
-        }),
-      };
-    })
-    .filter((point): point is AltitudePoint => point !== null);
+function AltitudeChart({
+  totalElevationGain,
+  totalElevationLoss,
+  series,
+}: {
+  totalElevationGain: number | null;
+  totalElevationLoss: number | null;
+  series: ActivityMetricPoint[];
+}) {
+  const chartData: AltitudePoint[] = series.map((point) => ({
+    altitude: point.value,
+    second: point.second,
+  }));
 
   if (chartData.length === 0) {
     return null;
@@ -64,14 +47,14 @@ function AltitudeChart({ activity }: { activity: ActivityDetails }) {
         <p className="text-muted-foreground text-sm">
           Total elevation gain:{" "}
           <span className="font-bold">
-            {Math.round(activity.totalElevationGain ?? 0)}
+            {Math.round(totalElevationGain ?? 0)}
           </span>{" "}
           <span className="text-muted-foreground text-sm">m</span>.
         </p>
         <p className="text-muted-foreground text-sm">
           Total elevation loss:{" "}
           <span className="font-bold">
-            {Math.round(activity.totalElevationLoss ?? 0)}
+            {Math.round(totalElevationLoss ?? 0)}
           </span>{" "}
           <span className="text-muted-foreground text-sm">m</span>.
         </p>

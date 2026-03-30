@@ -1,6 +1,9 @@
 import type { Effect } from "effect";
 
-import type { ActivityDetailsPageData } from "./activity-details";
+import type {
+  ActivityAnalysisData,
+  ActivitySummaryPageData,
+} from "./activity-details";
 import type { SyncPersistenceFailure } from "./errors";
 import type { RecentActivityPreview } from "./recent-activity";
 import type {
@@ -116,8 +119,12 @@ export type ImportedActivityPort = {
   recentActivities: (
     userId: string,
   ) => Effect.Effect<RecentActivityPreview[], SyncPersistenceFailure>;
-  activityDetails: (
+  activitySummary: (
     userId: string,
     activityId: string,
-  ) => Effect.Effect<ActivityDetailsPageData | null, SyncPersistenceFailure>;
+  ) => Effect.Effect<ActivitySummaryPageData | null, SyncPersistenceFailure>;
+  activityAnalysis: (
+    userId: string,
+    activityId: string,
+  ) => Effect.Effect<ActivityAnalysisData | null, SyncPersistenceFailure>;
 };
