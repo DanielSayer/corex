@@ -15,6 +15,7 @@ import { normalizeActivityDetailForStorage } from "./detail-normalization";
 import { SyncPersistenceFailure } from "./errors";
 import { loadRecentActivities } from "./recent-activities-query";
 import type { ImportedActivityPort } from "./repository-types";
+import { normalizeActivityStreamForStorage } from "./stream-normalization";
 
 export function createImportedActivityPort(db: Database): ImportedActivityPort {
   return {
@@ -29,6 +30,9 @@ export function createImportedActivityPort(db: Database): ImportedActivityPort {
           });
           const normalizedDetail = normalizeActivityDetailForStorage(
             record.detail,
+          );
+          const normalizedStreams = record.streams?.map(
+            normalizeActivityStreamForStorage,
           );
 
           const values = {
@@ -187,7 +191,7 @@ export function createImportedActivityPort(db: Database): ImportedActivityPort {
                 );
             }
 
-            if (record.streams && record.streams.length > 0) {
+            if (normalizedStreams && normalizedStreams.length > 0) {
               await tx.delete(importedActivityStream).where(
                 and(
                   eq(importedActivityStream.userId, record.userId),
@@ -197,13 +201,13 @@ export function createImportedActivityPort(db: Database): ImportedActivityPort {
                   ),
                   inArray(
                     importedActivityStream.streamType,
-                    record.streams.map((stream) => stream.type),
+                    normalizedStreams.map((stream) => stream.type),
                   ),
                 ),
               );
 
               await tx.insert(importedActivityStream).values(
-                record.streams.map((stream) => ({
+                normalizedStreams.map((stream) => ({
                   userId: record.userId,
                   upstreamActivityId: record.detail.id,
                   streamType: stream.type,

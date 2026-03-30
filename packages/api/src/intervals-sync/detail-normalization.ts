@@ -46,6 +46,14 @@ export type NormalizedActivityDetail = {
   intervals: NormalizedIntervalRow[];
 };
 
+function normalizeCadence(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return value * 2;
+}
+
 function parseNullableDate(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -66,7 +74,7 @@ export function normalizeActivityDetailForStorage(
       deviceName: detail.device_name ?? null,
       maxSpeedMetersPerSecond: detail.max_speed ?? null,
       maxHeartrate: detail.max_heartrate ?? null,
-      averageCadence: detail.average_cadence ?? null,
+      averageCadence: normalizeCadence(detail.average_cadence),
       calories: detail.calories ?? null,
       totalElevationLossMeters: detail.total_elevation_loss ?? null,
       trainingLoad: detail.icu_training_load ?? null,
@@ -108,7 +116,7 @@ export function normalizeActivityDetailForStorage(
         maxSpeedMetersPerSecond: interval.max_speed ?? null,
         averageHeartrate: interval.average_heartrate ?? null,
         maxHeartrate: interval.max_heartrate ?? null,
-        averageCadence: interval.average_cadence ?? null,
+        averageCadence: normalizeCadence(interval.average_cadence),
         averageStride: interval.average_stride ?? null,
         totalElevationGainMeters: interval.total_elevation_gain ?? null,
       })) ?? [],

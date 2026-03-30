@@ -69,7 +69,7 @@ function CadenceChart({ activity }: { activity: ActivityDetails }) {
       }
 
       return {
-        cadence: value * 2,
+        cadence: value,
         second: mapStreamIndexToSecond({
           activity,
           index,
