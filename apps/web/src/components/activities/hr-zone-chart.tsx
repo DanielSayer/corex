@@ -47,13 +47,20 @@ type HrZoneChartProps = {
   hrZoneTimes: number[] | null;
 };
 
+function getZonePercentage(time: number, totalTime: number) {
+  if (totalTime <= 0) {
+    return 0;
+  }
+
+  return (time / totalTime) * 100;
+}
+
 function HrZoneChart({ hrZones, hrZoneTimes }: HrZoneChartProps) {
   if (!hrZones || !hrZoneTimes || hrZoneTimes.length === 0) {
     return null;
   }
 
   const totalTime = hrZoneTimes.reduce((sum, value) => sum + value, 0);
-  const maxTime = Math.max(...hrZoneTimes);
 
   const getHrRange = (index: number) => {
     if (index === 0) {
@@ -71,8 +78,7 @@ function HrZoneChart({ hrZones, hrZoneTimes }: HrZoneChartProps) {
       <div className="space-y-2">
         {ZONE_CONFIG.map((config, index) => {
           const time = hrZoneTimes[index] ?? 0;
-          const pct = totalTime > 0 ? (time / totalTime) * 100 : 0;
-          const barWidth = maxTime > 0 ? (time / maxTime) * 100 : 0;
+          const pct = getZonePercentage(time, totalTime);
 
           return (
             <div
@@ -96,7 +102,7 @@ function HrZoneChart({ hrZones, hrZoneTimes }: HrZoneChartProps) {
                   )}
                   style={{
                     transitionDelay: `${index * 80}ms`,
-                    width: `${barWidth}%`,
+                    width: `${pct}%`,
                   }}
                 />
               </div>
@@ -114,4 +120,4 @@ function HrZoneChart({ hrZones, hrZoneTimes }: HrZoneChartProps) {
   );
 }
 
-export { HrZoneChart };
+export { getZonePercentage, HrZoneChart };
