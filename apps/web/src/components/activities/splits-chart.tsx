@@ -8,6 +8,11 @@ type SplitsChartProps = {
   }>;
 };
 
+type SplitChartRow = SplitsChartProps["splits"][number] & {
+  distanceKm: number;
+  paceSecondsPerKm: number;
+};
+
 function formatDiff(diffSeconds: number) {
   const abs = Math.abs(diffSeconds);
   const minutes = Math.floor(abs / 60);
@@ -17,19 +22,43 @@ function formatDiff(diffSeconds: number) {
   return `${sign}${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+function buildSplitChartRows(
+  splits: SplitsChartProps["splits"],
+): SplitChartRow[] {
+  let previousDistanceMeters = 0;
+
+  return splits.map((split) => {
+    const splitDistanceMeters = Math.max(
+      split.splitDistanceMeters - previousDistanceMeters,
+      0,
+    );
+    previousDistanceMeters = split.splitDistanceMeters;
+
+    const distanceKm = splitDistanceMeters / 1000;
+    const paceSecondsPerKm =
+      distanceKm > 0 ? split.durationSeconds / distanceKm : 0;
+
+    return {
+      ...split,
+      distanceKm,
+      paceSecondsPerKm,
+    };
+  });
+}
+
 function SplitsChart({ splits }: SplitsChartProps) {
   if (splits.length === 0) {
     return null;
   }
 
-  const splitsWithPace = splits.map((split) => {
-    const distance = split.splitDistanceMeters / 1000;
-    const pace = split.durationSeconds / distance;
-    return { ...split, distance, pace };
-  });
+  const splitsWithPace = buildSplitChartRows(splits);
 
-  const minPace = Math.min(...splitsWithPace.map((split) => split.pace));
-  const maxPace = Math.max(...splitsWithPace.map((split) => split.pace));
+  const minPace = Math.min(
+    ...splitsWithPace.map((split) => split.paceSecondsPerKm),
+  );
+  const maxPace = Math.max(
+    ...splitsWithPace.map((split) => split.paceSecondsPerKm),
+  );
   const paceRange = maxPace - minPace || 1;
   const getBarWidth = (pace: number) =>
     88 - ((pace - minPace) / paceRange) * 46;
@@ -50,8 +79,11 @@ function SplitsChart({ splits }: SplitsChartProps) {
 
         {splitsWithPace.map((split, index) => {
           const previous = index > 0 ? splitsWithPace[index - 1] : null;
-          const diff = previous !== null ? previous.pace - split.pace : null;
-          const barWidth = getBarWidth(split.pace);
+          const diff =
+            previous !== null
+              ? previous.paceSecondsPerKm - split.paceSecondsPerKm
+              : null;
+          const barWidth = getBarWidth(split.paceSecondsPerKm);
 
           return (
             <div
@@ -59,9 +91,7 @@ function SplitsChart({ splits }: SplitsChartProps) {
               className="grid grid-cols-[3.5rem_1fr_4.5rem] items-center"
             >
               <span className="text-foreground text-sm">
-                {split.distance === 1
-                  ? split.splitNumber
-                  : (split.splitNumber - 1 + split.distance).toFixed(2)}
+                {split.splitNumber}
               </span>
 
               <div className="pr-3">
@@ -69,7 +99,7 @@ function SplitsChart({ splits }: SplitsChartProps) {
                   className="bg-primary text-primary-foreground flex min-w-28 items-center rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-500"
                   style={{ width: `${barWidth}%` }}
                 >
-                  {formatSecondsToMinsPerKm(split.pace)}
+                  {formatSecondsToMinsPerKm(split.paceSecondsPerKm)}
                 </div>
               </div>
 
@@ -92,4 +122,4 @@ function SplitsChart({ splits }: SplitsChartProps) {
   );
 }
 
-export { SplitsChart };
+export { buildSplitChartRows, SplitsChart };
