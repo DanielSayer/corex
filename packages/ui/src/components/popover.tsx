@@ -29,6 +29,7 @@ function PopoverContent({
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Positioner
+        className="z-100"
         align={align}
         alignOffset={alignOffset}
         side={side}
@@ -37,7 +38,7 @@ function PopoverContent({
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(
-            "origin-(--transform-origin) rounded-3xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl ring-1 ring-foreground/5 outline-none transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
+            "origin-(--transform-origin) rounded-3xl border border-border bg-popover py-2 px-3 text-popover-foreground shadow-2xl ring-1 ring-foreground/5 outline-none transition-all data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
             className,
           )}
           {...props}

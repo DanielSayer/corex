@@ -1,6 +1,3 @@
-import type { Table as ReactTable } from "@tanstack/react-table";
-import { Maximize2Icon } from "lucide-react";
-
 import { Button } from "@corex/ui/components/button";
 import {
   Dialog,
@@ -10,7 +7,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@corex/ui/components/dialog";
-
+import type { Table as ReactTable } from "@tanstack/react-table";
+import { Maximize2Icon } from "lucide-react";
 import { DataTable } from ".";
 
 type FullscreenTableButtonProps<TData> = {
@@ -34,12 +32,14 @@ function FullscreenTableButton<TData>({
           </Button>
         }
       />
-      <DialogContent className="w-full sm:max-w-[90vw]">
+      <DialogContent className="flex max-h-[80vh] w-full flex-col overflow-hidden sm:max-w-[90vw]">
         <DialogHeader className="-mb-4">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <DataTable table={table} />
+        <div className="min-h-0 overflow-y-auto">
+          <DataTable table={table} />
+        </div>
       </DialogContent>
     </Dialog>
   );

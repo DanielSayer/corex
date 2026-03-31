@@ -26,7 +26,7 @@ function ColumnVisibility<TData>({ table }: ColumnVisibilityProps<TData>) {
           </Button>
         }
       />
-      <PopoverContent align="end">
+      <PopoverContent align="end" className="z-100">
         <div>
           <p className="mb-1 text-base font-semibold">Show/Hide Columns</p>
           <div className="space-y-1">
