@@ -21,7 +21,7 @@ function RouteComponent() {
 
   const privateData = useQuery(trpc.privateData.queryOptions());
   const recentActivities = useQuery(
-    trpc.intervalsSync.recentActivities.queryOptions(),
+    trpc.activityHistory.recentActivities.queryOptions(),
   );
 
   return (

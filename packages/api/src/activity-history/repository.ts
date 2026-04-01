@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { Effect } from "effect";
 
 import type { Database } from "@corex/db";
 import {
@@ -10,6 +11,10 @@ import {
   runBestEffort,
 } from "@corex/db/schema/intervals-sync";
 
+import {
+  intervalsActivityMapSchema,
+  intervalsActivityStreamSchema,
+} from "../intervals-sync/schemas";
 import {
   MAX_ACTIVITY_ANALYSIS_POINTS,
   MAX_ACTIVITY_MAP_PREVIEW_POINTS,
@@ -24,9 +29,12 @@ import {
   downsampleMapLatLngs,
 } from "./activity-series";
 import {
-  intervalsActivityMapSchema,
-  intervalsActivityStreamSchema,
-} from "./schemas";
+  buildActivityCalendar,
+  type ActivityCalendarQueryInput,
+} from "./activity-calendar";
+import { ActivityHistoryPersistenceFailure } from "./errors";
+import type { RecentActivityPreview } from "./recent-activity";
+import type { ActivityHistoryApi } from "./service";
 
 const ANALYSIS_STREAM_TYPES = [
   "heartrate",
@@ -189,21 +197,68 @@ async function loadActivityBaseRow(
   userId: string,
   activityId: string,
 ) {
-  const activityRow = await db.query.importedActivity.findFirst({
+  return db.query.importedActivity.findFirst({
     where: and(
       eq(importedActivity.userId, userId),
       eq(importedActivity.upstreamActivityId, activityId),
     ),
   });
-
-  if (!activityRow) {
-    return null;
-  }
-
-  return activityRow;
 }
 
-export async function loadActivitySummary(
+async function loadRecentActivities(
+  db: Database,
+  userId: string,
+): Promise<RecentActivityPreview[]> {
+  const activityRows = await db.query.importedActivity.findMany({
+    where: eq(importedActivity.userId, userId),
+    orderBy: desc(importedActivity.startAt),
+    limit: 5,
+  });
+
+  if (activityRows.length === 0) {
+    return [];
+  }
+
+  const mapRows = await db.query.importedActivityMap.findMany({
+    where: and(
+      eq(importedActivityMap.userId, userId),
+      inArray(
+        importedActivityMap.upstreamActivityId,
+        activityRows.map((row) => row.upstreamActivityId),
+      ),
+    ),
+  });
+
+  const mapByActivityId = new Map(
+    mapRows.map((row) => [row.upstreamActivityId, row]),
+  );
+
+  return activityRows.map((row) => {
+    const mapRow = mapByActivityId.get(row.upstreamActivityId);
+    const mapResult = mapRow
+      ? intervalsActivityMapSchema.safeParse(mapRow.rawMap)
+      : null;
+    const map = mapResult?.success ? mapResult.data : null;
+
+    return {
+      id: row.upstreamActivityId,
+      name:
+        typeof row.name === "string" && row.name.trim().length > 0
+          ? row.name
+          : "Untitled run",
+      startDate: row.startAt.toISOString(),
+      distance: row.distanceMeters,
+      elapsedTime: row.elapsedTimeSeconds,
+      averageHeartrate: row.averageHeartrate,
+      routePreview:
+        map?.latlngs && Array.isArray(map.latlngs)
+          ? { latlngs: map.latlngs }
+          : null,
+    };
+  });
+}
+
+async function loadActivitySummary(
   db: Database,
   userId: string,
   activityId: string,
@@ -304,7 +359,7 @@ export async function loadActivitySummary(
   };
 }
 
-export async function loadActivityAnalysis(
+async function loadActivityAnalysis(
   db: Database,
   userId: string,
   activityId: string,
@@ -353,4 +408,79 @@ export async function loadActivityAnalysis(
   }
 
   return analysis;
+}
+
+async function loadActivityCalendar(
+  db: Database,
+  userId: string,
+  input: ActivityCalendarQueryInput,
+) {
+  const activityRows = await db.query.importedActivity.findMany({
+    where: and(
+      eq(importedActivity.userId, userId),
+      gte(importedActivity.startAt, new Date(input.from)),
+      lt(importedActivity.startAt, new Date(input.to)),
+    ),
+    orderBy: asc(importedActivity.startAt),
+  });
+
+  return buildActivityCalendar(input, [
+    ...activityRows.map((row) => ({
+      id: row.upstreamActivityId,
+      name: row.name,
+      startDate: row.startAt,
+      elapsedTime: row.elapsedTimeSeconds,
+      distance: row.distanceMeters,
+      averageHeartrate: row.averageHeartrate,
+      trainingLoad: row.trainingLoad,
+      totalElevationGain: row.totalElevationGainMeters,
+    })),
+  ]);
+}
+
+export function createActivityHistoryRepository(
+  db: Database,
+): ActivityHistoryApi {
+  return {
+    recentActivities(userId) {
+      return Effect.tryPromise({
+        try: () => loadRecentActivities(db, userId),
+        catch: (cause) =>
+          new ActivityHistoryPersistenceFailure({
+            message: "Failed to load recent activities",
+            cause,
+          }),
+      });
+    },
+    activitySummary(userId, activityId) {
+      return Effect.tryPromise({
+        try: () => loadActivitySummary(db, userId, activityId),
+        catch: (cause) =>
+          new ActivityHistoryPersistenceFailure({
+            message: "Failed to load activity summary",
+            cause,
+          }),
+      });
+    },
+    activityAnalysis(userId, activityId) {
+      return Effect.tryPromise({
+        try: () => loadActivityAnalysis(db, userId, activityId),
+        catch: (cause) =>
+          new ActivityHistoryPersistenceFailure({
+            message: "Failed to load activity analysis",
+            cause,
+          }),
+      });
+    },
+    calendar(userId, input) {
+      return Effect.tryPromise({
+        try: () => loadActivityCalendar(db, userId, input),
+        catch: (cause) =>
+          new ActivityHistoryPersistenceFailure({
+            message: "Failed to load activity calendar",
+            cause,
+          }),
+      });
+    },
+  };
 }

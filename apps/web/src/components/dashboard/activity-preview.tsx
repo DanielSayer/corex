@@ -1,4 +1,4 @@
-import type { IntervalsSyncRouterOutputs } from "@/utils/types";
+import type { ActivityHistoryRouterOutputs } from "@/utils/types";
 import { Separator } from "@corex/ui/components/separator";
 import { Skeleton } from "@corex/ui/components/skeleton";
 import { Link } from "@tanstack/react-router";
@@ -16,7 +16,7 @@ import {
   toSvgPath,
 } from "./utils";
 
-type RecentActivity = IntervalsSyncRouterOutputs["recentActivities"][number];
+type RecentActivity = ActivityHistoryRouterOutputs["recentActivities"][number];
 
 export function ActivityPreview({
   activities,

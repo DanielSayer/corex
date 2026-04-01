@@ -9,7 +9,7 @@ import {
   type IntervalsSyncApi,
 } from "../intervals-sync/module";
 import {
-  createImportedActivityPort,
+  createImportedActivityWritePort,
   createSyncLedgerPort,
 } from "../intervals-sync/repository";
 import { createIntervalsAccountPort } from "./account";
@@ -45,7 +45,7 @@ export function createLiveIntervalsSyncApi(
   return createIntervalsSyncModule({
     accounts,
     ledger: createSyncLedgerPort(database),
-    activities: createImportedActivityPort(database),
+    activities: createImportedActivityWritePort(database),
     upstream: {
       getProfile: (input) => upstreamAdapter.getProfile(input),
       listActivities: (input) => upstreamAdapter.listActivities(input),

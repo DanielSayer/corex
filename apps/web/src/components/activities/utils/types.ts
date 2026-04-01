@@ -1,10 +1,10 @@
-import type { IntervalsSyncRouterOutputs } from "@/utils/types";
+import type { ActivityHistoryRouterOutputs } from "@/utils/types";
 
 type ActivitySummary = NonNullable<
-  IntervalsSyncRouterOutputs["activitySummary"]
+  ActivityHistoryRouterOutputs["activitySummary"]
 >;
 type ActivityAnalysis = NonNullable<
-  IntervalsSyncRouterOutputs["activityAnalysis"]
+  ActivityHistoryRouterOutputs["activityAnalysis"]
 >;
 type ActivityMapData = NonNullable<ActivitySummary["mapPreview"]>;
 type ActivitySplit = ActivitySummary["intervals"][number];

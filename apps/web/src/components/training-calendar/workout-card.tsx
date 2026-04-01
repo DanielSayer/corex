@@ -1,4 +1,4 @@
-import type { IntervalsSyncRouterOutputs } from "@/utils/types";
+import type { ActivityHistoryRouterOutputs } from "@/utils/types";
 import {
   formatDistanceToKm,
   formatSecondsToMinsPerKm,
@@ -10,7 +10,7 @@ import { ActivityIcon, TimerIcon } from "lucide-react";
 import { formatCalendarDuration } from "./formatters";
 
 type WorkoutCardProps = {
-  workout: IntervalsSyncRouterOutputs["calendar"]["activities"][number];
+  workout: ActivityHistoryRouterOutputs["calendar"]["activities"][number];
 };
 
 function WorkoutCard({ workout }: WorkoutCardProps) {

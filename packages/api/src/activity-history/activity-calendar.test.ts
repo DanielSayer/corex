@@ -5,7 +5,7 @@ import {
   calculateAveragePaceSecondsPerKm,
 } from "./activity-calendar";
 
-describe("activity calendar", () => {
+describe("activity history calendar", () => {
   it("calculates per-activity pace from elapsed time and distance", () => {
     expect(calculateAveragePaceSecondsPerKm(1500, 5000)).toBe(300);
     expect(calculateAveragePaceSecondsPerKm(null, 5000)).toBeNull();

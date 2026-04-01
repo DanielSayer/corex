@@ -4,5 +4,5 @@ import type { AppRouter } from "@corex/api/routers/index";
 type InferRouterOutputs<TRouter extends AppRouter> =
   inferRouterOutputs<TRouter>;
 
-export type IntervalsSyncRouterOutputs =
-  InferRouterOutputs<AppRouter>["intervalsSync"];
+export type ActivityHistoryRouterOutputs =
+  InferRouterOutputs<AppRouter>["activityHistory"];

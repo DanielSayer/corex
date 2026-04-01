@@ -1,5 +1,4 @@
 import { TRPCError } from "@trpc/server";
-import { z } from "zod";
 
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
@@ -13,28 +12,10 @@ import {
 } from "./errors";
 import { createLiveIntervalsSyncApi } from "./live";
 import type { IntervalsSyncApi } from "./module";
-import { isValidTimeZone } from "./activity-calendar";
 
 type CreateIntervalsSyncRouterOptions = {
   service?: IntervalsSyncApi;
 };
-
-const isoTimestampSchema = z
-  .string()
-  .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid ISO timestamp");
-
-const calendarInputSchema = z
-  .object({
-    from: isoTimestampSchema,
-    to: isoTimestampSchema,
-    timezone: z.string().trim().min(1).refine(isValidTimeZone, {
-      message: "Invalid timezone",
-    }),
-  })
-  .refine(({ from, to }) => new Date(from).getTime() < new Date(to).getTime(), {
-    message: "`from` must be before `to`",
-    path: ["to"],
-  });
 
 function mapIntervalsSyncError(error: unknown) {
   if (error instanceof SyncAlreadyInProgress) {
@@ -97,44 +78,6 @@ export function createIntervalsSyncRouter(
     latest: authedProcedure.query(({ ctx }) =>
       executeEffect(service.latest(ctx.session.user.id), mapIntervalsSyncError),
     ),
-    recentActivities: authedProcedure.query(({ ctx }) =>
-      executeEffect(
-        service.recentActivities(ctx.session.user.id),
-        mapIntervalsSyncError,
-      ),
-    ),
-    activitySummary: authedProcedure
-      .input(
-        z.object({
-          activityId: z.string().min(1),
-        }),
-      )
-      .query(({ ctx, input }) =>
-        executeEffect(
-          service.activitySummary(ctx.session.user.id, input.activityId),
-          mapIntervalsSyncError,
-        ),
-      ),
-    activityAnalysis: authedProcedure
-      .input(
-        z.object({
-          activityId: z.string().min(1),
-        }),
-      )
-      .query(({ ctx, input }) =>
-        executeEffect(
-          service.activityAnalysis(ctx.session.user.id, input.activityId),
-          mapIntervalsSyncError,
-        ),
-      ),
-    calendar: authedProcedure
-      .input(calendarInputSchema)
-      .query(({ ctx, input }) =>
-        executeEffect(
-          service.calendar(ctx.session.user.id, input),
-          mapIntervalsSyncError,
-        ),
-      ),
   });
 }
 

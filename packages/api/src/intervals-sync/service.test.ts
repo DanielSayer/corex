@@ -1,22 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { Cause, Effect, Exit, Option } from "effect";
 
-import type {
-  ActivityCalendarData,
-  ActivityCalendarQueryInput,
-} from "./activity-calendar";
-import type {
-  ActivityAnalysisData,
-  ActivitySummaryPageData,
-} from "./activity-details";
 import type { IntervalsAccountPort } from "../intervals/account";
 import type { IntervalsUpstreamPort } from "./adapter";
 import { InvalidIntervalsCredentials, SyncAlreadyInProgress } from "./errors";
 import type { DerivedPerformancePort } from "./derived-performance-service";
 import { createIntervalsSyncModule } from "./module";
-import type { RecentActivityPreview } from "./recent-activity";
 import type {
-  ImportedActivityPort,
+  ImportedActivityWritePort,
   SyncLedgerPort,
   SyncSummary,
   UpsertImportedActivityRecord,
@@ -165,18 +156,10 @@ function createLedger(overrides: Partial<SyncLedgerPort> = {}): SyncLedgerPort {
 }
 
 function createActivities(
-  overrides: Partial<ImportedActivityPort> = {},
-): ImportedActivityPort {
+  overrides: Partial<ImportedActivityWritePort> = {},
+): ImportedActivityWritePort {
   return {
     upsert: () => Effect.succeed("inserted"),
-    recentActivities: () => Effect.succeed([]),
-    activitySummary: () => Effect.succeed(null),
-    activityAnalysis: () => Effect.succeed(null),
-    calendar: () =>
-      Effect.succeed({
-        activities: [],
-        weeks: [],
-      }),
     ...overrides,
   };
 }
@@ -362,40 +345,6 @@ describe("intervals sync module", () => {
     );
   });
 
-  it("returns recent activities from the activities port unchanged", async () => {
-    const recentActivities: RecentActivityPreview[] = [
-      {
-        id: "run-1",
-        name: "Morning run",
-        startDate: "2026-03-20T00:00:00.000Z",
-        distance: 1000,
-        elapsedTime: 1820,
-        averageHeartrate: 154,
-        routePreview: {
-          latlngs: [
-            [-27.47, 153.02],
-            [-27.46, 153.03],
-          ],
-        },
-      },
-    ];
-
-    const service = createIntervalsSyncModule({
-      accounts: createAccountPort(),
-      ledger: createLedger(),
-      activities: createActivities({
-        recentActivities: () => Effect.succeed(recentActivities),
-      }),
-      upstream: createUpstreamPort(),
-      derived: createDerivedPort(),
-      idGenerator: () => "event-1",
-    });
-
-    const result = await Effect.runPromise(service.recentActivities("user-1"));
-
-    expect(result).toEqual(recentActivities);
-  });
-
   it("returns the latest sync summary unchanged", async () => {
     const latestSummary: SyncSummary = {
       eventId: "event-1",
@@ -439,123 +388,5 @@ describe("intervals sync module", () => {
     const result = await Effect.runPromise(service.latest("user-1"));
 
     expect(result).toEqual(latestSummary);
-  });
-
-  it("returns activity summary from the activities port unchanged", async () => {
-    const summary: ActivitySummaryPageData = {
-      name: "Morning run",
-      startDateLocal: "2026-03-20T10:00:00.000+10:00",
-      type: "Run",
-      deviceName: "Forerunner",
-      mapPreview: null,
-      distance: 1000,
-      movingTime: 240,
-      elapsedTime: 250,
-      averageSpeed: 4.1,
-      maxSpeed: 5.2,
-      averageHeartrate: 152,
-      maxHeartrate: 182,
-      averageCadence: 84,
-      calories: 100,
-      totalElevationGain: 10,
-      totalElevationLoss: 9,
-      trainingLoad: 35,
-      hrLoad: 40,
-      intensity: 0.8,
-      athleteMaxHr: 196,
-      heartRateZonesBpm: [120, 140, 155],
-      heartRateZoneDurationsSeconds: [120, 90, 30],
-      oneKmSplitTimesSeconds: [
-        {
-          splitNumber: 1,
-          splitDistanceMeters: 1000,
-          durationSeconds: 240,
-        },
-      ],
-      intervals: [],
-      bestEfforts: [],
-    };
-    const analysis: ActivityAnalysisData = {
-      heartrate: [],
-      cadence: [],
-      velocity_smooth: [],
-      fixed_altitude: [],
-    };
-
-    const service = createIntervalsSyncModule({
-      accounts: createAccountPort(),
-      ledger: createLedger(),
-      activities: createActivities({
-        activitySummary: () => Effect.succeed(summary),
-        activityAnalysis: () => Effect.succeed(analysis),
-      }),
-      upstream: createUpstreamPort(),
-      derived: createDerivedPort(),
-      idGenerator: () => "event-1",
-    });
-
-    const summaryResult = await Effect.runPromise(
-      service.activitySummary("user-1", "run-1"),
-    );
-    const analysisResult = await Effect.runPromise(
-      service.activityAnalysis("user-1", "run-1"),
-    );
-
-    expect(summaryResult).toEqual(summary);
-    expect(analysisResult).toEqual(analysis);
-  });
-
-  it("returns calendar data from the activities port unchanged", async () => {
-    const calendarInput: ActivityCalendarQueryInput = {
-      from: "2026-03-30T00:00:00.000Z",
-      to: "2026-04-13T00:00:00.000Z",
-      timezone: "Australia/Brisbane",
-    };
-    const calendar: ActivityCalendarData = {
-      activities: [
-        {
-          id: "run-1",
-          name: "Morning run",
-          startDate: "2026-03-31T00:00:00.000Z",
-          elapsedTime: 1800,
-          distance: 5000,
-          averagePaceSecondsPerKm: 360,
-          averageHeartrate: 150,
-          trainingLoad: 40,
-          totalElevationGain: 30,
-        },
-      ],
-      weeks: [
-        {
-          weekStart: "2026-03-30",
-          weekEnd: "2026-04-05",
-          time: 1800,
-          distance: 5000,
-          totalElevationGain: 30,
-          averagePaceSecondsPerKm: 360,
-        },
-      ],
-    };
-
-    const service = createIntervalsSyncModule({
-      accounts: createAccountPort(),
-      ledger: createLedger(),
-      activities: createActivities({
-        calendar: (userId, input) => {
-          expect(userId).toBe("user-1");
-          expect(input).toEqual(calendarInput);
-          return Effect.succeed(calendar);
-        },
-      }),
-      upstream: createUpstreamPort(),
-      derived: createDerivedPort(),
-      idGenerator: () => "event-1",
-    });
-
-    const result = await Effect.runPromise(
-      service.calendar("user-1", calendarInput),
-    );
-
-    expect(result).toEqual(calendar);
   });
 });

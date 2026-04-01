@@ -6,7 +6,7 @@ import {
   downsampleMapLatLngs,
 } from "./activity-series";
 
-describe("activity series helpers", () => {
+describe("activity history series helpers", () => {
   it("caps metric series while preserving endpoints and local extremes", () => {
     const points = [
       { second: 0, value: 1 },

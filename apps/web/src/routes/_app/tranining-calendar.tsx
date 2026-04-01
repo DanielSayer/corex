@@ -30,7 +30,7 @@ function RouteComponent() {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const { data, isLoading } = useQuery(
-    trpc.intervalsSync.calendar.queryOptions(
+    trpc.activityHistory.calendar.queryOptions(
       {
         from: calendarStart.toISOString(),
         to: calendarEndExclusive.toISOString(),
