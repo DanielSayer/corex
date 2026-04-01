@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_app/activity/$activityId")({
 function RouteComponent() {
   const { activityId } = Route.useParams();
   const activitySummaryQuery = useQuery(
-    trpc.intervalsSync.activitySummary.queryOptions({ activityId }),
+    trpc.activityHistory.activitySummary.queryOptions({ activityId }),
   );
 
   return (

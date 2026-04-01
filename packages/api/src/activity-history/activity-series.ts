@@ -1,6 +1,6 @@
 import type {
-  ActivityMetricPoint,
   ActivityMetricKey,
+  ActivityMetricPoint,
 } from "./activity-details";
 
 function getDurationSeconds(durationSeconds: number | null) {

@@ -1,11 +1,14 @@
 import type { Database } from "@corex/db";
 
-import { createImportedActivityPort } from "./imported-activity-repository";
+import { createImportedActivityWritePort } from "./imported-activity-repository";
 import { createSyncLedgerPort } from "./sync-ledger-repository";
-import type { ImportedActivityPort, SyncLedgerPort } from "./repository-types";
+import type {
+  ImportedActivityWritePort,
+  SyncLedgerPort,
+} from "./repository-types";
 
 export type IntervalsSyncRepository = SyncLedgerPort &
-  ImportedActivityPort & {
+  ImportedActivityWritePort & {
     hasInProgressSync: SyncLedgerPort["hasInProgress"];
     createSyncEvent: (
       userId: string,
@@ -15,15 +18,14 @@ export type IntervalsSyncRepository = SyncLedgerPort &
     finalizeSyncFailure: SyncLedgerPort["completeFailure"];
     getLatestSyncSummary: SyncLedgerPort["latest"];
     getLatestSuccessfulSyncCursor: SyncLedgerPort["latestSuccessfulCursor"];
-    upsertImportedActivity: ImportedActivityPort["upsert"];
-    getRecentActivities: ImportedActivityPort["recentActivities"];
+    upsertImportedActivity: ImportedActivityWritePort["upsert"];
   };
 
 export function createIntervalsSyncRepository(
   db: Database,
 ): IntervalsSyncRepository {
   const ledger = createSyncLedgerPort(db);
-  const activities = createImportedActivityPort(db);
+  const activities = createImportedActivityWritePort(db);
 
   return {
     ...ledger,
@@ -39,6 +41,5 @@ export function createIntervalsSyncRepository(
     getLatestSyncSummary: ledger.latest,
     getLatestSuccessfulSyncCursor: ledger.latestSuccessfulCursor,
     upsertImportedActivity: activities.upsert,
-    getRecentActivities: activities.recentActivities,
   };
 }

@@ -306,7 +306,7 @@ function AdvancedAnalysisSection({
   );
   const containerRef = useRef<HTMLDivElement | null>(null);
   const analysisQuery = useQuery({
-    ...trpc.intervalsSync.activityAnalysis.queryOptions({ activityId }),
+    ...trpc.activityHistory.activityAnalysis.queryOptions({ activityId }),
     enabled: true,
     gcTime: 60_000,
     staleTime: 0,

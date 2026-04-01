@@ -50,10 +50,6 @@ describe("http integration", () => {
         service: {
           latest: () => Effect.die("not used"),
           syncNow: () => Effect.die("not used"),
-          recentActivities: () => Effect.die("not used"),
-          activitySummary: () => Effect.die("not used"),
-          activityAnalysis: () => Effect.die("not used"),
-          calendar: () => Effect.die("not used"),
         },
       }),
     });
@@ -99,10 +95,6 @@ describe("http integration", () => {
               completedAt: "2026-03-21T00:05:00.000Z",
             }),
           syncNow: () => Effect.die("not used"),
-          recentActivities: () => Effect.die("not used"),
-          activitySummary: () => Effect.die("not used"),
-          activityAnalysis: () => Effect.die("not used"),
-          calendar: () => Effect.die("not used"),
         },
       }),
     });

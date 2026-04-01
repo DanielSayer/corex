@@ -1,4 +1,4 @@
-import type { IntervalsSyncRouterOutputs } from "@/utils/types";
+import type { ActivityHistoryRouterOutputs } from "@/utils/types";
 import {
   EMPTY_VALUE,
   formatDistanceToKm,
@@ -10,7 +10,7 @@ import { formatCalendarDuration } from "./formatters";
 
 type WeekSummaryCellProps = {
   weekNum: number;
-  summary?: IntervalsSyncRouterOutputs["calendar"]["weeks"][number];
+  summary?: ActivityHistoryRouterOutputs["calendar"]["weeks"][number];
 };
 
 function WeekSummaryCell({ weekNum, summary }: WeekSummaryCellProps) {

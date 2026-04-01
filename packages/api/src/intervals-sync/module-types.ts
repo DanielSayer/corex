@@ -1,16 +1,7 @@
 import type { Effect } from "effect";
 
 import type {
-  ActivityAnalysisData,
-  ActivitySummaryPageData,
-} from "./activity-details";
-import type {
-  ActivityCalendarData,
-  ActivityCalendarQueryInput,
-} from "./activity-calendar";
-import type { RecentActivityPreview } from "./recent-activity";
-import type {
-  ImportedActivityPort,
+  ImportedActivityWritePort,
   SyncLedgerPort,
   SyncSummary,
 } from "./repository";
@@ -48,7 +39,7 @@ export type CreateIntervalsSyncModuleOptions = {
   accounts: IntervalsAccountPort;
   upstream: IntervalsUpstreamPort;
   ledger: SyncLedgerPort;
-  activities: ImportedActivityPort;
+  activities: ImportedActivityWritePort;
   derived: DerivedPerformancePort;
   clock?: Clock;
   idGenerator?: () => string;
@@ -60,19 +51,4 @@ export type IntervalsSyncApi = {
   latest: (
     userId: string,
   ) => Effect.Effect<SyncSummary | null, SyncPersistenceFailure>;
-  recentActivities: (
-    userId: string,
-  ) => Effect.Effect<RecentActivityPreview[], SyncPersistenceFailure>;
-  activitySummary: (
-    userId: string,
-    activityId: string,
-  ) => Effect.Effect<ActivitySummaryPageData | null, SyncPersistenceFailure>;
-  activityAnalysis: (
-    userId: string,
-    activityId: string,
-  ) => Effect.Effect<ActivityAnalysisData | null, SyncPersistenceFailure>;
-  calendar: (
-    userId: string,
-    input: ActivityCalendarQueryInput,
-  ) => Effect.Effect<ActivityCalendarData, SyncPersistenceFailure>;
 };

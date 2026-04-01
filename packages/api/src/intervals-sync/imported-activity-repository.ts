@@ -10,18 +10,14 @@ import {
   importedActivityStream,
 } from "@corex/db/schema/intervals-sync";
 
-import {
-  loadActivityAnalysis,
-  loadActivitySummary,
-} from "./activity-details-query";
-import { loadActivityCalendar } from "./activity-calendar-query";
 import { normalizeActivityDetailForStorage } from "./detail-normalization";
 import { SyncPersistenceFailure } from "./errors";
-import { loadRecentActivities } from "./recent-activities-query";
-import type { ImportedActivityPort } from "./repository-types";
+import type { ImportedActivityWritePort } from "./repository-types";
 import { normalizeActivityStreamForStorage } from "./stream-normalization";
 
-export function createImportedActivityPort(db: Database): ImportedActivityPort {
+export function createImportedActivityWritePort(
+  db: Database,
+): ImportedActivityWritePort {
   return {
     upsert(record) {
       return Effect.tryPromise({
@@ -228,46 +224,6 @@ export function createImportedActivityPort(db: Database): ImportedActivityPort {
         catch: (cause) =>
           new SyncPersistenceFailure({
             message: "Failed to upsert imported activity",
-            cause,
-          }),
-      });
-    },
-    recentActivities(userId) {
-      return Effect.tryPromise({
-        try: () => loadRecentActivities(db, userId),
-        catch: (cause) =>
-          new SyncPersistenceFailure({
-            message: "Failed to load recent activities",
-            cause,
-          }),
-      });
-    },
-    activitySummary(userId, activityId) {
-      return Effect.tryPromise({
-        try: () => loadActivitySummary(db, userId, activityId),
-        catch: (cause) =>
-          new SyncPersistenceFailure({
-            message: "Failed to load activity summary",
-            cause,
-          }),
-      });
-    },
-    activityAnalysis(userId, activityId) {
-      return Effect.tryPromise({
-        try: () => loadActivityAnalysis(db, userId, activityId),
-        catch: (cause) =>
-          new SyncPersistenceFailure({
-            message: "Failed to load activity analysis",
-            cause,
-          }),
-      });
-    },
-    calendar(userId, input) {
-      return Effect.tryPromise({
-        try: () => loadActivityCalendar(db, userId, input),
-        catch: (cause) =>
-          new SyncPersistenceFailure({
-            message: "Failed to load activity calendar",
             cause,
           }),
       });

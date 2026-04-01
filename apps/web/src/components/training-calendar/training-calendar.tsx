@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { IntervalsSyncRouterOutputs } from "@/utils/types";
+import type { ActivityHistoryRouterOutputs } from "@/utils/types";
 import { Button } from "@corex/ui/components/button";
 import {
   addMonths,
@@ -17,8 +17,8 @@ import { WeekSummaryCell } from "./week-summary-cell";
 import { WorkoutCard } from "./workout-card";
 
 type CalendarActivity =
-  IntervalsSyncRouterOutputs["calendar"]["activities"][number];
-type CalendarWeek = IntervalsSyncRouterOutputs["calendar"]["weeks"][number];
+  ActivityHistoryRouterOutputs["calendar"]["activities"][number];
+type CalendarWeek = ActivityHistoryRouterOutputs["calendar"]["weeks"][number];
 
 type WorkoutCalendarProps = {
   loading: boolean;

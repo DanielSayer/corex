@@ -1,15 +1,6 @@
 import type { Effect } from "effect";
 
-import type {
-  ActivityAnalysisData,
-  ActivitySummaryPageData,
-} from "./activity-details";
-import type {
-  ActivityCalendarData,
-  ActivityCalendarQueryInput,
-} from "./activity-calendar";
 import type { SyncPersistenceFailure } from "./errors";
-import type { RecentActivityPreview } from "./recent-activity";
 import type {
   IntervalsActivityDetail,
   IntervalsActivityMap,
@@ -116,23 +107,8 @@ export type SyncLedgerPort = {
   ) => Effect.Effect<SyncSummary, SyncPersistenceFailure>;
 };
 
-export type ImportedActivityPort = {
+export type ImportedActivityWritePort = {
   upsert: (
     record: UpsertImportedActivityRecord,
   ) => Effect.Effect<"inserted" | "updated", SyncPersistenceFailure>;
-  recentActivities: (
-    userId: string,
-  ) => Effect.Effect<RecentActivityPreview[], SyncPersistenceFailure>;
-  activitySummary: (
-    userId: string,
-    activityId: string,
-  ) => Effect.Effect<ActivitySummaryPageData | null, SyncPersistenceFailure>;
-  activityAnalysis: (
-    userId: string,
-    activityId: string,
-  ) => Effect.Effect<ActivityAnalysisData | null, SyncPersistenceFailure>;
-  calendar: (
-    userId: string,
-    input: ActivityCalendarQueryInput,
-  ) => Effect.Effect<ActivityCalendarData, SyncPersistenceFailure>;
 };

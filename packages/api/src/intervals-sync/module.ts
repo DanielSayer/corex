@@ -40,18 +40,6 @@ export function createIntervalsSyncModule(
     latest(userId) {
       return options.ledger.latest(userId);
     },
-    recentActivities(userId) {
-      return options.activities.recentActivities(userId);
-    },
-    activitySummary(userId, activityId) {
-      return options.activities.activitySummary(userId, activityId);
-    },
-    activityAnalysis(userId, activityId) {
-      return options.activities.activityAnalysis(userId, activityId);
-    },
-    calendar(userId, input) {
-      return options.activities.calendar(userId, input);
-    },
     syncNow(userId) {
       return Effect.suspend(() =>
         runIntervalsSyncNow(
