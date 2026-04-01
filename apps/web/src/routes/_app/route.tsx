@@ -28,6 +28,7 @@ import {
   TargetIcon,
   UserIcon,
   ChevronRightIcon,
+  CalendarDaysIcon,
 } from "lucide-react";
 import { LoadingWrapper } from "@/components/renderers";
 
@@ -59,6 +60,11 @@ function AppSidebar() {
       to: "/dashboard",
       label: "Dashboard",
       icon: HomeIcon,
+    },
+    {
+      to: "/tranining-calendar",
+      label: "Calendar",
+      icon: CalendarDaysIcon,
     },
   ] as const;
   const setupLinks = [
