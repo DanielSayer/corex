@@ -31,6 +31,10 @@ describe("activity formatters", () => {
   it("formats durations and pace values", () => {
     expect(formatSecondsToHms(3723)).toBe("1:02:03");
     expect(formatSecondsToHms(83)).toBe("1:23");
+    expect(
+      formatSecondsToHms(3960, { showSeconds: false, showUnit: true }),
+    ).toBe("1 hr 06 min");
+    expect(formatSecondsToHms(66, { showUnit: true })).toBe("1 min 06 s");
     expect(formatSecondsToMinsPerKm(245)).toBe("4:05/km");
     expect(formatPace(5000, 1200)).toBe("4:00/km");
   });

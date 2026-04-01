@@ -13,6 +13,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppTraniningCalendarRouteImport } from './routes/_app/tranining-calendar'
 import { Route as AppGoalsRouteImport } from './routes/_app/goals'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAvailabilityRouteImport } from './routes/_app/availability'
@@ -36,6 +37,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppTraniningCalendarRoute = AppTraniningCalendarRouteImport.update({
+  id: '/tranining-calendar',
+  path: '/tranining-calendar',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppGoalsRoute = AppGoalsRouteImport.update({
   id: '/goals',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/availability': typeof AppAvailabilityRoute
   '/dashboard': typeof AppDashboardRoute
   '/goals': typeof AppGoalsRoute
+  '/tranining-calendar': typeof AppTraniningCalendarRoute
   '/activity/$activityId': typeof AppActivityActivityIdRoute
 }
 export interface FileRoutesByTo {
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/availability': typeof AppAvailabilityRoute
   '/dashboard': typeof AppDashboardRoute
   '/goals': typeof AppGoalsRoute
+  '/tranining-calendar': typeof AppTraniningCalendarRoute
   '/activity/$activityId': typeof AppActivityActivityIdRoute
 }
 export interface FileRoutesById {
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/_app/availability': typeof AppAvailabilityRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/goals': typeof AppGoalsRoute
+  '/_app/tranining-calendar': typeof AppTraniningCalendarRoute
   '/_app/activity/$activityId': typeof AppActivityActivityIdRoute
 }
 export interface FileRouteTypes {
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/availability'
     | '/dashboard'
     | '/goals'
+    | '/tranining-calendar'
     | '/activity/$activityId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
     | '/availability'
     | '/dashboard'
     | '/goals'
+    | '/tranining-calendar'
     | '/activity/$activityId'
   id:
     | '__root__'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '/_app/availability'
     | '/_app/dashboard'
     | '/_app/goals'
+    | '/_app/tranining-calendar'
     | '/_app/activity/$activityId'
   fileRoutesById: FileRoutesById
 }
@@ -155,6 +167,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/tranining-calendar': {
+      id: '/_app/tranining-calendar'
+      path: '/tranining-calendar'
+      fullPath: '/tranining-calendar'
+      preLoaderRoute: typeof AppTraniningCalendarRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/goals': {
       id: '/_app/goals'
       path: '/goals'
@@ -190,6 +209,7 @@ interface AppRouteRouteChildren {
   AppAvailabilityRoute: typeof AppAvailabilityRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppGoalsRoute: typeof AppGoalsRoute
+  AppTraniningCalendarRoute: typeof AppTraniningCalendarRoute
   AppActivityActivityIdRoute: typeof AppActivityActivityIdRoute
 }
 
@@ -197,6 +217,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAvailabilityRoute: AppAvailabilityRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppGoalsRoute: AppGoalsRoute,
+  AppTraniningCalendarRoute: AppTraniningCalendarRoute,
   AppActivityActivityIdRoute: AppActivityActivityIdRoute,
 }
 
