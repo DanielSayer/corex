@@ -4,10 +4,10 @@ import type {
   ActivityAnalysisData,
   ActivitySummaryPageData,
 } from "./activity-details";
-import type { IntervalsAccountPort } from "../intervals/account";
-import type { IntervalsUpstreamPort } from "./adapter";
-import type { DerivedPerformancePort } from "./derived-performance-service";
-import type { IntervalsSyncError, SyncPersistenceFailure } from "./errors";
+import type {
+  ActivityCalendarData,
+  ActivityCalendarQueryInput,
+} from "./activity-calendar";
 import type { RecentActivityPreview } from "./recent-activity";
 import type {
   ImportedActivityPort,
@@ -15,7 +15,10 @@ import type {
   SyncSummary,
 } from "./repository";
 import type { IntervalsActivityDetail } from "./schemas";
-
+import type { IntervalsAccountPort } from "../intervals/account";
+import type { IntervalsUpstreamPort } from "./adapter";
+import type { DerivedPerformancePort } from "./derived-performance-service";
+import type { IntervalsSyncError, SyncPersistenceFailure } from "./errors";
 export type Clock = {
   now: () => Date;
 };
@@ -68,4 +71,8 @@ export type IntervalsSyncApi = {
     userId: string,
     activityId: string,
   ) => Effect.Effect<ActivityAnalysisData | null, SyncPersistenceFailure>;
+  calendar: (
+    userId: string,
+    input: ActivityCalendarQueryInput,
+  ) => Effect.Effect<ActivityCalendarData, SyncPersistenceFailure>;
 };

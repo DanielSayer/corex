@@ -49,6 +49,9 @@ export function createIntervalsSyncModule(
     activityAnalysis(userId, activityId) {
       return options.activities.activityAnalysis(userId, activityId);
     },
+    calendar(userId, input) {
+      return options.activities.calendar(userId, input);
+    },
     syncNow(userId) {
       return Effect.suspend(() =>
         runIntervalsSyncNow(

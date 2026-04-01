@@ -53,6 +53,7 @@ describe("http integration", () => {
           recentActivities: () => Effect.die("not used"),
           activitySummary: () => Effect.die("not used"),
           activityAnalysis: () => Effect.die("not used"),
+          calendar: () => Effect.die("not used"),
         },
       }),
     });
@@ -101,6 +102,7 @@ describe("http integration", () => {
           recentActivities: () => Effect.die("not used"),
           activitySummary: () => Effect.die("not used"),
           activityAnalysis: () => Effect.die("not used"),
+          calendar: () => Effect.die("not used"),
         },
       }),
     });

@@ -208,6 +208,7 @@ describe("appRouter", () => {
           },
           activitySummary: () => Effect.die("not used"),
           activityAnalysis: () => Effect.die("not used"),
+          calendar: () => Effect.die("not used"),
         },
       }),
     });
@@ -229,5 +230,69 @@ describe("appRouter", () => {
     await caller.intervalsSync.recentActivities();
 
     expect(requestedUserId).toBe("user-1");
+  });
+
+  it("passes the authenticated user id and input through to calendar reads", async () => {
+    let requestedUserId: string | undefined;
+    let requestedInput:
+      | {
+          from: string;
+          to: string;
+          timezone: string;
+        }
+      | undefined;
+
+    const appRouter = createAppRouter({
+      trainingSettings: createTrainingSettingsRouter({
+        service: {
+          getForUser: () => Effect.die("not used"),
+          upsertForUser: () => Effect.die("not used"),
+        },
+      }),
+      intervalsSync: createIntervalsSyncRouter({
+        service: {
+          syncNow: () => Effect.die("not used"),
+          latest: () => Effect.die("not used"),
+          recentActivities: () => Effect.die("not used"),
+          activitySummary: () => Effect.die("not used"),
+          activityAnalysis: () => Effect.die("not used"),
+          calendar: (userId, input) => {
+            requestedUserId = userId;
+            requestedInput = input;
+            return Effect.succeed({
+              activities: [],
+              weeks: [],
+            });
+          },
+        },
+      }),
+    });
+    const caller = appRouter.createCaller(
+      createCallerContext({
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
+      } as NonNullable<Context["session"]>),
+    );
+
+    await caller.intervalsSync.calendar({
+      from: "2026-03-30T00:00:00.000Z",
+      to: "2026-04-13T00:00:00.000Z",
+      timezone: "Australia/Brisbane",
+    });
+
+    expect(requestedUserId).toBe("user-1");
+    expect(requestedInput).toEqual({
+      from: "2026-03-30T00:00:00.000Z",
+      to: "2026-04-13T00:00:00.000Z",
+      timezone: "Australia/Brisbane",
+    });
   });
 });
