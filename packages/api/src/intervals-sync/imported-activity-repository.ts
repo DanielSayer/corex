@@ -14,6 +14,7 @@ import {
   loadActivityAnalysis,
   loadActivitySummary,
 } from "./activity-details-query";
+import { loadActivityCalendar } from "./activity-calendar-query";
 import { normalizeActivityDetailForStorage } from "./detail-normalization";
 import { SyncPersistenceFailure } from "./errors";
 import { loadRecentActivities } from "./recent-activities-query";
@@ -257,6 +258,16 @@ export function createImportedActivityPort(db: Database): ImportedActivityPort {
         catch: (cause) =>
           new SyncPersistenceFailure({
             message: "Failed to load activity analysis",
+            cause,
+          }),
+      });
+    },
+    calendar(userId, input) {
+      return Effect.tryPromise({
+        try: () => loadActivityCalendar(db, userId, input),
+        catch: (cause) =>
+          new SyncPersistenceFailure({
+            message: "Failed to load activity calendar",
             cause,
           }),
       });

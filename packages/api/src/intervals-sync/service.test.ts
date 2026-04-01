@@ -2,6 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { Cause, Effect, Exit, Option } from "effect";
 
 import type {
+  ActivityCalendarData,
+  ActivityCalendarQueryInput,
+} from "./activity-calendar";
+import type {
   ActivityAnalysisData,
   ActivitySummaryPageData,
 } from "./activity-details";
@@ -168,6 +172,11 @@ function createActivities(
     recentActivities: () => Effect.succeed([]),
     activitySummary: () => Effect.succeed(null),
     activityAnalysis: () => Effect.succeed(null),
+    calendar: () =>
+      Effect.succeed({
+        activities: [],
+        weeks: [],
+      }),
     ...overrides,
   };
 }
@@ -494,5 +503,59 @@ describe("intervals sync module", () => {
 
     expect(summaryResult).toEqual(summary);
     expect(analysisResult).toEqual(analysis);
+  });
+
+  it("returns calendar data from the activities port unchanged", async () => {
+    const calendarInput: ActivityCalendarQueryInput = {
+      from: "2026-03-30T00:00:00.000Z",
+      to: "2026-04-13T00:00:00.000Z",
+      timezone: "Australia/Brisbane",
+    };
+    const calendar: ActivityCalendarData = {
+      activities: [
+        {
+          id: "run-1",
+          name: "Morning run",
+          startDate: "2026-03-31T00:00:00.000Z",
+          elapsedTime: 1800,
+          distance: 5000,
+          averagePaceSecondsPerKm: 360,
+          averageHeartrate: 150,
+          trainingLoad: 40,
+          totalElevationGain: 30,
+        },
+      ],
+      weeks: [
+        {
+          weekStart: "2026-03-30",
+          weekEnd: "2026-04-05",
+          time: 1800,
+          distance: 5000,
+          totalElevationGain: 30,
+          averagePaceSecondsPerKm: 360,
+        },
+      ],
+    };
+
+    const service = createIntervalsSyncModule({
+      accounts: createAccountPort(),
+      ledger: createLedger(),
+      activities: createActivities({
+        calendar: (userId, input) => {
+          expect(userId).toBe("user-1");
+          expect(input).toEqual(calendarInput);
+          return Effect.succeed(calendar);
+        },
+      }),
+      upstream: createUpstreamPort(),
+      derived: createDerivedPort(),
+      idGenerator: () => "event-1",
+    });
+
+    const result = await Effect.runPromise(
+      service.calendar("user-1", calendarInput),
+    );
+
+    expect(result).toEqual(calendar);
   });
 });

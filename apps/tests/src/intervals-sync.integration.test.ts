@@ -1098,6 +1098,153 @@ describe("intervals sync integration", () => {
     );
   });
 
+  it("returns timezone-aware calendar activities and monday-based weekly summaries", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "calendar@example.com",
+      name: "Calendar User",
+    });
+
+    await db.insert(importedActivity).values([
+      {
+        userId: user.id,
+        upstreamActivityId: "run-1",
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        name: "Morning run",
+        startAt: new Date("2026-03-30T22:30:00.000Z"),
+        movingTimeSeconds: 1490,
+        elapsedTimeSeconds: 1500,
+        distanceMeters: 5000,
+        averageHeartrate: 150,
+        trainingLoad: 42,
+        totalElevationGainMeters: 30,
+        rawDetail: {
+          id: "run-1",
+          type: "Run",
+          name: "Morning run",
+          start_date: "2026-03-30T22:30:00.000Z",
+          moving_time: 1490,
+          elapsed_time: 1500,
+          distance: 5000,
+        },
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "run-2",
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        name: null,
+        startAt: new Date("2026-04-05T23:30:00.000Z"),
+        movingTimeSeconds: 1700,
+        elapsedTimeSeconds: null,
+        distanceMeters: 4000,
+        averageHeartrate: null,
+        trainingLoad: null,
+        totalElevationGainMeters: 15,
+        rawDetail: {
+          id: "run-2",
+          type: "Run",
+          start_date: "2026-04-05T23:30:00.000Z",
+          moving_time: 1700,
+          distance: 4000,
+        },
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "run-3",
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        name: "Excluded upper boundary",
+        startAt: new Date("2026-04-13T00:00:00.000Z"),
+        movingTimeSeconds: 1800,
+        elapsedTimeSeconds: 1800,
+        distanceMeters: 6000,
+        averageHeartrate: 155,
+        trainingLoad: 55,
+        totalElevationGainMeters: 45,
+        rawDetail: {
+          id: "run-3",
+          type: "Run",
+          name: "Excluded upper boundary",
+          start_date: "2026-04-13T00:00:00.000Z",
+          moving_time: 1800,
+          elapsed_time: 1800,
+          distance: 6000,
+        },
+      },
+    ]);
+
+    const service = createLiveIntervalsSyncApi({
+      db,
+      env: {
+        SETTINGS_MASTER_KEY_BASE64: masterKeyBase64,
+      },
+      adapter: createAdapter(),
+    });
+    const result = await Effect.runPromise(
+      service.calendar(user.id, {
+        from: "2026-03-30T00:00:00.000Z",
+        to: "2026-04-13T00:00:00.000Z",
+        timezone: "Australia/Brisbane",
+      }),
+    );
+
+    expect(result.activities).toEqual([
+      {
+        id: "run-1",
+        name: "Morning run",
+        startDate: "2026-03-30T22:30:00.000Z",
+        elapsedTime: 1500,
+        distance: 5000,
+        averagePaceSecondsPerKm: 300,
+        averageHeartrate: 150,
+        trainingLoad: 42,
+        totalElevationGain: 30,
+      },
+      {
+        id: "run-2",
+        name: "Untitled run",
+        startDate: "2026-04-05T23:30:00.000Z",
+        elapsedTime: null,
+        distance: 4000,
+        averagePaceSecondsPerKm: null,
+        averageHeartrate: null,
+        trainingLoad: null,
+        totalElevationGain: 15,
+      },
+    ]);
+    expect(result.weeks).toEqual([
+      {
+        weekStart: "2026-03-30",
+        weekEnd: "2026-04-05",
+        time: 1500,
+        distance: 5000,
+        totalElevationGain: 30,
+        averagePaceSecondsPerKm: 300,
+      },
+      {
+        weekStart: "2026-04-06",
+        weekEnd: "2026-04-12",
+        time: 0,
+        distance: 4000,
+        totalElevationGain: 15,
+        averagePaceSecondsPerKm: null,
+      },
+      {
+        weekStart: "2026-04-13",
+        weekEnd: "2026-04-19",
+        time: 0,
+        distance: 0,
+        totalElevationGain: 0,
+        averagePaceSecondsPerKm: null,
+      },
+    ]);
+  });
+
   it("returns split activity summary and chart-ready analysis without exposing raw streams", async () => {
     const { db } = await getIntegrationHarness();
     const user = await createUser(db, {

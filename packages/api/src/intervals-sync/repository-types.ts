@@ -4,6 +4,10 @@ import type {
   ActivityAnalysisData,
   ActivitySummaryPageData,
 } from "./activity-details";
+import type {
+  ActivityCalendarData,
+  ActivityCalendarQueryInput,
+} from "./activity-calendar";
 import type { SyncPersistenceFailure } from "./errors";
 import type { RecentActivityPreview } from "./recent-activity";
 import type {
@@ -127,4 +131,8 @@ export type ImportedActivityPort = {
     userId: string,
     activityId: string,
   ) => Effect.Effect<ActivityAnalysisData | null, SyncPersistenceFailure>;
+  calendar: (
+    userId: string,
+    input: ActivityCalendarQueryInput,
+  ) => Effect.Effect<ActivityCalendarData, SyncPersistenceFailure>;
 };
