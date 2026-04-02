@@ -1,109 +1,51 @@
 import { Badge } from "@corex/ui/components/badge";
-import { Button } from "@corex/ui/components/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@corex/ui/components/dialog";
-import { Separator } from "@corex/ui/components/separator";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { format, parseISO } from "date-fns";
-import { PlusIcon } from "lucide-react";
-import { useState } from "react";
 
-import { GoalStep } from "@/components/onboarding/goal-step";
 import { SettingsPageShell } from "@/components/onboarding/settings-page-shell";
-import { stepContent } from "@/components/onboarding";
 import { ensureAppRouteAccess } from "@/lib/app-route";
-import { createDefaultOnboardingDraft, type GoalDraft } from "@/lib/onboarding";
+import { trpc } from "@/utils/trpc";
+import type { GoalsRouterOutputs } from "@/utils/types";
 
 export const Route = createFileRoute("/_app/goals")({
-  beforeLoad: ({ context }) => ensureAppRouteAccess(context),
+  beforeLoad: async ({ context }) => {
+    const routeContext = await ensureAppRouteAccess(context);
+
+    await context.queryClient.ensureQueryData(
+      context.trpc.goals.get.queryOptions(),
+    );
+
+    return routeContext;
+  },
   component: RouteComponent,
 });
 
-type GoalListItem = {
-  id: string;
-  status: "Active" | "Draft" | "Upcoming";
-  goal: GoalDraft;
-};
+type GoalListItem = GoalsRouterOutputs["get"][number];
 
 function RouteComponent() {
-  const [goals, setGoals] = useState<GoalListItem[]>(() => createStubGoals());
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [draft, setDraft] = useState<GoalDraft>(
-    () => createDefaultOnboardingDraft().goal,
-  );
-
-  const handleCreateGoal = () => {
-    setGoals((currentGoals) => [
-      {
-        id: `goal-${currentGoals.length + 1}`,
-        status: "Draft",
-        goal: draft,
-      },
-      ...currentGoals,
-    ]);
-    setDraft(createDefaultOnboardingDraft().goal);
-    setIsCreateOpen(false);
-  };
+  const goals = useQuery(trpc.goals.get.queryOptions());
 
   return (
     <SettingsPageShell
       eyebrow="Training setup"
       title="Goals"
-      description="Start with saved goals, then open the create flow when you want to add another target."
+      description="Your persisted training goal is loaded from the API so this page reflects the current saved setup."
     >
       <div className="flex flex-col gap-6">
-        <div className="flex justify-end w-full">
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger
-              render={
-                <Button
-                  size="lg"
-                  onClick={() => {
-                    setDraft(createDefaultOnboardingDraft().goal);
-                  }}
-                >
-                  <PlusIcon />
-                  Create goal
-                </Button>
-              }
-            />
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader className="border-b border-border/70 pb-5">
-                <DialogTitle>Create goal</DialogTitle>
-                <DialogDescription>
-                  {stepContent.goal.description}
-                </DialogDescription>
-              </DialogHeader>
+        {goals.isLoading ? <GoalsLoadingState /> : null}
 
-              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
-                <GoalStep draft={draft} errors={{}} onChange={setDraft} />
-              </div>
+        {!goals.isLoading && (goals.data?.length ?? 0) === 0 ? (
+          <EmptyGoalsState />
+        ) : null}
 
-              <Separator />
-
-              <DialogFooter className="border-t border-border/70 pt-5">
-                <DialogClose
-                  render={<Button variant="outline">Cancel</Button>}
-                />
-                <Button onClick={handleCreateGoal}>Save draft goal</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="divide-y divide-border/70 overflow-hidden rounded-[1.75rem] border border-border/70">
-          {goals.map((item) => (
-            <GoalListRow key={item.id} item={item} />
-          ))}
-        </div>
+        {!goals.isLoading && (goals.data?.length ?? 0) > 0 ? (
+          <div className="divide-y divide-border/70 overflow-hidden rounded-[1.75rem] border border-border/70">
+            {goals.data?.map((item) => (
+              <GoalListRow key={item.id} item={item} />
+            ))}
+          </div>
+        ) : null}
       </div>
     </SettingsPageShell>
   );
@@ -111,12 +53,6 @@ function RouteComponent() {
 
 function GoalListRow({ item }: { item: GoalListItem }) {
   const summary = getGoalSummary(item.goal);
-  const statusVariant =
-    item.status === "Active"
-      ? "default"
-      : item.status === "Upcoming"
-        ? "secondary"
-        : "outline";
 
   return (
     <article className="px-6 py-6">
@@ -130,7 +66,7 @@ function GoalListRow({ item }: { item: GoalListItem }) {
               {summary.description}
             </p>
           </div>
-          <Badge variant={statusVariant}>{item.status}</Badge>
+          <Badge variant="default">{formatGoalStatus(item.status)}</Badge>
         </div>
 
         <div className="grid gap-3 border-t border-border/70 pt-5 text-sm md:grid-cols-3">
@@ -140,6 +76,30 @@ function GoalListRow({ item }: { item: GoalListItem }) {
         </div>
       </div>
     </article>
+  );
+}
+
+function GoalsLoadingState() {
+  return (
+    <div className="rounded-[1.75rem] border border-border/70 px-6 py-8 text-sm text-muted-foreground">
+      Loading saved goals...
+    </div>
+  );
+}
+
+function EmptyGoalsState() {
+  return (
+    <div className="rounded-[1.75rem] border border-dashed border-border/70 px-6 py-8">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[1.1rem] font-semibold tracking-tight">
+          No saved goals yet
+        </h3>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          This page now reads persisted goals from the API. Once a goal is saved
+          through the training settings flow, it will appear here.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -154,18 +114,22 @@ function GoalMeta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getGoalSummary(goal: GoalDraft) {
+function formatGoalStatus(status: GoalListItem["status"]) {
+  if (status === "active") {
+    return "Active";
+  }
+
+  return status;
+}
+
+function getGoalSummary(goal: GoalListItem["goal"]) {
   if (goal.type === "event_goal") {
     return {
-      title: goal.eventName.trim() || "Event goal",
-      description: goal.targetDate
-        ? `Targeting ${format(parseISO(goal.targetDate), "d MMM yyyy")}`
-        : "Target date to be confirmed",
-      target: `${goal.targetDistanceValue} ${goal.targetDistanceUnit}`,
-      schedule: goal.targetDate
-        ? format(parseISO(goal.targetDate), "EEEE, d MMM")
-        : "No date selected",
-      notes: goal.notes.trim() || "No notes yet",
+      title: goal.eventName?.trim() || "Event goal",
+      description: `Targeting ${format(parseISO(goal.targetDate), "d MMM yyyy")}`,
+      target: `${goal.targetDistance.value} ${goal.targetDistance.unit}`,
+      schedule: format(parseISO(goal.targetDate), "EEEE, d MMM"),
+      notes: goal.notes?.trim() || "No notes yet",
     };
   }
 
@@ -175,38 +139,6 @@ function getGoalSummary(goal: GoalDraft) {
     target: `${goal.targetValue} ${goal.unit}`,
     schedule:
       goal.period === "week" ? "Repeats each week" : "Repeats each month",
-    notes: goal.notes.trim() || "No notes yet",
+    notes: goal.notes?.trim() || "No notes yet",
   };
-}
-
-function createStubGoals(): GoalListItem[] {
-  return [
-    {
-      id: "goal-1",
-      status: "Active",
-      goal: {
-        type: "event_goal",
-        targetDistanceValue: "21.1",
-        targetDistanceUnit: "km",
-        targetDate: "2026-07-12",
-        eventName: "Gold Coast Half Marathon",
-        targetTimeHours: "1",
-        targetTimeMinutes: "42",
-        targetTimeSeconds: "0",
-        notes: "Primary race for this block.",
-      },
-    },
-    {
-      id: "goal-2",
-      status: "Upcoming",
-      goal: {
-        type: "volume_goal",
-        metric: "distance",
-        period: "week",
-        targetValue: "60",
-        unit: "km",
-        notes: "Build consistency before the next race build.",
-      },
-    },
-  ];
 }
