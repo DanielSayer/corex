@@ -24,7 +24,7 @@ function RouteComponent() {
   const { session } = Route.useRouteContext();
 
   const privateData = useQuery(trpc.privateData.queryOptions());
-  const goalProgress = useQuery(trpc.goalProgress.get.queryOptions());
+  const goals = useQuery(trpc.goals.get.queryOptions());
   const recentActivities = useQuery(
     trpc.activityHistory.recentActivities.queryOptions(),
   );
@@ -90,12 +90,10 @@ function RouteComponent() {
       </section>
 
       <LoadingWrapper
-        isLoading={goalProgress.isLoading}
+        isLoading={goals.isLoading}
         fallback={<GoalProgressPanelSkeleton />}
       >
-        {goalProgress.data ? (
-          <GoalProgressPanel progress={goalProgress.data} />
-        ) : null}
+        {goals.data ? <GoalProgressPanel goals={goals.data} /> : null}
       </LoadingWrapper>
 
       <IntervalsSyncPanel

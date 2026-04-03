@@ -32,7 +32,6 @@ describe("training settings integration", () => {
 
     expect(result).toEqual({
       status: "not_started",
-      goal: null,
       availability: null,
       intervalsCredential: {
         hasKey: false,
@@ -60,15 +59,6 @@ describe("training settings integration", () => {
 
     const saved = await Effect.runPromise(
       service.upsertForUser(createdUser.id, {
-        goal: {
-          type: "event_goal",
-          targetDistance: {
-            value: 21.1,
-            unit: "km",
-          },
-          targetDate: "2026-08-01",
-          eventName: "City Half",
-        },
         availability: {
           monday: { available: true, maxDurationMinutes: 45 },
           tuesday: { available: false, maxDurationMinutes: null },
@@ -86,10 +76,6 @@ describe("training settings integration", () => {
 
     expect(saved.status).toBe("complete");
     expect(saved.intervalsCredential.hasKey).toBe(true);
-    expect(saved.goal).toMatchObject({
-      type: "event_goal",
-      eventName: "City Half",
-    });
     expect(stored).not.toBeNull();
 
     if (!stored) {
@@ -131,13 +117,6 @@ describe("training settings integration", () => {
 
     await Effect.runPromise(
       service.upsertForUser(createdUser.id, {
-        goal: {
-          type: "volume_goal",
-          metric: "distance",
-          period: "week",
-          targetValue: 20,
-          unit: "km",
-        },
         availability: {
           monday: { available: true, maxDurationMinutes: 45 },
           tuesday: { available: false, maxDurationMinutes: null },
@@ -153,13 +132,6 @@ describe("training settings integration", () => {
     );
     const replaced = await Effect.runPromise(
       service.upsertForUser(createdUser.id, {
-        goal: {
-          type: "volume_goal",
-          metric: "time",
-          period: "month",
-          targetValue: 480,
-          unit: "minutes",
-        },
         availability: {
           monday: { available: false, maxDurationMinutes: null },
           tuesday: { available: true, maxDurationMinutes: 30 },
@@ -178,13 +150,6 @@ describe("training settings integration", () => {
       throw new Error("Expected availability to be present after upsert");
     }
 
-    expect(replaced.goal).toEqual({
-      type: "volume_goal",
-      metric: "time",
-      period: "month",
-      targetValue: 480,
-      unit: "minutes",
-    });
     expect(replaced.availability.monday).toEqual({
       available: false,
       maxDurationMinutes: null,

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { Effect } from "effect";
 
 import { createUser } from "@corex/api/application/commands/create-user";
+import { createGoalRepository } from "@corex/api/goals/repository";
+import { createGoalsApi } from "@corex/api/goals/service";
 import { createLiveGoalProgressService } from "@corex/api/goal-progress/live";
 import type { TrainingGoal } from "@corex/api/training-settings/contracts";
 import { createCredentialCrypto } from "@corex/api/training-settings/crypto";
@@ -22,9 +24,9 @@ async function saveTrainingSettings(input: {
   goal: TrainingGoal;
 }) {
   const { db } = await getIntegrationHarness();
-  const repo = createTrainingSettingsRepository(db);
+  const trainingRepo = createTrainingSettingsRepository(db);
   const service = createTrainingSettingsService({
-    repo,
+    repo: trainingRepo,
     crypto: createCredentialCrypto({
       masterKeyBase64,
       keyVersion: 1,
@@ -33,7 +35,6 @@ async function saveTrainingSettings(input: {
 
   await Effect.runPromise(
     service.upsertForUser(input.userId, {
-      goal: input.goal,
       availability: {
         monday: { available: true, maxDurationMinutes: 45 },
         tuesday: { available: true, maxDurationMinutes: 45 },
@@ -46,6 +47,14 @@ async function saveTrainingSettings(input: {
       intervalsUsername: "runner@example.com",
       intervalsApiKey: "intervals-secret-key",
     }),
+  );
+
+  await Effect.runPromise(
+    createGoalsApi({
+      repo: createGoalRepository(db),
+      trainingSettingsRepo: trainingRepo,
+      clock: { now: () => new Date("2026-04-03T12:00:00.000Z") },
+    }).createForUser(input.userId, input.goal),
   );
 }
 

@@ -43,6 +43,13 @@
       "when": 1774800000000,
       "tag": "0005_activity_detail_normalization",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775160000000,
+      "tag": "0006_multi_goal",
+      "breakpoints": true
     }
   ]
 }

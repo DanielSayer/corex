@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import {
   trainingSettingsInputSchema,
   type TrainingSettingsInput,
+  type TrainingGoal,
 } from "./contracts";
 import type { CredentialCrypto } from "../intervals/crypto";
 import { InvalidApiKeyFormat, InvalidSettings } from "./errors";
@@ -13,7 +14,6 @@ import type {
 
 export type TrainingSettingsView = {
   status: "not_started" | "complete";
-  goal: TrainingSettingsInput["goal"] | null;
   availability: TrainingSettingsInput["availability"] | null;
   intervalsCredential: {
     hasKey: boolean;
@@ -30,7 +30,6 @@ type CreateTrainingSettingsServiceOptions = {
 function createEmptyState(): TrainingSettingsView {
   return {
     status: "not_started",
-    goal: null,
     availability: null,
     intervalsCredential: {
       hasKey: false,
@@ -43,7 +42,6 @@ function createEmptyState(): TrainingSettingsView {
 function toView(stored: StoredTrainingSettings): TrainingSettingsView {
   return {
     status: "complete",
-    goal: stored.goal,
     availability: stored.availability,
     intervalsCredential: {
       hasKey: true,
@@ -54,7 +52,7 @@ function toView(stored: StoredTrainingSettings): TrainingSettingsView {
 }
 
 function validateInput(
-  input: TrainingSettingsInput,
+  input: TrainingSettingsInput & { goal?: TrainingGoal },
 ): Effect.Effect<TrainingSettingsInput, InvalidApiKeyFormat | InvalidSettings> {
   if (
     typeof input.intervalsUsername !== "string" ||
@@ -102,7 +100,7 @@ export function createTrainingSettingsService(
     },
     upsertForUser(
       userId: string,
-      input: TrainingSettingsInput,
+      input: TrainingSettingsInput & { goal?: TrainingGoal },
     ): Effect.Effect<TrainingSettingsView, unknown> {
       return Effect.gen(function* () {
         const validatedInput = yield* validateInput(input);
@@ -112,7 +110,6 @@ export function createTrainingSettingsService(
         );
         const stored = yield* options.repo.upsert({
           userId,
-          goal: validatedInput.goal,
           availability: validatedInput.availability,
           intervalsUsername: validatedInput.intervalsUsername.trim(),
           intervalsCredential: encryptedCredential,

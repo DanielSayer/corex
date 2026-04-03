@@ -8,7 +8,7 @@ import {
 } from "./errors";
 import { createLiveTrainingSettingsService } from "./live";
 import { type TrainingSettingsService } from "./service";
-import { trainingSettingsInputSchema } from "./contracts";
+import { trainingGoalSchema, trainingSettingsInputSchema } from "./contracts";
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
 
@@ -50,6 +50,9 @@ export function createTrainingSettingsRouter(
   options: CreateTrainingSettingsRouterOptions = {},
 ) {
   const service = options.service ?? createLiveTrainingSettingsService();
+  const upsertInputSchema = trainingSettingsInputSchema.extend({
+    goal: trainingGoalSchema.optional(),
+  });
 
   return router({
     get: authedProcedure.query(({ ctx }) =>
@@ -59,7 +62,7 @@ export function createTrainingSettingsRouter(
       ),
     ),
     upsert: authedProcedure
-      .input(trainingSettingsInputSchema)
+      .input(upsertInputSchema)
       .mutation(({ ctx, input }) =>
         executeEffect(
           service.upsertForUser(ctx.session.user.id, input),

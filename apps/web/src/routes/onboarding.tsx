@@ -13,6 +13,7 @@ import {
 } from "@/components/onboarding";
 import { authClient } from "@/lib/auth-client";
 import {
+  buildTrainingGoalInput,
   buildTrainingSettingsInput,
   createDefaultOnboardingDraft,
   onboardingSteps,
@@ -55,6 +56,7 @@ export const Route = createFileRoute("/onboarding")({
 function RouteComponent() {
   const navigate = useNavigate();
   const settingsQueryOptions = trpc.trainingSettings.get.queryOptions();
+  const goalsQueryOptions = trpc.goals.get.queryOptions();
   const settings = useQuery(settingsQueryOptions);
   const [draft, setDraft] = useState<OnboardingDraft>(() =>
     createDefaultOnboardingDraft(),
@@ -67,20 +69,19 @@ function RouteComponent() {
 
   const saveSettings = useMutation({
     ...trpc.trainingSettings.upsert.mutationOptions(),
-    onSuccess: (data) => {
-      queryClient.setQueryData(settingsQueryOptions.queryKey, data);
-      setErrors({});
-      setAllowCompletedOnboardingSession(true);
-      setCurrentStepIndex(onboardingSteps.indexOf("sync"));
-      toast.success("Onboarding settings saved");
+    onError: (error) => {
+      toast.error(error.message);
     },
+  });
+  const createGoal = useMutation({
+    ...trpc.goals.create.mutationOptions(),
     onError: (error) => {
       toast.error(error.message);
     },
   });
 
   const currentStep = onboardingSteps[currentStepIndex];
-  const isSaving = saveSettings.isPending;
+  const isSaving = saveSettings.isPending || createGoal.isPending;
 
   if (settings.isLoading) {
     return <OnboardingSkeleton />;
@@ -144,13 +145,27 @@ function RouteComponent() {
 
     if (currentStep === "credentials") {
       const payload = buildTrainingSettingsInput(draft);
+      const goalResult = buildTrainingGoalInput(draft.goal);
 
       if (!payload.value) {
         setErrors(payload.errors ?? {});
         return;
       }
 
-      await saveSettings.mutateAsync(payload.value);
+      if (!goalResult.value) {
+        setErrors(goalResult.errors ?? {});
+        setCurrentStepIndex(onboardingSteps.indexOf("goal"));
+        return;
+      }
+
+      const savedSettings = await saveSettings.mutateAsync(payload.value);
+      const createdGoal = await createGoal.mutateAsync(goalResult.value);
+      queryClient.setQueryData(settingsQueryOptions.queryKey, savedSettings);
+      queryClient.setQueryData(goalsQueryOptions.queryKey, [createdGoal]);
+      setErrors({});
+      setAllowCompletedOnboardingSession(true);
+      setCurrentStepIndex(onboardingSteps.indexOf("sync"));
+      toast.success("Onboarding settings saved");
       return;
     }
 

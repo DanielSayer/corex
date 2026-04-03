@@ -10,13 +10,6 @@ import type {
 import { createTrainingSettingsService } from "./service";
 
 const sampleInput: TrainingSettingsInput = {
-  goal: {
-    type: "volume_goal",
-    metric: "distance",
-    period: "week",
-    targetValue: 20,
-    unit: "km",
-  },
   availability: {
     monday: { available: true, maxDurationMinutes: 45 },
     tuesday: { available: false, maxDurationMinutes: null },
@@ -33,7 +26,6 @@ const sampleInput: TrainingSettingsInput = {
 function createStoredSettings(): StoredTrainingSettings {
   return {
     userId: "user-1",
-    goal: sampleInput.goal,
     availability: sampleInput.availability,
     intervalsCredential: {
       username: sampleInput.intervalsUsername,
@@ -45,7 +37,6 @@ function createStoredSettings(): StoredTrainingSettings {
       keyVersion: 1,
       updatedAt: new Date("2026-03-20T00:00:00.000Z"),
     },
-    createdAt: new Date("2026-03-20T00:00:00.000Z"),
     updatedAt: new Date("2026-03-20T00:00:00.000Z"),
   };
 }
@@ -77,7 +68,6 @@ describe("training settings service", () => {
       Effect.runPromise(service.getForUser("user-1")),
     ).resolves.toEqual({
       status: "not_started",
-      goal: null,
       availability: null,
       intervalsCredential: {
         hasKey: false,
@@ -115,7 +105,6 @@ describe("training settings service", () => {
       Effect.runPromise(service.upsertForUser("user-1", sampleInput)),
     ).resolves.toEqual({
       status: "complete",
-      goal: sampleInput.goal,
       availability: sampleInput.availability,
       intervalsCredential: {
         hasKey: true,
@@ -126,7 +115,6 @@ describe("training settings service", () => {
 
     expect(persistedRecord).toEqual({
       userId: "user-1",
-      goal: sampleInput.goal,
       availability: sampleInput.availability,
       intervalsUsername: sampleInput.intervalsUsername,
       intervalsCredential: {
@@ -173,7 +161,7 @@ describe("training settings service", () => {
             maxDurationMinutes: 30,
           },
         },
-      } as TrainingSettingsInput),
+      }),
     );
 
     expect(Exit.isFailure(exit)).toBe(true);
@@ -221,7 +209,7 @@ describe("training settings service", () => {
       service.upsertForUser("user-1", {
         ...sampleInput,
         intervalsApiKey: "   ",
-      } as TrainingSettingsInput),
+      }),
     );
 
     expect(Exit.isFailure(exit)).toBe(true);
@@ -269,7 +257,7 @@ describe("training settings service", () => {
       service.upsertForUser("user-1", {
         ...sampleInput,
         intervalsUsername: "   ",
-      } as TrainingSettingsInput),
+      }),
     );
 
     expect(Exit.isFailure(exit)).toBe(true);

@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -43,27 +44,32 @@ export const trainingAvailabilityDayEnum = pgEnum("training_availability_day", [
   "sunday",
 ]);
 
-export const trainingGoal = pgTable("training_goal", {
-  userId: text("user_id")
-    .primaryKey()
-    .references(() => user.id, { onDelete: "cascade" }),
-  goalType: trainingGoalTypeEnum("goal_type").notNull(),
-  metric: trainingGoalMetricEnum("metric"),
-  period: trainingGoalPeriodEnum("period"),
-  targetValue: real("target_value"),
-  unit: trainingGoalUnitEnum("unit"),
-  targetDistanceValue: real("target_distance_value"),
-  targetDistanceUnit: trainingGoalUnitEnum("target_distance_unit"),
-  targetDate: text("target_date"),
-  eventName: text("event_name"),
-  targetTimeSeconds: integer("target_time_seconds"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-});
+export const trainingGoal = pgTable(
+  "training_goal",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    goalType: trainingGoalTypeEnum("goal_type").notNull(),
+    metric: trainingGoalMetricEnum("metric"),
+    period: trainingGoalPeriodEnum("period"),
+    targetValue: real("target_value"),
+    unit: trainingGoalUnitEnum("unit"),
+    targetDistanceValue: real("target_distance_value"),
+    targetDistanceUnit: trainingGoalUnitEnum("target_distance_unit"),
+    targetDate: text("target_date"),
+    eventName: text("event_name"),
+    targetTimeSeconds: integer("target_time_seconds"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("training_goal_user_id_idx").on(table.userId)],
+);
 
 export const trainingAvailability = pgTable(
   "training_availability",

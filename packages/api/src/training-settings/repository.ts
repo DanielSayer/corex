@@ -5,10 +5,9 @@ import type { Database } from "@corex/db";
 import {
   intervalsCredential,
   trainingAvailability,
-  trainingGoal,
 } from "@corex/db/schema/training-settings";
 
-import type { TrainingGoal, WeeklyAvailability } from "./contracts";
+import type { WeeklyAvailability } from "./contracts";
 import { PersistenceFailure } from "./errors";
 
 export type StoredEncryptedCredential = {
@@ -24,16 +23,13 @@ export type StoredEncryptedCredential = {
 
 export type StoredTrainingSettings = {
   userId: string;
-  goal: TrainingGoal;
   availability: WeeklyAvailability;
   intervalsCredential: StoredEncryptedCredential;
-  createdAt: Date;
   updatedAt: Date;
 };
 
 export type UpsertTrainingSettingsRecord = {
   userId: string;
-  goal: TrainingGoal;
   availability: WeeklyAvailability;
   intervalsUsername: string;
   intervalsCredential: Omit<
@@ -58,7 +54,7 @@ export type TrainingSettingsRepository = {
   ) => Effect.Effect<void, PersistenceFailure>;
 };
 
-const dayOrder = [
+export const dayOrder = [
   "monday",
   "tuesday",
   "wednesday",
@@ -67,69 +63,6 @@ const dayOrder = [
   "saturday",
   "sunday",
 ] as const;
-
-function mapGoalRow(row: typeof trainingGoal.$inferSelect): TrainingGoal {
-  if (row.goalType === "event_goal") {
-    if (
-      row.targetDistanceValue == null ||
-      row.targetDistanceUnit == null ||
-      row.targetDate == null
-    ) {
-      throw new PersistenceFailure({
-        message: "Stored event goal is incomplete",
-      });
-    }
-
-    return {
-      type: "event_goal",
-      targetDistance: {
-        value: row.targetDistanceValue,
-        unit: row.targetDistanceUnit as "km" | "mi",
-      },
-      targetDate: row.targetDate,
-      eventName: row.eventName ?? undefined,
-      targetTimeSeconds: row.targetTimeSeconds ?? undefined,
-      notes: row.notes ?? undefined,
-    };
-  }
-
-  if (row.goalType === "volume_goal") {
-    if (
-      row.metric == null ||
-      row.period == null ||
-      row.targetValue == null ||
-      row.unit == null
-    ) {
-      throw new PersistenceFailure({
-        message: "Stored volume goal is incomplete",
-      });
-    }
-
-    if (row.metric === "distance") {
-      return {
-        type: "volume_goal",
-        metric: "distance",
-        period: row.period as "week" | "month",
-        targetValue: row.targetValue,
-        unit: row.unit as "km" | "mi",
-        notes: row.notes ?? undefined,
-      };
-    }
-
-    return {
-      type: "volume_goal",
-      metric: "time",
-      period: row.period as "week" | "month",
-      targetValue: row.targetValue,
-      unit: "minutes",
-      notes: row.notes ?? undefined,
-    };
-  }
-
-  throw new PersistenceFailure({
-    message: "Stored goal type is unsupported",
-  });
-}
 
 function mapAvailabilityRows(
   rows: Array<typeof trainingAvailability.$inferSelect>,
@@ -160,45 +93,6 @@ function mapAvailabilityRows(
   return availability;
 }
 
-function buildGoalInsert(record: UpsertTrainingSettingsRecord) {
-  type TrainingGoalInsert = typeof trainingGoal.$inferInsert;
-
-  const common = {
-    userId: record.userId,
-    notes: record.goal.notes ?? null,
-  };
-
-  if (record.goal.type === "event_goal") {
-    return {
-      ...common,
-      goalType: "event_goal",
-      metric: null,
-      period: null,
-      targetValue: null,
-      unit: null,
-      targetDistanceValue: record.goal.targetDistance.value,
-      targetDistanceUnit: record.goal.targetDistance.unit,
-      targetDate: record.goal.targetDate,
-      eventName: record.goal.eventName ?? null,
-      targetTimeSeconds: record.goal.targetTimeSeconds ?? null,
-    } satisfies TrainingGoalInsert;
-  }
-
-  return {
-    ...common,
-    goalType: "volume_goal",
-    metric: record.goal.metric,
-    period: record.goal.period,
-    targetValue: record.goal.targetValue,
-    unit: record.goal.unit,
-    targetDistanceValue: null,
-    targetDistanceUnit: null,
-    targetDate: null,
-    eventName: null,
-    targetTimeSeconds: null,
-  } satisfies TrainingGoalInsert;
-}
-
 function buildAvailabilityInsert(
   userId: string,
   availability: WeeklyAvailability,
@@ -215,23 +109,21 @@ function buildAvailabilityInsert(
 
 function mapStoredAggregate(
   userId: string,
-  goalRow: typeof trainingGoal.$inferSelect | undefined,
   availabilityRows: Array<typeof trainingAvailability.$inferSelect>,
   credentialRow: typeof intervalsCredential.$inferSelect | undefined,
 ): StoredTrainingSettings | null {
-  if (!goalRow && availabilityRows.length === 0 && !credentialRow) {
+  if (availabilityRows.length === 0 && !credentialRow) {
     return null;
   }
 
-  if (!goalRow || availabilityRows.length === 0 || !credentialRow) {
+  if (availabilityRows.length === 0 || !credentialRow) {
     throw new PersistenceFailure({
-      message: "Stored training profile is incomplete",
+      message: "Stored training settings are incomplete",
     });
   }
 
   return {
     userId,
-    goal: mapGoalRow(goalRow),
     availability: mapAvailabilityRows(availabilityRows),
     intervalsCredential: {
       username: credentialRow.intervalsUsername,
@@ -243,9 +135,7 @@ function mapStoredAggregate(
       keyVersion: credentialRow.intervalsApiKeyKeyVersion,
       updatedAt: credentialRow.intervalsApiKeyUpdatedAt,
     },
-    createdAt: goalRow.createdAt,
     updatedAt: [
-      goalRow.updatedAt,
       credentialRow.updatedAt,
       ...availabilityRows.map((row) => row.updatedAt),
     ].reduce((latest, current) => (current > latest ? current : latest)),
@@ -253,10 +143,7 @@ function mapStoredAggregate(
 }
 
 async function findStoredTrainingSettings(db: Database, userId: string) {
-  const [goalRow, availabilityRows, credentialRow] = await Promise.all([
-    db.query.trainingGoal.findFirst({
-      where: eq(trainingGoal.userId, userId),
-    }),
+  const [availabilityRows, credentialRow] = await Promise.all([
     db.query.trainingAvailability.findMany({
       where: eq(trainingAvailability.userId, userId),
       orderBy: asc(trainingAvailability.dayOfWeek),
@@ -266,7 +153,7 @@ async function findStoredTrainingSettings(db: Database, userId: string) {
     }),
   ]);
 
-  return mapStoredAggregate(userId, goalRow, availabilityRows, credentialRow);
+  return mapStoredAggregate(userId, availabilityRows, credentialRow);
 }
 
 export function createTrainingSettingsRepository(
@@ -290,20 +177,6 @@ export function createTrainingSettingsRepository(
         try: async () => {
           const now = new Date();
           await db.transaction(async (tx) => {
-            await tx
-              .insert(trainingGoal)
-              .values({
-                ...buildGoalInsert(record),
-                updatedAt: now,
-              })
-              .onConflictDoUpdate({
-                target: trainingGoal.userId,
-                set: {
-                  ...buildGoalInsert(record),
-                  updatedAt: now,
-                },
-              });
-
             await tx
               .insert(intervalsCredential)
               .values({
@@ -355,7 +228,7 @@ export function createTrainingSettingsRepository(
 
           if (!stored) {
             throw new PersistenceFailure({
-              message: "Persisted training profile could not be reloaded",
+              message: "Persisted training settings could not be reloaded",
             });
           }
 

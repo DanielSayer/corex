@@ -61,7 +61,6 @@ export const weeklyAvailabilitySchema = z.object({
 });
 
 export const trainingSettingsInputSchema = z.object({
-  goal: trainingGoalSchema,
   availability: weeklyAvailabilitySchema,
   intervalsUsername: z.string().trim().min(1).max(255),
   intervalsApiKey: z.string().trim().min(1).max(512),
