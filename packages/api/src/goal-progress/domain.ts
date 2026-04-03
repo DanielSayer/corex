@@ -373,6 +373,26 @@ function getReadinessSummary(level: EventGoalReadinessLevel) {
   return "The block is taking shape, but there is still work to do before this goal looks well-supported.";
 }
 
+function getReadinessScore(signals: EventGoalSignal[]) {
+  if (signals.length === 0) {
+    return 0;
+  }
+
+  const total = signals.reduce((sum, signal) => {
+    if (signal.tone === "positive") {
+      return sum + 100;
+    }
+
+    if (signal.tone === "neutral") {
+      return sum + 65;
+    }
+
+    return sum + 30;
+  }, 0);
+
+  return Math.round(total / signals.length);
+}
+
 export function buildEventGoalProgress(input: {
   now: Date;
   goal: Extract<TrainingGoal, { type: "event_goal" }>;
@@ -475,6 +495,7 @@ export function buildEventGoalProgress(input: {
       : null,
     bestMatchingEffort,
     readiness: {
+      score: getReadinessScore(signals),
       level,
       summary: getReadinessSummary(level),
       signals,

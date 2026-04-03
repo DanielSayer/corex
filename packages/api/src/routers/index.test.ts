@@ -28,9 +28,6 @@ describe("appRouter", () => {
         service: {
           getForUser: () =>
             Effect.succeed({
-              status: "no_goal" as const,
-              goal: null,
-              progressKind: null,
               sync: {
                 hasAnyHistory: false,
                 hasRecentSync: false,
@@ -38,8 +35,8 @@ describe("appRouter", () => {
                 availableDateRange: { start: null, end: null },
                 recommendedAction: "create_goal" as const,
               },
-              volumeProgress: null,
-              eventProgress: null,
+              activeGoals: [],
+              completedGoals: [],
             }),
         },
       }),
