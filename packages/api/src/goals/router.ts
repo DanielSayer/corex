@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 
 import { trainingGoalSchema } from "../training-settings/contracts";
 import { PersistenceFailure } from "../training-settings/errors";
@@ -43,11 +44,24 @@ export function createGoalsRouter(options: CreateGoalsRouterOptions = {}) {
     get: authedProcedure.query(({ ctx }) =>
       executeEffect(service.getForUser(ctx.session.user.id), mapGoalsError),
     ),
-    update: authedProcedure
+    create: authedProcedure
       .input(trainingGoalSchema)
       .mutation(({ ctx, input }) =>
         executeEffect(
-          service.updateForUser(ctx.session.user.id, input),
+          service.createForUser(ctx.session.user.id, input),
+          mapGoalsError,
+        ),
+      ),
+    update: authedProcedure
+      .input(
+        z.object({
+          id: z.string().min(1),
+          goal: trainingGoalSchema,
+        }),
+      )
+      .mutation(({ ctx, input }) =>
+        executeEffect(
+          service.updateForUser(ctx.session.user.id, input.id, input.goal),
           mapGoalsError,
         ),
       ),

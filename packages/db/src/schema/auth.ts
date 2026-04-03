@@ -84,10 +84,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   sessions: many(session),
   accounts: many(account),
   trainingAvailability: many(trainingAvailability),
-  trainingGoal: one(trainingGoal, {
-    fields: [user.id],
-    references: [trainingGoal.userId],
-  }),
+  trainingGoals: many(trainingGoal),
   importedActivities: many(importedActivity),
   syncEvents: many(syncEvent),
   intervalsCredential: one(intervalsCredential, {

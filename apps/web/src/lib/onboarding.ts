@@ -3,7 +3,6 @@ import {
   trainingSettingsInputSchema,
   weeklyAvailabilitySchema,
   type TrainingGoal,
-  type TrainingSettingsInput,
   type WeeklyAvailability,
 } from "@corex/api/training-settings/contracts";
 
@@ -318,15 +317,13 @@ export function buildTrainingGoalInput(draft: GoalDraft): {
 }
 
 export function buildTrainingSettingsInput(draft: OnboardingDraft): {
-  value?: TrainingSettingsInput;
+  value?: {
+    availability: WeeklyAvailability;
+    intervalsUsername: string;
+    intervalsApiKey: string;
+  };
   errors?: StepErrors;
 } {
-  const goalResult = buildTrainingGoalInput(draft.goal);
-
-  if (!goalResult.value) {
-    return { errors: goalResult.errors };
-  }
-
   const availabilityResult = serializeAvailabilityDraftInternal(
     draft.availability,
   );
@@ -336,7 +333,6 @@ export function buildTrainingSettingsInput(draft: OnboardingDraft): {
   }
 
   const parsed = trainingSettingsInputSchema.safeParse({
-    goal: goalResult.value,
     availability: availabilityResult.value,
     intervalsUsername: draft.intervalsUsername.trim(),
     intervalsApiKey: draft.intervalsApiKey.trim(),

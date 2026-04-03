@@ -1,11 +1,12 @@
 import { Effect } from "effect";
 
+import { getGoalStatus } from "../goals/domain";
+import type { GoalRepository } from "../goals/repository";
 import type {
   PlanningDataRepository,
   PlanningHistorySourceRow,
 } from "../planning-data/repository";
 import { createPlanningDataService } from "../planning-data/service";
-import type { TrainingSettingsRepository } from "../training-settings/repository";
 import type { GoalProgressView } from "./contracts";
 import {
   buildEventGoalProgress,
@@ -31,7 +32,7 @@ function mapRuns(rows: PlanningHistorySourceRow[]) {
 }
 
 export function createGoalProgressService(options: {
-  trainingRepo: TrainingSettingsRepository;
+  goalsRepo: Pick<GoalRepository, "listByUserId">;
   planningRepo: Pick<PlanningDataRepository, "getHistoryRuns">;
   planningDataService: Pick<
     ReturnType<typeof createPlanningDataService>,
@@ -44,8 +45,13 @@ export function createGoalProgressService(options: {
   return {
     getForUser(userId: string): Effect.Effect<GoalProgressView, unknown> {
       return Effect.gen(function* () {
-        const stored = yield* options.trainingRepo.findByUserId(userId);
-        const goal = stored?.goal ?? null;
+        const today = clock.now().toISOString().slice(0, 10);
+        const storedGoals = yield* options.goalsRepo.listByUserId(userId);
+        const activeGoal =
+          storedGoals.find(
+            (item) => getGoalStatus(item.goal, today) === "active",
+          )?.goal ?? null;
+        const goal = activeGoal;
 
         if (!goal) {
           return {
