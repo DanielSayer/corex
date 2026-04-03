@@ -13,8 +13,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ensureAppRouteAccess } from "@/lib/app-route";
+import { getBrowserTimeZone } from "@/lib/browser-timezone";
 import { trpc } from "@/utils/trpc";
-import { getBrowserTimeZone } from "@/components/goals/goal-progress-presenter";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: RouteComponent,

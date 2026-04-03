@@ -30,6 +30,7 @@ import {
   ChevronRightIcon,
   CalendarDaysIcon,
   HistoryIcon,
+  LineChartIcon,
 } from "lucide-react";
 import { LoadingWrapper } from "@/components/renderers";
 
@@ -71,6 +72,11 @@ function AppSidebar() {
       to: "/weekly-wrapped",
       label: "Weekly review",
       icon: HistoryIcon,
+    },
+    {
+      to: "/analytics",
+      label: "Analytics",
+      icon: LineChartIcon,
     },
   ] as const;
   const setupLinks = [

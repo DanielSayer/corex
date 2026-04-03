@@ -2,7 +2,8 @@ const BEST_EFFORT_TARGET_DISTANCES_METERS = [
   400, 1000, 1609.344, 5000, 10000, 21097.5, 42195,
 ] as const;
 
-type BestEffortDistance = (typeof BEST_EFFORT_TARGET_DISTANCES_METERS)[number];
+export type BestEffortDistance =
+  (typeof BEST_EFFORT_TARGET_DISTANCES_METERS)[number];
 
 const DISTANCE_CONFIG: Record<
   BestEffortDistance,
