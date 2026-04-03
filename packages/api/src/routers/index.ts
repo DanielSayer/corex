@@ -1,4 +1,5 @@
 import { activityHistoryRouter } from "../activity-history/router";
+import { goalProgressRouter } from "../goal-progress/router";
 import { goalsRouter } from "../goals/router";
 import { getPrivateData } from "../session/private-data";
 import { getHealthCheck } from "../system/health-check";
@@ -8,6 +9,7 @@ import { trainingSettingsRouter } from "../training-settings/router";
 
 type CreateAppRouterOptions = {
   activityHistory?: typeof activityHistoryRouter;
+  goalProgress?: typeof goalProgressRouter;
   goals?: typeof goalsRouter;
   trainingSettings?: typeof trainingSettingsRouter;
   intervalsSync?: typeof intervalsSyncRouter;
@@ -20,6 +22,7 @@ export function createAppRouter(options: CreateAppRouterOptions = {}) {
       getPrivateData(ctx.session),
     ),
     activityHistory: options.activityHistory ?? activityHistoryRouter,
+    goalProgress: options.goalProgress ?? goalProgressRouter,
     goals: options.goals ?? goalsRouter,
     trainingSettings: options.trainingSettings ?? trainingSettingsRouter,
     intervalsSync: options.intervalsSync ?? intervalsSyncRouter,

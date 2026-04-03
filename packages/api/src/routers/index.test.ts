@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
 
 import type { Context } from "../context";
+import { createGoalProgressRouter } from "../goal-progress/router";
 import { InvalidSettings } from "../training-settings/errors";
 import { createTrainingSettingsRouter } from "../training-settings/router";
 import { createAppRouter } from "./index";
@@ -23,6 +24,25 @@ describe("appRouter", () => {
           upsertForUser: () => Effect.die("not used"),
         },
       }),
+      goalProgress: createGoalProgressRouter({
+        service: {
+          getForUser: () =>
+            Effect.succeed({
+              status: "no_goal" as const,
+              goal: null,
+              progressKind: null,
+              sync: {
+                hasAnyHistory: false,
+                hasRecentSync: false,
+                latestSyncWarnings: [],
+                availableDateRange: { start: null, end: null },
+                recommendedAction: "create_goal" as const,
+              },
+              volumeProgress: null,
+              eventProgress: null,
+            }),
+        },
+      }),
     });
     const caller = appRouter.createCaller(createCallerContext(null));
 
@@ -37,6 +57,11 @@ describe("appRouter", () => {
           upsertForUser: () => Effect.die("not used"),
         },
       }),
+      goalProgress: createGoalProgressRouter({
+        service: {
+          getForUser: () => Effect.die("not used"),
+        },
+      }),
     });
     const caller = appRouter.createCaller(createCallerContext(null));
 
@@ -49,6 +74,11 @@ describe("appRouter", () => {
         service: {
           getForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
+        },
+      }),
+      goalProgress: createGoalProgressRouter({
+        service: {
+          getForUser: () => Effect.die("not used"),
         },
       }),
     });
@@ -84,6 +114,11 @@ describe("appRouter", () => {
           upsertForUser: () => Effect.die("not used"),
         },
       }),
+      goalProgress: createGoalProgressRouter({
+        service: {
+          getForUser: () => Effect.die("not used"),
+        },
+      }),
     });
     const caller = appRouter.createCaller(createCallerContext(null));
 
@@ -109,6 +144,11 @@ describe("appRouter", () => {
             });
           },
           upsertForUser: () => Effect.die("not used"),
+        },
+      }),
+      goalProgress: createGoalProgressRouter({
+        service: {
+          getForUser: () => Effect.die("not used"),
         },
       }),
     });
@@ -143,6 +183,11 @@ describe("appRouter", () => {
                 message: "Unavailable days cannot define a max duration",
               }),
             ),
+        },
+      }),
+      goalProgress: createGoalProgressRouter({
+        service: {
+          getForUser: () => Effect.die("not used"),
         },
       }),
     });

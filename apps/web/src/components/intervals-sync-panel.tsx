@@ -127,7 +127,10 @@ export function IntervalsSyncPanel({
   const status = syncSummary?.status ?? null;
 
   return (
-    <section className="flex flex-col gap-6 border-t border-border/70 pt-8">
+    <section
+      id="intervals-sync"
+      className="flex flex-col gap-6 border-t border-border/70 pt-8"
+    >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex max-w-2xl flex-col gap-2">
           <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
