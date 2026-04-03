@@ -14,6 +14,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { ensureAppRouteAccess } from "@/lib/app-route";
 import { trpc } from "@/utils/trpc";
+import { getBrowserTimeZone } from "@/components/goals/goal-progress-presenter";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: RouteComponent,
@@ -22,9 +23,14 @@ export const Route = createFileRoute("/_app/dashboard")({
 
 function RouteComponent() {
   const { session } = Route.useRouteContext();
+  const timezone = getBrowserTimeZone();
 
   const privateData = useQuery(trpc.privateData.queryOptions());
-  const goals = useQuery(trpc.goals.get.queryOptions());
+  const goalProgress = useQuery(
+    trpc.goalProgress.get.queryOptions({
+      timezone,
+    }),
+  );
   const recentActivities = useQuery(
     trpc.activityHistory.recentActivities.queryOptions(),
   );
@@ -90,10 +96,12 @@ function RouteComponent() {
       </section>
 
       <LoadingWrapper
-        isLoading={goals.isLoading}
+        isLoading={goalProgress.isLoading}
         fallback={<GoalProgressPanelSkeleton />}
       >
-        {goals.data ? <GoalProgressPanel goals={goals.data} /> : null}
+        {goalProgress.data ? (
+          <GoalProgressPanel goalProgress={goalProgress.data} />
+        ) : null}
       </LoadingWrapper>
 
       <IntervalsSyncPanel

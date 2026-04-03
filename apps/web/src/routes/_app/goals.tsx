@@ -1,11 +1,11 @@
-import { Badge } from "@corex/ui/components/badge";
 import { Button } from "@corex/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { format, parseISO } from "date-fns";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { GoalProgressCard } from "@/components/goals/goal-progress-card";
+import { getBrowserTimeZone } from "@/components/goals/goal-progress-presenter";
 import { GoalStep } from "@/components/onboarding/goal-step";
 import { SettingsPageShell } from "@/components/onboarding/settings-page-shell";
 import { ensureAppRouteAccess } from "@/lib/app-route";
@@ -17,7 +17,10 @@ import {
   type StepErrors,
 } from "@/lib/onboarding";
 import { queryClient, trpc } from "@/utils/trpc";
-import type { GoalsRouterOutputs } from "@/utils/types";
+import type {
+  GoalProgressRouterOutputs,
+  GoalsRouterOutputs,
+} from "@/utils/types";
 
 export const Route = createFileRoute("/_app/goals")({
   beforeLoad: async ({ context }) => {
@@ -36,9 +39,14 @@ type GoalListItem = GoalsRouterOutputs["get"][number];
 type EditorMode = { type: "create" } | { type: "edit"; id: string } | null;
 
 function RouteComponent() {
+  const timezone = getBrowserTimeZone();
   const goalsQueryOptions = trpc.goals.get.queryOptions();
+  const goalProgressQueryOptions = trpc.goalProgress.get.queryOptions({
+    timezone,
+  });
   const trainingSettings = useQuery(trpc.trainingSettings.get.queryOptions());
   const goals = useQuery(goalsQueryOptions);
+  const goalProgress = useQuery(goalProgressQueryOptions);
   const [editorMode, setEditorMode] = useState<EditorMode>(null);
   const [draft, setDraft] = useState<GoalDraft>(
     () => createDefaultOnboardingDraft().goal,
@@ -52,6 +60,9 @@ function RouteComponent() {
         goalsQueryOptions.queryKey,
         (current: GoalListItem[] = []) => [createdGoal, ...current],
       );
+      void queryClient.invalidateQueries({
+        queryKey: goalProgressQueryOptions.queryKey,
+      });
       setDraft(createGoalDraftFromTrainingGoal(createdGoal.goal));
       setErrors({});
       setEditorMode(null);
@@ -72,6 +83,9 @@ function RouteComponent() {
             item.id === updatedGoal.id ? updatedGoal : item,
           ),
       );
+      void queryClient.invalidateQueries({
+        queryKey: goalProgressQueryOptions.queryKey,
+      });
       setDraft(createGoalDraftFromTrainingGoal(updatedGoal.goal));
       setErrors({});
       setEditorMode(null);
@@ -83,9 +97,12 @@ function RouteComponent() {
   });
 
   const groupedGoals = {
-    active: (goals.data ?? []).filter((item) => item.status === "active"),
-    completed: (goals.data ?? []).filter((item) => item.status === "completed"),
+    active: goalProgress.data?.activeGoals ?? [],
+    completed: goalProgress.data?.completedGoals ?? [],
   };
+  const goalItemsById = new Map(
+    (goals.data ?? []).map((item) => [item.id, item]),
+  );
 
   const isSaving = createGoal.isPending || updateGoal.isPending;
 
@@ -157,7 +174,12 @@ function RouteComponent() {
               title="Active goals"
               items={groupedGoals.active}
               emptyMessage=""
-              onEdit={openEdit}
+              onEdit={(goalId) => {
+                const item = goalItemsById.get(goalId);
+                if (item) {
+                  openEdit(item);
+                }
+              }}
             />
           ) : (
             <EmptyGoalsState
@@ -171,7 +193,12 @@ function RouteComponent() {
               title="Completed event goals"
               items={groupedGoals.completed}
               emptyMessage=""
-              onEdit={openEdit}
+              onEdit={(goalId) => {
+                const item = goalItemsById.get(goalId);
+                if (item) {
+                  openEdit(item);
+                }
+              }}
             />
           ) : null}
         </div>
@@ -236,9 +263,11 @@ function GoalSection({
   onEdit,
 }: {
   title: string;
-  items: GoalListItem[];
+  items:
+    | GoalProgressRouterOutputs["get"]["activeGoals"]
+    | GoalProgressRouterOutputs["get"]["completedGoals"];
   emptyMessage: string;
-  onEdit: (item: GoalListItem) => void;
+  onEdit: (goalId: string) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -253,53 +282,14 @@ function GoalSection({
       <div className="text-sm font-medium">{title}</div>
       <div className="grid gap-4">
         {items.map((item) => (
-          <GoalCard key={item.id} item={item} onEdit={() => onEdit(item)} />
+          <GoalProgressCard
+            key={item.goalId}
+            card={item}
+            onEdit={() => onEdit(item.goalId)}
+          />
         ))}
       </div>
     </section>
-  );
-}
-
-function GoalCard({
-  item,
-  onEdit,
-}: {
-  item: GoalListItem;
-  onEdit: () => void;
-}) {
-  const summary = getGoalSummary(item.goal);
-
-  return (
-    <article className="rounded-[1.75rem] border border-border/70 px-6 py-6">
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <h2 className="text-[1.3rem] font-semibold tracking-tight">
-                {summary.title}
-              </h2>
-              <Badge
-                variant={item.status === "active" ? "secondary" : "outline"}
-              >
-                {item.status === "active" ? "Active" : "Completed"}
-              </Badge>
-            </div>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              {summary.description}
-            </p>
-          </div>
-          <Button variant="outline" onClick={onEdit}>
-            Edit goal
-          </Button>
-        </div>
-
-        <div className="grid gap-3 border-t border-border/70 pt-5 text-sm md:grid-cols-3">
-          <GoalMeta label="Target" value={summary.target} />
-          <GoalMeta label="Schedule" value={summary.schedule} />
-          <GoalMeta label="Notes" value={summary.notes} />
-        </div>
-      </div>
-    </article>
   );
 }
 
@@ -380,36 +370,4 @@ function EmptyGoalsState({
       </div>
     </div>
   );
-}
-
-function GoalMeta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-        {label}
-      </span>
-      <span className="text-sm text-foreground">{value}</span>
-    </div>
-  );
-}
-
-function getGoalSummary(goal: GoalListItem["goal"]) {
-  if (goal.type === "event_goal") {
-    return {
-      title: goal.eventName?.trim() || "Event goal",
-      description: `Targeting ${format(parseISO(goal.targetDate), "d MMM yyyy")}`,
-      target: `${goal.targetDistance.value} ${goal.targetDistance.unit}`,
-      schedule: format(parseISO(goal.targetDate), "EEEE, d MMM"),
-      notes: goal.notes?.trim() || "No notes yet",
-    };
-  }
-
-  return {
-    title: `${goal.period === "week" ? "Weekly" : "Monthly"} ${goal.metric} goal`,
-    description: "Recurring volume targets stay active until you edit them.",
-    target: `${goal.targetValue} ${goal.unit}`,
-    schedule:
-      goal.period === "week" ? "Repeats each week" : "Repeats each month",
-    notes: goal.notes?.trim() || "No notes yet",
-  };
 }
