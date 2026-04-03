@@ -18,9 +18,15 @@ import {
   buildGoalProgressSyncState,
   buildVolumeGoalProgress,
   getGoalProgressStatus,
-  getUtcMonthRange,
-  getUtcWeekRange,
 } from "./domain";
+import {
+  addDaysToDateKey,
+  addMonthsToDateKey,
+  getLocalDateKey,
+  getLocalMonthRange,
+  getLocalWeekRange,
+  localDateKeyToUtcStart,
+} from "./timezones";
 
 type Clock = {
   now: () => Date;
@@ -53,26 +59,21 @@ function getGoalTitle(goal: StoredGoal["goal"]) {
 function getVolumeTrendStart(
   goal: Extract<StoredGoal["goal"], { type: "volume_goal" }>,
   now: Date,
+  timezone: string,
 ) {
   const periodRange =
-    goal.period === "week" ? getUtcWeekRange(now) : getUtcMonthRange(now);
+    goal.period === "week"
+      ? getLocalWeekRange(now, timezone)
+      : getLocalMonthRange(now, timezone);
 
   return goal.period === "week"
-    ? new Date(
-        new Date(periodRange.start).setUTCDate(
-          periodRange.start.getUTCDate() - 21,
-        ),
+    ? localDateKeyToUtcStart(
+        addDaysToDateKey(periodRange.startKey, -21),
+        timezone,
       )
-    : new Date(
-        Date.UTC(
-          periodRange.start.getUTCFullYear(),
-          periodRange.start.getUTCMonth() - 3,
-          1,
-          0,
-          0,
-          0,
-          0,
-        ),
+    : localDateKeyToUtcStart(
+        addMonthsToDateKey(periodRange.startKey, -3),
+        timezone,
       );
 }
 
@@ -101,10 +102,13 @@ export function createGoalProgressService(options: {
   const clock = options.clock ?? { now: () => new Date() };
 
   return {
-    getForUser(userId: string): Effect.Effect<GoalProgressView, unknown> {
+    getForUser(
+      userId: string,
+      timezone = "UTC",
+    ): Effect.Effect<GoalProgressView, unknown> {
       return Effect.gen(function* () {
         const now = clock.now();
-        const today = now.toISOString().slice(0, 10);
+        const today = getLocalDateKey(now, timezone);
         const storedGoals = yield* options.goalsRepo.listByUserId(userId);
         const activeGoals = storedGoals.filter(
           (item) => getGoalStatus(item.goal, today) === "active",
@@ -121,6 +125,7 @@ export function createGoalProgressService(options: {
 
         if (storedGoals.length === 0) {
           return {
+            timezone,
             sync: buildGoalProgressSyncState({
               status: "no_goal",
               hasAnyHistory: false,
@@ -172,7 +177,7 @@ export function createGoalProgressService(options: {
           if (activeVolumeGoals.length > 0) {
             const trendStart = activeVolumeGoals.reduce<Date | null>(
               (earliest, item) => {
-                const candidate = getVolumeTrendStart(item.goal, now);
+                const candidate = getVolumeTrendStart(item.goal, now, timezone);
                 if (!earliest || candidate < earliest) {
                   return candidate;
                 }
@@ -217,6 +222,7 @@ export function createGoalProgressService(options: {
                 status === "ready"
                   ? buildVolumeGoalProgress({
                       now,
+                      timezone,
                       goal: item.goal,
                       runs: volumeRuns,
                     })
@@ -228,6 +234,7 @@ export function createGoalProgressService(options: {
             status === "ready"
               ? buildEventGoalProgress({
                   now,
+                  timezone,
                   goal: item.goal,
                   runs: eventRuns,
                   prs: mappedPerformance,
@@ -251,6 +258,7 @@ export function createGoalProgressService(options: {
               status === "ready"
                 ? buildEventGoalProgress({
                     now,
+                    timezone,
                     goal: item.goal,
                     runs: eventRuns,
                     prs: mappedPerformance,
@@ -269,6 +277,7 @@ export function createGoalProgressService(options: {
           });
 
         return {
+          timezone,
           sync,
           activeGoals: activeGoalCards,
           completedGoals: completedGoalCards,

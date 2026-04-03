@@ -28,6 +28,7 @@ describe("appRouter", () => {
         service: {
           getForUser: () =>
             Effect.succeed({
+              timezone: "UTC",
               sync: {
                 hasAnyHistory: false,
                 hasRecentSync: false,

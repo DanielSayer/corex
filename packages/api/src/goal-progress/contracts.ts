@@ -110,6 +110,7 @@ export type EventGoalProgressCard = {
 export type GoalProgressCard = VolumeGoalProgressCard | EventGoalProgressCard;
 
 export type GoalProgressView = {
+  timezone: string;
   sync: GoalProgressSyncState;
   activeGoals: GoalProgressCard[];
   completedGoals: EventGoalProgressCard[];

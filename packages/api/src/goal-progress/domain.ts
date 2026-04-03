@@ -11,6 +11,16 @@ import type {
   GoalProgressTrendPoint,
   VolumeGoalProgress,
 } from "./contracts";
+import {
+  addDaysToDateKey,
+  addMonthsToDateKey,
+  compareDateKeys,
+  getDateKeyDiffInDays,
+  getLocalDateKey,
+  getLocalMonthRange,
+  getLocalWeekRange,
+  localDateKeyToUtcStart,
+} from "./timezones";
 
 type ComparableRun = {
   startAt: Date;
@@ -20,8 +30,6 @@ type ComparableRun = {
 
 const METERS_PER_KM = 1000;
 const METERS_PER_MILE = 1609.344;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
 function clampPercent(value: number) {
   if (!Number.isFinite(value)) {
     return 0;
@@ -36,51 +44,6 @@ function roundMetric(value: number) {
 
 function toIsoString(value: Date) {
   return value.toISOString();
-}
-
-function addUtcDays(value: Date, days: number) {
-  const next = new Date(value);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
-export function getStartOfUtcDay(value: Date) {
-  return new Date(
-    Date.UTC(
-      value.getUTCFullYear(),
-      value.getUTCMonth(),
-      value.getUTCDate(),
-      0,
-      0,
-      0,
-      0,
-    ),
-  );
-}
-
-export function getUtcWeekRange(now: Date) {
-  const dayStart = getStartOfUtcDay(now);
-  const day = dayStart.getUTCDay();
-  const offset = (day + 6) % 7;
-  const start = addUtcDays(dayStart, -offset);
-
-  return {
-    start,
-    end: addUtcDays(start, 7),
-  };
-}
-
-export function getUtcMonthRange(now: Date) {
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
-  );
-
-  return {
-    start,
-    end: new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0),
-    ),
-  };
 }
 
 function getVolumeUnitDivisor(unit: "km" | "mi" | "minutes") {
@@ -121,49 +84,35 @@ function sumPeriodValue(
 
 function buildRecentVolumePeriods(input: {
   now: Date;
+  timezone: string;
   goal: Extract<TrainingGoal, { type: "volume_goal" }>;
   runs: ComparableRun[];
 }) {
   const ranges: Array<{ start: Date; end: Date }> = [];
 
   if (input.goal.period === "week") {
-    const current = getUtcWeekRange(input.now);
+    const current = getLocalWeekRange(input.now, input.timezone);
 
     for (let index = 3; index >= 0; index -= 1) {
-      const start = addUtcDays(current.start, -index * 7);
+      const startKey = addDaysToDateKey(current.startKey, -index * 7);
+      const endKey = addDaysToDateKey(startKey, 7);
       ranges.push({
-        start,
-        end: addUtcDays(start, 7),
+        start: localDateKeyToUtcStart(startKey, input.timezone),
+        end: localDateKeyToUtcStart(endKey, input.timezone),
       });
     }
   } else {
-    const current = getUtcMonthRange(input.now);
+    const current = getLocalMonthRange(input.now, input.timezone);
 
     for (let index = 3; index >= 0; index -= 1) {
-      const start = new Date(
-        Date.UTC(
-          current.start.getUTCFullYear(),
-          current.start.getUTCMonth() - index,
-          1,
-          0,
-          0,
-          0,
-          0,
-        ),
+      const startKey = addMonthsToDateKey(current.startKey, -index);
+      const range = getLocalMonthRange(
+        localDateKeyToUtcStart(startKey, input.timezone),
+        input.timezone,
       );
       ranges.push({
-        start,
-        end: new Date(
-          Date.UTC(
-            start.getUTCFullYear(),
-            start.getUTCMonth() + 1,
-            1,
-            0,
-            0,
-            0,
-            0,
-          ),
-        ),
+        start: range.start,
+        end: range.end,
       });
     }
   }
@@ -184,13 +133,14 @@ function buildRecentVolumePeriods(input: {
 
 export function buildVolumeGoalProgress(input: {
   now: Date;
+  timezone: string;
   goal: Extract<TrainingGoal, { type: "volume_goal" }>;
   runs: ComparableRun[];
 }): VolumeGoalProgress {
   const range =
     input.goal.period === "week"
-      ? getUtcWeekRange(input.now)
-      : getUtcMonthRange(input.now);
+      ? getLocalWeekRange(input.now, input.timezone)
+      : getLocalMonthRange(input.now, input.timezone);
   const completedValue = sumPeriodValue(
     input.runs,
     input.goal,
@@ -395,49 +345,65 @@ function getReadinessScore(signals: EventGoalSignal[]) {
 
 export function buildEventGoalProgress(input: {
   now: Date;
+  timezone: string;
   goal: Extract<TrainingGoal, { type: "event_goal" }>;
   runs: ComparableRun[];
   prs: PlanningPrRow[];
 }): EventGoalProgress {
-  const todayStart = getStartOfUtcDay(input.now);
-  const eventDate = new Date(`${input.goal.targetDate}T00:00:00.000Z`);
-  const daysRemaining = Math.ceil(
-    (eventDate.getTime() - todayStart.getTime()) / MS_PER_DAY,
+  const currentDateKey = getLocalDateKey(input.now, input.timezone);
+  const daysRemaining = getDateKeyDiffInDays(
+    currentDateKey,
+    input.goal.targetDate,
   );
   const targetDistanceMeters = toMeters(input.goal.targetDistance);
-  const currentWeek = getUtcWeekRange(input.now);
-  const trailingStart = addUtcDays(currentWeek.start, -28);
+  const currentWeek = getLocalWeekRange(input.now, input.timezone);
+  const trailingStartKey = addDaysToDateKey(currentWeek.startKey, -28);
   const previousWeeks = [
     {
-      start: addUtcDays(currentWeek.start, -28),
-      end: addUtcDays(currentWeek.start, -21),
+      startKey: addDaysToDateKey(currentWeek.startKey, -28),
+      endKey: addDaysToDateKey(currentWeek.startKey, -21),
     },
     {
-      start: addUtcDays(currentWeek.start, -21),
-      end: addUtcDays(currentWeek.start, -14),
+      startKey: addDaysToDateKey(currentWeek.startKey, -21),
+      endKey: addDaysToDateKey(currentWeek.startKey, -14),
     },
     {
-      start: addUtcDays(currentWeek.start, -14),
-      end: addUtcDays(currentWeek.start, -7),
+      startKey: addDaysToDateKey(currentWeek.startKey, -14),
+      endKey: addDaysToDateKey(currentWeek.startKey, -7),
     },
-    { start: addUtcDays(currentWeek.start, -7), end: currentWeek.start },
+    {
+      startKey: addDaysToDateKey(currentWeek.startKey, -7),
+      endKey: currentWeek.startKey,
+    },
   ];
   const currentWeekDistanceMeters = input.runs
-    .filter(
-      (run) =>
-        run.startAt >= currentWeek.start && run.startAt < currentWeek.end,
-    )
+    .filter((run) => {
+      const runDateKey = getLocalDateKey(run.startAt, input.timezone);
+      return (
+        compareDateKeys(runDateKey, currentWeek.startKey) >= 0 &&
+        compareDateKeys(runDateKey, currentWeek.endKey) < 0
+      );
+    })
     .reduce((sum, run) => sum + run.distanceMeters, 0);
   const currentWeekDurationSeconds = input.runs
-    .filter(
-      (run) =>
-        run.startAt >= currentWeek.start && run.startAt < currentWeek.end,
-    )
+    .filter((run) => {
+      const runDateKey = getLocalDateKey(run.startAt, input.timezone);
+      return (
+        compareDateKeys(runDateKey, currentWeek.startKey) >= 0 &&
+        compareDateKeys(runDateKey, currentWeek.endKey) < 0
+      );
+    })
     .reduce((sum, run) => sum + run.movingTimeSeconds, 0);
   const trailingFourWeekAverageDistanceMeters =
     previousWeeks.reduce((sum, week) => {
       const weekDistance = input.runs
-        .filter((run) => run.startAt >= week.start && run.startAt < week.end)
+        .filter((run) => {
+          const runDateKey = getLocalDateKey(run.startAt, input.timezone);
+          return (
+            compareDateKeys(runDateKey, week.startKey) >= 0 &&
+            compareDateKeys(runDateKey, week.endKey) < 0
+          );
+        })
         .reduce((value, run) => value + run.distanceMeters, 0);
 
       return sum + weekDistance;
@@ -445,14 +411,26 @@ export function buildEventGoalProgress(input: {
   const trailingFourWeekAverageDurationSeconds =
     previousWeeks.reduce((sum, week) => {
       const weekDuration = input.runs
-        .filter((run) => run.startAt >= week.start && run.startAt < week.end)
+        .filter((run) => {
+          const runDateKey = getLocalDateKey(run.startAt, input.timezone);
+          return (
+            compareDateKeys(runDateKey, week.startKey) >= 0 &&
+            compareDateKeys(runDateKey, week.endKey) < 0
+          );
+        })
         .reduce((value, run) => value + run.movingTimeSeconds, 0);
 
       return sum + weekDuration;
     }, 0) / previousWeeks.length;
   const longestRecentRun =
     [...input.runs]
-      .filter((run) => run.startAt >= trailingStart)
+      .filter(
+        (run) =>
+          compareDateKeys(
+            getLocalDateKey(run.startAt, input.timezone),
+            trailingStartKey,
+          ) >= 0,
+      )
       .sort((left, right) => right.distanceMeters - left.distanceMeters)[0] ??
     null;
   const bestMatchingEffort = getBestMatchingEffort(

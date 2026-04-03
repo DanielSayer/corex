@@ -6,9 +6,8 @@ import {
   buildGoalProgressSyncState,
   buildVolumeGoalProgress,
   getGoalProgressStatus,
-  getUtcMonthRange,
-  getUtcWeekRange,
 } from "./domain";
+import { getLocalMonthRange, getLocalWeekRange } from "./timezones";
 
 const weeklyDistanceGoal: Extract<TrainingGoal, { type: "volume_goal" }> = {
   type: "volume_goal",
@@ -22,6 +21,7 @@ describe("goal progress domain", () => {
   it("computes weekly distance goal progress and remaining volume", () => {
     const progress = buildVolumeGoalProgress({
       now: new Date("2026-04-03T12:00:00.000Z"),
+      timezone: "UTC",
       goal: weeklyDistanceGoal,
       runs: [
         {
@@ -55,6 +55,7 @@ describe("goal progress domain", () => {
   it("computes monthly time goal progress from current-month runs only", () => {
     const progress = buildVolumeGoalProgress({
       now: new Date("2026-04-18T12:00:00.000Z"),
+      timezone: "UTC",
       goal: {
         type: "volume_goal",
         metric: "time",
@@ -86,15 +87,43 @@ describe("goal progress domain", () => {
     expect(progress.percentComplete).toBe(50);
   });
 
-  it("uses monday-start weeks and utc month boundaries", () => {
-    expect(getUtcWeekRange(new Date("2026-04-05T10:00:00.000Z"))).toEqual({
+  it("uses monday-start weeks and local month boundaries", () => {
+    expect(
+      getLocalWeekRange(new Date("2026-04-05T10:00:00.000Z"), "UTC"),
+    ).toMatchObject({
       start: new Date("2026-03-30T00:00:00.000Z"),
       end: new Date("2026-04-06T00:00:00.000Z"),
     });
-    expect(getUtcMonthRange(new Date("2026-04-18T10:00:00.000Z"))).toEqual({
+    expect(
+      getLocalMonthRange(new Date("2026-04-18T10:00:00.000Z"), "UTC"),
+    ).toMatchObject({
       start: new Date("2026-04-01T00:00:00.000Z"),
       end: new Date("2026-05-01T00:00:00.000Z"),
     });
+  });
+
+  it("uses timezone-aware week boundaries for volume goals", () => {
+    const progress = buildVolumeGoalProgress({
+      now: new Date("2026-04-03T12:00:00.000Z"),
+      timezone: "Australia/Brisbane",
+      goal: weeklyDistanceGoal,
+      runs: [
+        {
+          startAt: new Date("2026-03-29T15:30:00.000Z"),
+          distanceMeters: 7000,
+          movingTimeSeconds: 2400,
+        },
+        {
+          startAt: new Date("2026-03-29T13:30:00.000Z"),
+          distanceMeters: 5000,
+          movingTimeSeconds: 1800,
+        },
+      ],
+    });
+
+    expect(progress.completedValue).toBe(7);
+    expect(progress.periodStart).toBe("2026-03-29T14:00:00.000Z");
+    expect(progress.periodEnd).toBe("2026-04-05T14:00:00.000Z");
   });
 
   it("maps no-goal, missing-history, stale-history, and ready states", () => {
@@ -143,6 +172,7 @@ describe("goal progress domain", () => {
   it("builds event readiness with nearest best effort fallback", () => {
     const progress = buildEventGoalProgress({
       now: new Date("2026-04-03T12:00:00.000Z"),
+      timezone: "UTC",
       goal: {
         type: "event_goal",
         targetDistance: {
@@ -190,5 +220,25 @@ describe("goal progress domain", () => {
       "long_run",
       "best_effort",
     ]);
+  });
+
+  it("uses timezone-aware local dates for event countdown", () => {
+    const progress = buildEventGoalProgress({
+      now: new Date("2026-04-03T14:30:00.000Z"),
+      timezone: "Australia/Brisbane",
+      goal: {
+        type: "event_goal",
+        targetDistance: {
+          value: 10,
+          unit: "km",
+        },
+        targetDate: "2026-04-04",
+        eventName: "Local 10k",
+      },
+      runs: [],
+      prs: [],
+    });
+
+    expect(progress.daysRemaining).toBe(0);
   });
 });
