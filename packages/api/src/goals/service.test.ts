@@ -86,4 +86,77 @@ describe("goals api", () => {
       },
     ]);
   });
+
+  it("updates the persisted goal while preserving existing availability and credentials", async () => {
+    const stored = createStoredSettings();
+    let upsertRecord:
+      | Parameters<TrainingSettingsRepository["upsert"]>[0]
+      | undefined;
+    const api = createGoalsApi({
+      repo: createRepo({
+        findByUserId: () => Effect.succeed(stored),
+        upsert: (record) => {
+          upsertRecord = record;
+
+          return Effect.succeed({
+            ...stored,
+            goal: record.goal,
+            updatedAt: new Date("2026-03-22T00:00:00.000Z"),
+          });
+        },
+      }),
+    });
+
+    await expect(
+      Effect.runPromise(
+        api.updateForUser("user-1", {
+          type: "volume_goal",
+          metric: "distance",
+          period: "week",
+          targetValue: 50,
+          unit: "km",
+        }),
+      ),
+    ).resolves.toMatchObject({
+      goal: {
+        type: "volume_goal",
+        metric: "distance",
+        period: "week",
+        targetValue: 50,
+        unit: "km",
+      },
+    });
+    expect(upsertRecord).toMatchObject({
+      availability: stored.availability,
+      intervalsUsername: stored.intervalsCredential.username,
+      intervalsCredential: {
+        ciphertext: stored.intervalsCredential.ciphertext,
+        iv: stored.intervalsCredential.iv,
+        tag: stored.intervalsCredential.tag,
+        keyVersion: stored.intervalsCredential.keyVersion,
+      },
+    });
+  });
+
+  it("rejects goal updates when full training settings do not exist yet", async () => {
+    const api = createGoalsApi({
+      repo: createRepo({
+        findByUserId: () => Effect.succeed(null),
+      }),
+    });
+
+    await expect(
+      Effect.runPromise(
+        api.updateForUser("user-1", {
+          type: "volume_goal",
+          metric: "distance",
+          period: "week",
+          targetValue: 50,
+          unit: "km",
+        }),
+      ),
+    ).rejects.toThrow(
+      "Training settings must exist before a goal can be updated",
+    );
+  });
 });

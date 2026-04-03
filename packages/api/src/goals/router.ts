@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
 
+import { trainingGoalSchema } from "../training-settings/contracts";
 import { PersistenceFailure } from "../training-settings/errors";
+import { InvalidSettings } from "../training-settings/errors";
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
 import { createLiveGoalsApi } from "./live";
@@ -11,6 +13,14 @@ type CreateGoalsRouterOptions = {
 };
 
 function mapGoalsError(error: unknown) {
+  if (error instanceof InvalidSettings) {
+    return new TRPCError({
+      code: "BAD_REQUEST",
+      message: error.message,
+      cause: error,
+    });
+  }
+
   if (error instanceof PersistenceFailure) {
     return new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
@@ -33,6 +43,14 @@ export function createGoalsRouter(options: CreateGoalsRouterOptions = {}) {
     get: authedProcedure.query(({ ctx }) =>
       executeEffect(service.getForUser(ctx.session.user.id), mapGoalsError),
     ),
+    update: authedProcedure
+      .input(trainingGoalSchema)
+      .mutation(({ ctx, input }) =>
+        executeEffect(
+          service.updateForUser(ctx.session.user.id, input),
+          mapGoalsError,
+        ),
+      ),
   });
 }
 

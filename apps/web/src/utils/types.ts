@@ -7,4 +7,7 @@ type InferRouterOutputs<TRouter extends AppRouter> =
 export type ActivityHistoryRouterOutputs =
   InferRouterOutputs<AppRouter>["activityHistory"];
 
+export type GoalProgressRouterOutputs =
+  InferRouterOutputs<AppRouter>["goalProgress"];
+
 export type GoalsRouterOutputs = InferRouterOutputs<AppRouter>["goals"];

@@ -2,6 +2,10 @@ import {
   ActivityPreview,
   ActivityPreviewSkeleton,
 } from "@/components/dashboard/activity-preview";
+import {
+  GoalProgressPanel,
+  GoalProgressPanelSkeleton,
+} from "@/components/dashboard/goal-progress-panel";
 import { IntervalsSyncPanel } from "@/components/intervals-sync-panel";
 import { LoadingWrapper } from "@/components/renderers";
 import { Separator } from "@corex/ui/components/separator";
@@ -20,6 +24,7 @@ function RouteComponent() {
   const { session } = Route.useRouteContext();
 
   const privateData = useQuery(trpc.privateData.queryOptions());
+  const goalProgress = useQuery(trpc.goalProgress.get.queryOptions());
   const recentActivities = useQuery(
     trpc.activityHistory.recentActivities.queryOptions(),
   );
@@ -83,6 +88,15 @@ function RouteComponent() {
           </LoadingWrapper>
         </div>
       </section>
+
+      <LoadingWrapper
+        isLoading={goalProgress.isLoading}
+        fallback={<GoalProgressPanelSkeleton />}
+      >
+        {goalProgress.data ? (
+          <GoalProgressPanel progress={goalProgress.data} />
+        ) : null}
+      </LoadingWrapper>
 
       <IntervalsSyncPanel
         title="Intervals history"

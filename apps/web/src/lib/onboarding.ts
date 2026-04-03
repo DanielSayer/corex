@@ -84,6 +84,10 @@ function trimOptionalString(value: string) {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function formatOptionalTimeUnit(value: number) {
+  return value > 0 ? String(value) : "";
+}
+
 function parsePositiveNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : Number.NaN;
@@ -306,11 +310,18 @@ export function validateStep(draft: OnboardingDraft, step: OnboardingStep) {
   return {};
 }
 
+export function buildTrainingGoalInput(draft: GoalDraft): {
+  value?: TrainingGoal;
+  errors?: StepErrors;
+} {
+  return serializeGoalDraftInternal(draft);
+}
+
 export function buildTrainingSettingsInput(draft: OnboardingDraft): {
   value?: TrainingSettingsInput;
   errors?: StepErrors;
 } {
-  const goalResult = serializeGoalDraftInternal(draft.goal);
+  const goalResult = buildTrainingGoalInput(draft.goal);
 
   if (!goalResult.value) {
     return { errors: goalResult.errors };
@@ -345,4 +356,34 @@ export function buildTrainingSettingsInput(draft: OnboardingDraft): {
   }
 
   return { value: parsed.data };
+}
+
+export function createGoalDraftFromTrainingGoal(goal: TrainingGoal): GoalDraft {
+  if (goal.type === "event_goal") {
+    const targetTimeSeconds = goal.targetTimeSeconds ?? 0;
+    const hours = Math.floor(targetTimeSeconds / 3600);
+    const minutes = Math.floor((targetTimeSeconds % 3600) / 60);
+    const seconds = targetTimeSeconds % 60;
+
+    return {
+      type: "event_goal",
+      targetDistanceValue: String(goal.targetDistance.value),
+      targetDistanceUnit: goal.targetDistance.unit,
+      targetDate: goal.targetDate,
+      eventName: goal.eventName ?? "",
+      targetTimeHours: formatOptionalTimeUnit(hours),
+      targetTimeMinutes: formatOptionalTimeUnit(minutes),
+      targetTimeSeconds: formatOptionalTimeUnit(seconds),
+      notes: goal.notes ?? "",
+    };
+  }
+
+  return {
+    type: "volume_goal",
+    metric: goal.metric,
+    period: goal.period,
+    targetValue: String(goal.targetValue),
+    unit: goal.unit,
+    notes: goal.notes ?? "",
+  };
 }
