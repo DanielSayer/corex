@@ -92,9 +92,6 @@ describe("goal progress integration", () => {
     const result = await Effect.runPromise(service.getForUser(user.id));
 
     expect(result).toEqual({
-      status: "no_goal",
-      goal: null,
-      progressKind: null,
       sync: {
         hasAnyHistory: false,
         hasRecentSync: false,
@@ -105,8 +102,8 @@ describe("goal progress integration", () => {
         },
         recommendedAction: "create_goal",
       },
-      volumeProgress: null,
-      eventProgress: null,
+      activeGoals: [],
+      completedGoals: [],
     });
   });
 
@@ -133,9 +130,13 @@ describe("goal progress integration", () => {
 
     const result = await Effect.runPromise(service.getForUser(user.id));
 
-    expect(result.status).toBe("missing_history");
     expect(result.sync.recommendedAction).toBe("sync_history");
-    expect(result.volumeProgress).toBeNull();
+    expect(result.activeGoals).toHaveLength(1);
+    expect(result.activeGoals[0]).toMatchObject({
+      goalType: "volume_goal",
+      status: "active",
+      progress: null,
+    });
   });
 
   it("returns stale_history when local runs exist but the latest successful sync is too old", async () => {
@@ -181,11 +182,15 @@ describe("goal progress integration", () => {
 
     const result = await Effect.runPromise(service.getForUser(user.id));
 
-    expect(result.status).toBe("stale_history");
     expect(result.sync.latestSyncWarnings).toContain("sync_stale");
+    expect(result.activeGoals).toHaveLength(1);
+    expect(result.activeGoals[0]).toMatchObject({
+      goalType: "volume_goal",
+      progress: null,
+    });
   });
 
-  it("computes weekly and monthly volume goal progress from real imported runs", async () => {
+  it("computes live progress for multiple active goals from real imported runs", async () => {
     const { db } = await getIntegrationHarness();
     const weekUser = await createUser(db, {
       email: "weekly@example.com",
@@ -205,6 +210,21 @@ describe("goal progress integration", () => {
         unit: "km",
       },
     });
+    await Effect.runPromise(
+      createGoalsApi({
+        repo: createGoalRepository(db),
+        trainingSettingsRepo: createTrainingSettingsRepository(db),
+        clock: { now: () => new Date("2026-04-03T12:00:00.000Z") },
+      }).createForUser(weekUser.id, {
+        type: "event_goal",
+        targetDistance: {
+          value: 21.1,
+          unit: "km",
+        },
+        targetDate: "2026-05-10",
+        eventName: "City Half",
+      }),
+    );
     await saveTrainingSettings({
       userId: monthUser.id,
       goal: {
@@ -256,6 +276,25 @@ describe("goal progress integration", () => {
         },
       },
       {
+        userId: weekUser.id,
+        upstreamActivityId: "week-run-3",
+        athleteId: "athlete-1",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-03-26T06:00:00.000Z"),
+        movingTimeSeconds: 3600,
+        elapsedTimeSeconds: 3600,
+        distanceMeters: 18000,
+        rawDetail: {
+          id: "week-run-3",
+          type: "Run",
+          start_date: "2026-03-26T06:00:00.000Z",
+          moving_time: 3600,
+          elapsed_time: 3600,
+          distance: 18000,
+        },
+      },
+      {
         userId: monthUser.id,
         upstreamActivityId: "month-run-1",
         athleteId: "athlete-2",
@@ -294,6 +333,15 @@ describe("goal progress integration", () => {
         },
       },
     ]);
+    await db.insert(userAllTimePr).values({
+      userId: weekUser.id,
+      distanceMeters: 21097.5,
+      upstreamActivityId: "week-run-3",
+      monthStart: new Date("2026-03-01T00:00:00.000Z"),
+      durationSeconds: 5900,
+      startSampleIndex: 0,
+      endSampleIndex: 5900,
+    });
     await insertSuccessfulSync(weekUser.id, "2026-04-02T12:00:00.000Z");
     await insertSuccessfulSync(monthUser.id, "2026-04-12T12:00:00.000Z");
 
@@ -311,24 +359,48 @@ describe("goal progress integration", () => {
       Effect.runPromise(monthlyService.getForUser(monthUser.id)),
     ]);
 
-    expect(weekly.status).toBe("ready");
-    expect(weekly.volumeProgress).toMatchObject({
-      completedValue: 22,
-      remainingValue: 18,
-      percentComplete: 55,
-      period: "week",
-    });
-    expect(monthly.status).toBe("ready");
-    expect(monthly.volumeProgress).toMatchObject({
-      completedValue: 150,
-      remainingValue: 150,
-      percentComplete: 50,
-      period: "month",
-      unit: "minutes",
+    expect(weekly.sync.recommendedAction).toBe("none");
+    expect(weekly.activeGoals).toHaveLength(2);
+    expect(weekly.activeGoals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          goalType: "volume_goal",
+          status: "active",
+          progress: expect.objectContaining({
+            completedValue: 22,
+            remainingValue: 18,
+            percentComplete: 55,
+            period: "week",
+          }),
+        }),
+        expect.objectContaining({
+          goalType: "event_goal",
+          status: "active",
+          readinessScore: expect.any(Number),
+          progress: expect.objectContaining({
+            eventDate: "2026-05-10",
+            bestMatchingEffort: expect.objectContaining({
+              distanceMeters: 21097.5,
+              source: "exact",
+            }),
+          }),
+        }),
+      ]),
+    );
+    expect(monthly.activeGoals).toHaveLength(1);
+    expect(monthly.activeGoals[0]).toMatchObject({
+      goalType: "volume_goal",
+      progress: {
+        completedValue: 150,
+        remainingValue: 150,
+        percentComplete: 50,
+        period: "month",
+        unit: "minutes",
+      },
     });
   });
 
-  it("returns event readiness with recent load, longest run, and matching effort", async () => {
+  it("returns completed event goals separately with computed final progress", async () => {
     const { db } = await getIntegrationHarness();
     const user = await createUser(db, {
       email: "event@example.com",
@@ -342,7 +414,7 @@ describe("goal progress integration", () => {
           value: 21.1,
           unit: "km",
         },
-        targetDate: "2026-05-10",
+        targetDate: "2026-03-01",
         eventName: "City Half",
       },
     });
@@ -403,17 +475,25 @@ describe("goal progress integration", () => {
 
     const result = await Effect.runPromise(service.getForUser(user.id));
 
-    expect(result.status).toBe("ready");
-    expect(result.eventProgress).toMatchObject({
-      eventDate: "2026-05-10",
-      longestRecentRun: {
-        distanceMeters: 18000,
-      },
-      bestMatchingEffort: {
-        distanceMeters: 21097.5,
-        source: "exact",
+    expect(result.activeGoals).toHaveLength(0);
+    expect(result.completedGoals).toHaveLength(1);
+    expect(result.completedGoals[0]).toMatchObject({
+      goalType: "event_goal",
+      status: "completed",
+      readinessScore: expect.any(Number),
+      progress: {
+        eventDate: "2026-03-01",
+        longestRecentRun: {
+          distanceMeters: 18000,
+        },
+        bestMatchingEffort: {
+          distanceMeters: 21097.5,
+          source: "exact",
+        },
       },
     });
-    expect(result.eventProgress?.readiness.signals).toHaveLength(4);
+    expect(result.completedGoals[0]?.progress?.readiness.signals).toHaveLength(
+      4,
+    );
   });
 });

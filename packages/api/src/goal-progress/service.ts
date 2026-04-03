@@ -1,13 +1,18 @@
 import { Effect } from "effect";
 
 import { getGoalStatus } from "../goals/domain";
-import type { GoalRepository } from "../goals/repository";
+import type { GoalRepository, StoredGoal } from "../goals/repository";
+import type { PlanningPerformanceSnapshot } from "../planning-data/contracts";
 import type {
   PlanningDataRepository,
   PlanningHistorySourceRow,
 } from "../planning-data/repository";
 import { createPlanningDataService } from "../planning-data/service";
-import type { GoalProgressView } from "./contracts";
+import type {
+  EventGoalProgressCard,
+  GoalProgressCard,
+  GoalProgressView,
+} from "./contracts";
 import {
   buildEventGoalProgress,
   buildGoalProgressSyncState,
@@ -21,14 +26,67 @@ type Clock = {
   now: () => Date;
 };
 
+type MappedRun = {
+  startAt: Date;
+  distanceMeters: number;
+  movingTimeSeconds: number;
+};
+
 export type GoalProgressService = ReturnType<typeof createGoalProgressService>;
 
-function mapRuns(rows: PlanningHistorySourceRow[]) {
+function mapRuns(rows: PlanningHistorySourceRow[]): MappedRun[] {
   return rows.map((row) => ({
     startAt: row.startAt,
     distanceMeters: row.distanceMeters,
     movingTimeSeconds: row.movingTimeSeconds,
   }));
+}
+
+function getGoalTitle(goal: StoredGoal["goal"]) {
+  if (goal.type === "event_goal") {
+    return goal.eventName?.trim() || "Event goal";
+  }
+
+  return `${goal.period === "week" ? "Weekly" : "Monthly"} ${goal.metric} goal`;
+}
+
+function getVolumeTrendStart(
+  goal: Extract<StoredGoal["goal"], { type: "volume_goal" }>,
+  now: Date,
+) {
+  const periodRange =
+    goal.period === "week" ? getUtcWeekRange(now) : getUtcMonthRange(now);
+
+  return goal.period === "week"
+    ? new Date(
+        new Date(periodRange.start).setUTCDate(
+          periodRange.start.getUTCDate() - 21,
+        ),
+      )
+    : new Date(
+        Date.UTC(
+          periodRange.start.getUTCFullYear(),
+          periodRange.start.getUTCMonth() - 3,
+          1,
+          0,
+          0,
+          0,
+          0,
+        ),
+      );
+}
+
+function mapPerformanceSnapshot(snapshot: PlanningPerformanceSnapshot | null) {
+  return (
+    snapshot?.allTimePrs.map((pr) => ({
+      distanceMeters: pr.distanceMeters,
+      durationSeconds: pr.durationSeconds,
+      activityId: pr.activityId,
+      startAt: new Date(pr.startAt),
+      startSampleIndex: pr.startSampleIndex,
+      endSampleIndex: pr.endSampleIndex,
+    })) ?? []
+  );
 }
 
 export function createGoalProgressService(options: {
@@ -45,19 +103,24 @@ export function createGoalProgressService(options: {
   return {
     getForUser(userId: string): Effect.Effect<GoalProgressView, unknown> {
       return Effect.gen(function* () {
-        const today = clock.now().toISOString().slice(0, 10);
+        const now = clock.now();
+        const today = now.toISOString().slice(0, 10);
         const storedGoals = yield* options.goalsRepo.listByUserId(userId);
-        const activeGoal =
-          storedGoals.find(
-            (item) => getGoalStatus(item.goal, today) === "active",
-          )?.goal ?? null;
-        const goal = activeGoal;
+        const activeGoals = storedGoals.filter(
+          (item) => getGoalStatus(item.goal, today) === "active",
+        );
+        const completedEventGoals = storedGoals.filter(
+          (
+            item,
+          ): item is StoredGoal & {
+            goal: Extract<StoredGoal["goal"], { type: "event_goal" }>;
+          } =>
+            item.goal.type === "event_goal" &&
+            getGoalStatus(item.goal, today) === "completed",
+        );
 
-        if (!goal) {
+        if (storedGoals.length === 0) {
           return {
-            status: "no_goal" as const,
-            goal: null,
-            progressKind: null,
             sync: buildGoalProgressSyncState({
               status: "no_goal",
               hasAnyHistory: false,
@@ -68,15 +131,17 @@ export function createGoalProgressService(options: {
                 end: null,
               },
             }),
-            volumeProgress: null,
-            eventProgress: null,
+            activeGoals: [],
+            completedGoals: [],
           };
         }
 
+        const primaryGoal =
+          activeGoals[0]?.goal ?? completedEventGoals[0]?.goal ?? null;
         const historyQuality =
           yield* options.planningDataService.getHistoryQuality(userId);
         const status = getGoalProgressStatus({
-          goal,
+          goal: primaryGoal,
           hasAnyHistory: historyQuality.hasAnyHistory,
           hasRecentSync: historyQuality.hasRecentSync,
         });
@@ -88,87 +153,125 @@ export function createGoalProgressService(options: {
           availableDateRange: historyQuality.availableDateRange,
         });
 
-        if (status !== "ready") {
-          return {
-            status,
-            goal,
-            progressKind: goal.type,
-            sync,
-            volumeProgress: null,
-            eventProgress: null,
-          };
-        }
+        let volumeRuns: MappedRun[] = [];
+        let eventRuns: MappedRun[] = [];
+        let performanceSnapshot: PlanningPerformanceSnapshot | null = null;
 
-        if (goal.type === "volume_goal") {
-          const now = clock.now();
-          const periodRange =
-            goal.period === "week"
-              ? getUtcWeekRange(now)
-              : getUtcMonthRange(now);
-          const trendStart =
-            goal.period === "week"
-              ? new Date(
-                  new Date(periodRange.start).setUTCDate(
-                    periodRange.start.getUTCDate() - 21,
-                  ),
-                )
-              : new Date(
-                  Date.UTC(
-                    periodRange.start.getUTCFullYear(),
-                    periodRange.start.getUTCMonth() - 3,
-                    1,
-                    0,
-                    0,
-                    0,
-                    0,
-                  ),
-                );
-          const runs = yield* options.planningRepo.getHistoryRuns(
-            userId,
-            trendStart,
+        if (status === "ready") {
+          const activeVolumeGoals = activeGoals.filter(
+            (
+              item,
+            ): item is StoredGoal & {
+              goal: Extract<StoredGoal["goal"], { type: "volume_goal" }>;
+            } => item.goal.type === "volume_goal",
           );
+          const anyEventGoals =
+            activeGoals.some((item) => item.goal.type === "event_goal") ||
+            completedEventGoals.length > 0;
 
-          return {
-            status,
-            goal,
-            progressKind: "volume_goal" as const,
-            sync,
-            volumeProgress: buildVolumeGoalProgress({
-              now,
-              goal,
-              runs: mapRuns(runs),
-            }),
-            eventProgress: null,
-          };
+          if (activeVolumeGoals.length > 0) {
+            const trendStart = activeVolumeGoals.reduce<Date | null>(
+              (earliest, item) => {
+                const candidate = getVolumeTrendStart(item.goal, now);
+                if (!earliest || candidate < earliest) {
+                  return candidate;
+                }
+
+                return earliest;
+              },
+              null,
+            );
+
+            if (trendStart) {
+              volumeRuns = mapRuns(
+                yield* options.planningRepo.getHistoryRuns(userId, trendStart),
+              );
+            }
+          }
+
+          if (anyEventGoals) {
+            const eventLookbackStart = new Date(now);
+            eventLookbackStart.setUTCDate(eventLookbackStart.getUTCDate() - 56);
+            const [historyRows, performance] = yield* Effect.all([
+              options.planningRepo.getHistoryRuns(userId, eventLookbackStart),
+              options.planningDataService.getPlanningPerformanceSnapshot(
+                userId,
+              ),
+            ]);
+            eventRuns = mapRuns(historyRows);
+            performanceSnapshot = performance;
+          }
         }
 
-        const now = clock.now();
-        const eventLookbackStart = new Date(now);
-        eventLookbackStart.setUTCDate(eventLookbackStart.getUTCDate() - 56);
-        const [runs, performance] = yield* Effect.all([
-          options.planningRepo.getHistoryRuns(userId, eventLookbackStart),
-          options.planningDataService.getPlanningPerformanceSnapshot(userId),
-        ]);
+        const mappedPerformance = mapPerformanceSnapshot(performanceSnapshot);
+
+        const activeGoalCards: GoalProgressCard[] = activeGoals.map((item) => {
+          if (item.goal.type === "volume_goal") {
+            return {
+              goalId: item.id,
+              goalType: "volume_goal",
+              status: "active" as const,
+              title: getGoalTitle(item.goal),
+              goal: item.goal,
+              progress:
+                status === "ready"
+                  ? buildVolumeGoalProgress({
+                      now,
+                      goal: item.goal,
+                      runs: volumeRuns,
+                    })
+                  : null,
+            };
+          }
+
+          const progress =
+            status === "ready"
+              ? buildEventGoalProgress({
+                  now,
+                  goal: item.goal,
+                  runs: eventRuns,
+                  prs: mappedPerformance,
+                })
+              : null;
+
+          return {
+            goalId: item.id,
+            goalType: "event_goal" as const,
+            status: "active" as const,
+            title: getGoalTitle(item.goal),
+            goal: item.goal,
+            progress,
+            readinessScore: progress?.readiness.score ?? null,
+          };
+        });
+
+        const completedGoalCards: EventGoalProgressCard[] =
+          completedEventGoals.map((item) => {
+            const progress =
+              status === "ready"
+                ? buildEventGoalProgress({
+                    now,
+                    goal: item.goal,
+                    runs: eventRuns,
+                    prs: mappedPerformance,
+                  })
+                : null;
+
+            return {
+              goalId: item.id,
+              goalType: "event_goal" as const,
+              status: "completed" as const,
+              title: getGoalTitle(item.goal),
+              goal: item.goal,
+              progress,
+              readinessScore: progress?.readiness.score ?? null,
+            };
+          });
 
         return {
-          status,
-          goal,
-          progressKind: "event_goal" as const,
           sync,
-          volumeProgress: null,
-          eventProgress: buildEventGoalProgress({
-            now,
-            goal,
-            runs: mapRuns(runs),
-            prs: performance.allTimePrs.map((pr) => ({
-              distanceMeters: pr.distanceMeters,
-              durationSeconds: pr.durationSeconds,
-              activityId: pr.activityId,
-              startAt: new Date(pr.startAt),
-              startSampleIndex: pr.startSampleIndex,
-              endSampleIndex: pr.endSampleIndex,
-            })),
-          }),
+          activeGoals: activeGoalCards,
+          completedGoals: completedGoalCards,
         };
       });
     },

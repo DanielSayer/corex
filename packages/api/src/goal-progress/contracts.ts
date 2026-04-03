@@ -81,17 +81,36 @@ export type EventGoalProgress = {
   } | null;
   bestMatchingEffort: EventGoalBestEffort | null;
   readiness: {
+    score: number;
     level: EventGoalReadinessLevel;
     summary: string;
     signals: EventGoalSignal[];
   };
 };
 
+export type VolumeGoalProgressCard = {
+  goalId: string;
+  goalType: "volume_goal";
+  status: "active";
+  title: string;
+  goal: Extract<TrainingGoal, { type: "volume_goal" }>;
+  progress: VolumeGoalProgress | null;
+};
+
+export type EventGoalProgressCard = {
+  goalId: string;
+  goalType: "event_goal";
+  status: "active" | "completed";
+  title: string;
+  goal: Extract<TrainingGoal, { type: "event_goal" }>;
+  progress: EventGoalProgress | null;
+  readinessScore: number | null;
+};
+
+export type GoalProgressCard = VolumeGoalProgressCard | EventGoalProgressCard;
+
 export type GoalProgressView = {
-  status: GoalProgressStatus;
-  goal: TrainingGoal | null;
-  progressKind: "event_goal" | "volume_goal" | null;
   sync: GoalProgressSyncState;
-  volumeProgress: VolumeGoalProgress | null;
-  eventProgress: EventGoalProgress | null;
+  activeGoals: GoalProgressCard[];
+  completedGoals: EventGoalProgressCard[];
 };

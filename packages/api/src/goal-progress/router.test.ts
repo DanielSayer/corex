@@ -31,9 +31,6 @@ describe("goal progress router", () => {
         getForUser: (userId) => {
           requestedUserId = userId;
           return Effect.succeed({
-            status: "no_goal" as const,
-            goal: null,
-            progressKind: null,
             sync: {
               hasAnyHistory: false,
               hasRecentSync: false,
@@ -44,8 +41,8 @@ describe("goal progress router", () => {
               },
               recommendedAction: "create_goal" as const,
             },
-            volumeProgress: null,
-            eventProgress: null,
+            activeGoals: [],
+            completedGoals: [],
           });
         },
       },
