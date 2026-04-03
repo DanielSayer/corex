@@ -92,6 +92,7 @@ describe("goal progress integration", () => {
     const result = await Effect.runPromise(service.getForUser(user.id));
 
     expect(result).toEqual({
+      timezone: "UTC",
       sync: {
         hasAnyHistory: false,
         hasRecentSync: false,
@@ -130,6 +131,7 @@ describe("goal progress integration", () => {
 
     const result = await Effect.runPromise(service.getForUser(user.id));
 
+    expect(result.timezone).toBe("UTC");
     expect(result.sync.recommendedAction).toBe("sync_history");
     expect(result.activeGoals).toHaveLength(1);
     expect(result.activeGoals[0]).toMatchObject({
@@ -182,6 +184,7 @@ describe("goal progress integration", () => {
 
     const result = await Effect.runPromise(service.getForUser(user.id));
 
+    expect(result.timezone).toBe("UTC");
     expect(result.sync.latestSyncWarnings).toContain("sync_stale");
     expect(result.activeGoals).toHaveLength(1);
     expect(result.activeGoals[0]).toMatchObject({
@@ -355,10 +358,13 @@ describe("goal progress integration", () => {
     });
 
     const [weekly, monthly] = await Promise.all([
-      Effect.runPromise(weeklyService.getForUser(weekUser.id)),
+      Effect.runPromise(
+        weeklyService.getForUser(weekUser.id, "Australia/Brisbane"),
+      ),
       Effect.runPromise(monthlyService.getForUser(monthUser.id)),
     ]);
 
+    expect(weekly.timezone).toBe("Australia/Brisbane");
     expect(weekly.sync.recommendedAction).toBe("none");
     expect(weekly.activeGoals).toHaveLength(2);
     expect(weekly.activeGoals).toEqual(
@@ -473,8 +479,11 @@ describe("goal progress integration", () => {
       clock: { now: () => new Date("2026-04-03T12:00:00.000Z") },
     });
 
-    const result = await Effect.runPromise(service.getForUser(user.id));
+    const result = await Effect.runPromise(
+      service.getForUser(user.id, "Australia/Brisbane"),
+    );
 
+    expect(result.timezone).toBe("Australia/Brisbane");
     expect(result.activeGoals).toHaveLength(0);
     expect(result.completedGoals).toHaveLength(1);
     expect(result.completedGoals[0]).toMatchObject({
