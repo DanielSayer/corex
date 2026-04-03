@@ -6,6 +6,7 @@ import { getHealthCheck } from "../system/health-check";
 import { intervalsSyncRouter } from "../intervals-sync/router";
 import { publicProcedure, router } from "../index";
 import { trainingSettingsRouter } from "../training-settings/router";
+import { weeklySnapshotsRouter } from "../weekly-snapshots/router";
 
 type CreateAppRouterOptions = {
   activityHistory?: typeof activityHistoryRouter;
@@ -13,6 +14,7 @@ type CreateAppRouterOptions = {
   goals?: typeof goalsRouter;
   trainingSettings?: typeof trainingSettingsRouter;
   intervalsSync?: typeof intervalsSyncRouter;
+  weeklySnapshots?: typeof weeklySnapshotsRouter;
 };
 
 export function createAppRouter(options: CreateAppRouterOptions = {}) {
@@ -26,6 +28,7 @@ export function createAppRouter(options: CreateAppRouterOptions = {}) {
     goals: options.goals ?? goalsRouter,
     trainingSettings: options.trainingSettings ?? trainingSettingsRouter,
     intervalsSync: options.intervalsSync ?? intervalsSyncRouter,
+    weeklySnapshots: options.weeklySnapshots ?? weeklySnapshotsRouter,
   });
 }
 

@@ -11,3 +11,6 @@ export type GoalProgressRouterOutputs =
   InferRouterOutputs<AppRouter>["goalProgress"];
 
 export type GoalsRouterOutputs = InferRouterOutputs<AppRouter>["goals"];
+
+export type WeeklySnapshotsRouterOutputs =
+  InferRouterOutputs<AppRouter>["weeklySnapshots"];
