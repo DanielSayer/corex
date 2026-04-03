@@ -4,10 +4,6 @@ type GoalProgressCard = GoalProgressRouterOutputs["get"]["activeGoals"][number];
 type CompletedGoalProgressCard =
   GoalProgressRouterOutputs["get"]["completedGoals"][number];
 
-export function getBrowserTimeZone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-}
-
 export function formatGoalCardValue(
   value: number | null,
   unit: string | null,

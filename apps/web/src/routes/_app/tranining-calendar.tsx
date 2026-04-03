@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { WorkoutCalendar } from "@/components/training-calendar/training-calendar";
 import { ensureAppRouteAccess } from "@/lib/app-route";
+import { getBrowserTimeZone } from "@/lib/browser-timezone";
 import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_app/tranining-calendar")({
@@ -27,7 +28,7 @@ function RouteComponent() {
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const calendarEndExclusive = startOfDay(addDays(calendarEnd, 1));
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone = getBrowserTimeZone();
 
   const { data, isLoading } = useQuery(
     trpc.activityHistory.calendar.queryOptions(
@@ -43,7 +44,7 @@ function RouteComponent() {
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 pb-12 md:px-8">
+    <main className="mx-auto flex w-full flex-col gap-4 px-6 pb-12 md:px-8">
       <h1 className="text-3xl font-bold tracking-tight">Training Plan</h1>
       <WorkoutCalendar
         loading={isLoading}

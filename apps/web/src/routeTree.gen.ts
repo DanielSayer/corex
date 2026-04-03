@@ -18,6 +18,7 @@ import { Route as AppTraniningCalendarRouteImport } from './routes/_app/traninin
 import { Route as AppGoalsRouteImport } from './routes/_app/goals'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAvailabilityRouteImport } from './routes/_app/availability'
+import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppActivityActivityIdRouteImport } from './routes/_app/activity.$activityId'
 
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -64,6 +65,11 @@ const AppAvailabilityRoute = AppAvailabilityRouteImport.update({
   path: '/availability',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppActivityActivityIdRoute = AppActivityActivityIdRouteImport.update({
   id: '/activity/$activityId',
   path: '/activity/$activityId',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/analytics': typeof AppAnalyticsRoute
   '/availability': typeof AppAvailabilityRoute
   '/dashboard': typeof AppDashboardRoute
   '/goals': typeof AppGoalsRoute
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/analytics': typeof AppAnalyticsRoute
   '/availability': typeof AppAvailabilityRoute
   '/dashboard': typeof AppDashboardRoute
   '/goals': typeof AppGoalsRoute
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/availability': typeof AppAvailabilityRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/goals': typeof AppGoalsRoute
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/onboarding'
+    | '/analytics'
     | '/availability'
     | '/dashboard'
     | '/goals'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/onboarding'
+    | '/analytics'
     | '/availability'
     | '/dashboard'
     | '/goals'
@@ -134,6 +145,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/onboarding'
+    | '/_app/analytics'
     | '/_app/availability'
     | '/_app/dashboard'
     | '/_app/goals'
@@ -214,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAvailabilityRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/analytics': {
+      id: '/_app/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AppAnalyticsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/activity/$activityId': {
       id: '/_app/activity/$activityId'
       path: '/activity/$activityId'
@@ -225,6 +244,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteRouteChildren {
+  AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppAvailabilityRoute: typeof AppAvailabilityRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppGoalsRoute: typeof AppGoalsRoute
@@ -234,6 +254,7 @@ interface AppRouteRouteChildren {
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppAnalyticsRoute: AppAnalyticsRoute,
   AppAvailabilityRoute: AppAvailabilityRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppGoalsRoute: AppGoalsRoute,

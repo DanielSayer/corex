@@ -5,10 +5,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { GoalProgressCard } from "@/components/goals/goal-progress-card";
-import { getBrowserTimeZone } from "@/components/goals/goal-progress-presenter";
 import { GoalStep } from "@/components/onboarding/goal-step";
 import { SettingsPageShell } from "@/components/onboarding/settings-page-shell";
 import { ensureAppRouteAccess } from "@/lib/app-route";
+import { getBrowserTimeZone } from "@/lib/browser-timezone";
 import {
   buildTrainingGoalInput,
   createDefaultOnboardingDraft,

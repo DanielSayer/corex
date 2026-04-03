@@ -1,3 +1,4 @@
+import { analyticsRouter } from "../analytics/router";
 import { activityHistoryRouter } from "../activity-history/router";
 import { goalProgressRouter } from "../goal-progress/router";
 import { goalsRouter } from "../goals/router";
@@ -9,6 +10,7 @@ import { trainingSettingsRouter } from "../training-settings/router";
 import { weeklySnapshotsRouter } from "../weekly-snapshots/router";
 
 type CreateAppRouterOptions = {
+  analytics?: typeof analyticsRouter;
   activityHistory?: typeof activityHistoryRouter;
   goalProgress?: typeof goalProgressRouter;
   goals?: typeof goalsRouter;
@@ -23,6 +25,7 @@ export function createAppRouter(options: CreateAppRouterOptions = {}) {
     privateData: publicProcedure.query(({ ctx }) =>
       getPrivateData(ctx.session),
     ),
+    analytics: options.analytics ?? analyticsRouter,
     activityHistory: options.activityHistory ?? activityHistoryRouter,
     goalProgress: options.goalProgress ?? goalProgressRouter,
     goals: options.goals ?? goalsRouter,
