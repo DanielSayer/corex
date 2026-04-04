@@ -26,18 +26,15 @@ export const Route = createFileRoute("/_app/analytics")({
   component: RouteComponent,
 });
 
+const timezone = getBrowserTimeZone();
+const currentYear = Number(
+  new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    timeZone: timezone,
+  }).format(new Date()),
+);
+
 function RouteComponent() {
-  const timezone = getBrowserTimeZone();
-  const currentYear = useMemo(
-    () =>
-      Number(
-        new Intl.DateTimeFormat("en-US", {
-          year: "numeric",
-          timeZone: timezone,
-        }).format(new Date()),
-      ),
-    [timezone],
-  );
   const [requestedYear, setRequestedYear] = useState(currentYear);
   const [distanceGranularity, setDistanceGranularity] =
     useState<DistanceGranularity>("month");
