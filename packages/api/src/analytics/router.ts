@@ -22,7 +22,7 @@ function mapAnalyticsError(error: unknown) {
 export function createAnalyticsRouter(
   options: CreateAnalyticsRouterOptions = {},
 ) {
-  const service = options.service ?? createLiveAnalyticsService();
+  const getService = () => options.service ?? createLiveAnalyticsService();
 
   return router({
     get: authedProcedure
@@ -36,7 +36,7 @@ export function createAnalyticsRouter(
       )
       .query(({ ctx, input }) =>
         executeEffect(
-          service.getForUser(ctx.session.user.id, input),
+          getService().getForUser(ctx.session.user.id, input),
           mapAnalyticsError,
         ),
       ),

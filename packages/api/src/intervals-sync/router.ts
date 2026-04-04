@@ -66,17 +66,20 @@ function mapIntervalsSyncError(error: unknown) {
 export function createIntervalsSyncRouter(
   options: CreateIntervalsSyncRouterOptions = {},
 ) {
-  const service = options.service ?? createLiveIntervalsSyncApi();
+  const getService = () => options.service ?? createLiveIntervalsSyncApi();
 
   return router({
     trigger: authedProcedure.mutation(({ ctx }) =>
       executeEffect(
-        service.syncNow(ctx.session.user.id),
+        getService().syncNow(ctx.session.user.id),
         mapIntervalsSyncError,
       ),
     ),
     latest: authedProcedure.query(({ ctx }) =>
-      executeEffect(service.latest(ctx.session.user.id), mapIntervalsSyncError),
+      executeEffect(
+        getService().latest(ctx.session.user.id),
+        mapIntervalsSyncError,
+      ),
     ),
   });
 }

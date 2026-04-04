@@ -8,16 +8,36 @@ const testsCwd = path.resolve(
   "..",
 );
 
+async function findIntegrationTestFiles() {
+  const testFiles: string[] = [];
+
+  for await (const file of new Bun.Glob("src/**/*.integration.test.ts").scan({
+    cwd: testsCwd,
+    absolute: false,
+  })) {
+    testFiles.push(file);
+  }
+
+  testFiles.sort((left, right) => left.localeCompare(right));
+
+  if (testFiles.length === 0) {
+    throw new Error("No integration test files were found in apps/tests/src.");
+  }
+
+  return testFiles;
+}
+
 async function main() {
   installServerTestEnv();
   const { startIntegrationHarness, stopIntegrationHarness } =
     await import("./harness");
   const harness = await startIntegrationHarness();
   const testEnv = getServerTestEnv();
+  const testFiles = await findIntegrationTestFiles();
 
   try {
     const child = Bun.spawn(
-      ["bun", "test", "--preload", "./src/setup.ts", "./src"],
+      ["bun", "test", "--preload", "./src/setup.ts", ...testFiles],
       {
         cwd: testsCwd,
         env: {
@@ -43,4 +63,6 @@ async function main() {
   }
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}

@@ -31,7 +31,7 @@ function mapGoalProgressError(error: unknown) {
 export function createGoalProgressRouter(
   options: CreateGoalProgressRouterOptions = {},
 ) {
-  const service = options.service ?? createLiveGoalProgressService();
+  const getService = () => options.service ?? createLiveGoalProgressService();
   const goalProgressInputSchema = z
     .object({
       timezone: z.string().trim().min(1).refine(isValidTimeZone, {
@@ -45,7 +45,10 @@ export function createGoalProgressRouter(
       .input(goalProgressInputSchema)
       .query(({ ctx, input }) =>
         executeEffect(
-          service.getForUser(ctx.session.user.id, input?.timezone ?? "UTC"),
+          getService().getForUser(
+            ctx.session.user.id,
+            input?.timezone ?? "UTC",
+          ),
           mapGoalProgressError,
         ),
       ),
