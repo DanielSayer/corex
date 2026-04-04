@@ -24,6 +24,7 @@ import { authClient } from "@/lib/auth-client";
 import { Skeleton } from "@corex/ui/components/skeleton";
 import {
   HomeIcon,
+  SparklesIcon,
   CalendarIcon,
   TargetIcon,
   UserIcon,
@@ -62,6 +63,11 @@ function AppSidebar() {
       to: "/dashboard",
       label: "Dashboard",
       icon: HomeIcon,
+    },
+    {
+      to: "/planner",
+      label: "Planner",
+      icon: SparklesIcon,
     },
     {
       to: "/tranining-calendar",

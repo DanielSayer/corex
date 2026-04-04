@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import { createIntervalsSyncRouter } from "@corex/api/intervals-sync/router";
 import { createAppRouter } from "@corex/api/routers/index";
+import { createWeeklyPlanningRouter } from "@corex/api/weekly-planning/router";
 
 import { createHttpApp, createHttpAppWithRouter } from "./helpers/http";
 
@@ -119,5 +120,80 @@ describe("http integration", () => {
     expect(body).toContain("sync-1");
     expect(body).toContain("initial_30d_window");
     expect(body).toContain("storedMapCount");
+  });
+
+  it("rejects planner state reads without a session", async () => {
+    const router = createAppRouter({
+      weeklyPlanning: createWeeklyPlanningRouter({
+        service: {
+          getState: () => Effect.die("not used"),
+          generateDraft: () => Effect.die("not used"),
+        },
+      }),
+    });
+    const response = await createHttpAppWithRouter(null, router).request(
+      "http://localhost/trpc/weeklyPlanning.getState",
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(401);
+    expect(body).toContain("Authentication required");
+  });
+
+  it("returns planner state when the transport receives an authenticated session", async () => {
+    const router = createAppRouter({
+      weeklyPlanning: createWeeklyPlanningRouter({
+        service: {
+          getState: () =>
+            Effect.succeed({
+              goalCandidates: [],
+              availability: null,
+              historySnapshot: {
+                generatedAt: "2026-04-01T00:00:00.000Z",
+                detailedRuns: [],
+                weeklyRollups: [],
+              },
+              historyQuality: {
+                hasAnyHistory: false,
+                meetsSnapshotThreshold: false,
+                hasRecentSync: false,
+                latestSyncWarnings: [],
+                availableDateRange: {
+                  start: null,
+                  end: null,
+                },
+              },
+              performanceSnapshot: {
+                allTimePrs: [],
+                recentPrs: [],
+                processingWarnings: [],
+              },
+              defaults: null,
+              activeDraft: null,
+            }),
+          generateDraft: () => Effect.die("not used"),
+        },
+      }),
+    });
+    const response = await createHttpAppWithRouter(
+      {
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
+      },
+      router,
+    ).request("http://localhost/trpc/weeklyPlanning.getState");
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain("historySnapshot");
+    expect(body).toContain("goalCandidates");
   });
 });
