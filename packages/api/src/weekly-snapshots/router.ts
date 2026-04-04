@@ -22,7 +22,7 @@ function mapWeeklySnapshotsError(error: unknown) {
 export function createWeeklySnapshotsRouter(
   options: CreateWeeklySnapshotsRouterOptions = {},
 ) {
-  const service = options.service ?? createLiveWeeklySnapshotService();
+  const getService = () => options.service ?? createLiveWeeklySnapshotService();
   const byWeekInputSchema = z.object({
     timezone: z.string().trim().min(1).refine(isValidTimeZone, {
       message: "Invalid timezone",
@@ -34,7 +34,7 @@ export function createWeeklySnapshotsRouter(
   return router({
     getLatest: authedProcedure.query(({ ctx }) =>
       executeEffect(
-        service.getLatestForUser(ctx.session.user.id),
+        getService().getLatestForUser(ctx.session.user.id),
         mapWeeklySnapshotsError,
       ),
     ),
@@ -42,7 +42,7 @@ export function createWeeklySnapshotsRouter(
       .input(byWeekInputSchema)
       .query(({ ctx, input }) =>
         executeEffect(
-          service.getByWeekForUser({
+          getService().getByWeekForUser({
             userId: ctx.session.user.id,
             timezone: input.timezone,
             weekStart: new Date(input.weekStart),

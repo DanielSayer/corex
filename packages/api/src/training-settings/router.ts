@@ -49,7 +49,8 @@ function mapTrainingSettingsError(error: unknown) {
 export function createTrainingSettingsRouter(
   options: CreateTrainingSettingsRouterOptions = {},
 ) {
-  const service = options.service ?? createLiveTrainingSettingsService();
+  const getService = () =>
+    options.service ?? createLiveTrainingSettingsService();
   const upsertInputSchema = trainingSettingsInputSchema.extend({
     goal: trainingGoalSchema.optional(),
   });
@@ -57,7 +58,7 @@ export function createTrainingSettingsRouter(
   return router({
     get: authedProcedure.query(({ ctx }) =>
       executeEffect(
-        service.getForUser(ctx.session.user.id),
+        getService().getForUser(ctx.session.user.id),
         mapTrainingSettingsError,
       ),
     ),
@@ -65,7 +66,7 @@ export function createTrainingSettingsRouter(
       .input(upsertInputSchema)
       .mutation(({ ctx, input }) =>
         executeEffect(
-          service.upsertForUser(ctx.session.user.id, input),
+          getService().upsertForUser(ctx.session.user.id, input),
           mapTrainingSettingsError,
         ),
       ),

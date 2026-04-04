@@ -38,17 +38,20 @@ function mapGoalsError(error: unknown) {
 }
 
 export function createGoalsRouter(options: CreateGoalsRouterOptions = {}) {
-  const service = options.service ?? createLiveGoalsApi();
+  const getService = () => options.service ?? createLiveGoalsApi();
 
   return router({
     get: authedProcedure.query(({ ctx }) =>
-      executeEffect(service.getForUser(ctx.session.user.id), mapGoalsError),
+      executeEffect(
+        getService().getForUser(ctx.session.user.id),
+        mapGoalsError,
+      ),
     ),
     create: authedProcedure
       .input(trainingGoalSchema)
       .mutation(({ ctx, input }) =>
         executeEffect(
-          service.createForUser(ctx.session.user.id, input),
+          getService().createForUser(ctx.session.user.id, input),
           mapGoalsError,
         ),
       ),
@@ -61,7 +64,7 @@ export function createGoalsRouter(options: CreateGoalsRouterOptions = {}) {
       )
       .mutation(({ ctx, input }) =>
         executeEffect(
-          service.updateForUser(ctx.session.user.id, input.id, input.goal),
+          getService().updateForUser(ctx.session.user.id, input.id, input.goal),
           mapGoalsError,
         ),
       ),

@@ -51,12 +51,12 @@ function mapActivityHistoryError(error: unknown) {
 export function createActivityHistoryRouter(
   options: CreateActivityHistoryRouterOptions = {},
 ) {
-  const service = options.service ?? createLiveActivityHistoryApi();
+  const getService = () => options.service ?? createLiveActivityHistoryApi();
 
   return router({
     recentActivities: authedProcedure.query(({ ctx }) =>
       executeEffect(
-        service.recentActivities(ctx.session.user.id),
+        getService().recentActivities(ctx.session.user.id),
         mapActivityHistoryError,
       ),
     ),
@@ -68,7 +68,7 @@ export function createActivityHistoryRouter(
       )
       .query(({ ctx, input }) =>
         executeEffect(
-          service.activitySummary(ctx.session.user.id, input.activityId),
+          getService().activitySummary(ctx.session.user.id, input.activityId),
           mapActivityHistoryError,
         ),
       ),
@@ -80,7 +80,7 @@ export function createActivityHistoryRouter(
       )
       .query(({ ctx, input }) =>
         executeEffect(
-          service.activityAnalysis(ctx.session.user.id, input.activityId),
+          getService().activityAnalysis(ctx.session.user.id, input.activityId),
           mapActivityHistoryError,
         ),
       ),
@@ -88,7 +88,7 @@ export function createActivityHistoryRouter(
       .input(calendarInputSchema)
       .query(({ ctx, input }) =>
         executeEffect(
-          service.calendar(ctx.session.user.id, input),
+          getService().calendar(ctx.session.user.id, input),
           mapActivityHistoryError,
         ),
       ),
