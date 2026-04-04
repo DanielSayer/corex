@@ -57,6 +57,13 @@
       "when": 1775180000000,
       "tag": "0007_weekly_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775250000000,
+      "tag": "0008_weekly_planning",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,8 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.url(),
     CORS_ORIGIN: z.url(),
     SETTINGS_MASTER_KEY_BASE64: z.string().min(1),
+    OPENAI_API_KEY: z.string().min(1),
+    PLANNER_OPENAI_MODEL: z.string().min(1).default("gpt-4.1-mini"),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

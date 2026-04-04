@@ -15,6 +15,7 @@ import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppWeeklyWrappedRouteImport } from './routes/_app/weekly-wrapped'
 import { Route as AppTraniningCalendarRouteImport } from './routes/_app/tranining-calendar'
+import { Route as AppPlannerRouteImport } from './routes/_app/planner'
 import { Route as AppGoalsRouteImport } from './routes/_app/goals'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAvailabilityRouteImport } from './routes/_app/availability'
@@ -48,6 +49,11 @@ const AppWeeklyWrappedRoute = AppWeeklyWrappedRouteImport.update({
 const AppTraniningCalendarRoute = AppTraniningCalendarRouteImport.update({
   id: '/tranining-calendar',
   path: '/tranining-calendar',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPlannerRoute = AppPlannerRouteImport.update({
+  id: '/planner',
+  path: '/planner',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppGoalsRoute = AppGoalsRouteImport.update({
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/availability': typeof AppAvailabilityRoute
   '/dashboard': typeof AppDashboardRoute
   '/goals': typeof AppGoalsRoute
+  '/planner': typeof AppPlannerRoute
   '/tranining-calendar': typeof AppTraniningCalendarRoute
   '/weekly-wrapped': typeof AppWeeklyWrappedRoute
   '/activity/$activityId': typeof AppActivityActivityIdRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/availability': typeof AppAvailabilityRoute
   '/dashboard': typeof AppDashboardRoute
   '/goals': typeof AppGoalsRoute
+  '/planner': typeof AppPlannerRoute
   '/tranining-calendar': typeof AppTraniningCalendarRoute
   '/weekly-wrapped': typeof AppWeeklyWrappedRoute
   '/activity/$activityId': typeof AppActivityActivityIdRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/_app/availability': typeof AppAvailabilityRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/goals': typeof AppGoalsRoute
+  '/_app/planner': typeof AppPlannerRoute
   '/_app/tranining-calendar': typeof AppTraniningCalendarRoute
   '/_app/weekly-wrapped': typeof AppWeeklyWrappedRoute
   '/_app/activity/$activityId': typeof AppActivityActivityIdRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/availability'
     | '/dashboard'
     | '/goals'
+    | '/planner'
     | '/tranining-calendar'
     | '/weekly-wrapped'
     | '/activity/$activityId'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/availability'
     | '/dashboard'
     | '/goals'
+    | '/planner'
     | '/tranining-calendar'
     | '/weekly-wrapped'
     | '/activity/$activityId'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/_app/availability'
     | '/_app/dashboard'
     | '/_app/goals'
+    | '/_app/planner'
     | '/_app/tranining-calendar'
     | '/_app/weekly-wrapped'
     | '/_app/activity/$activityId'
@@ -205,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTraniningCalendarRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/planner': {
+      id: '/_app/planner'
+      path: '/planner'
+      fullPath: '/planner'
+      preLoaderRoute: typeof AppPlannerRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/goals': {
       id: '/_app/goals'
       path: '/goals'
@@ -248,6 +267,7 @@ interface AppRouteRouteChildren {
   AppAvailabilityRoute: typeof AppAvailabilityRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppGoalsRoute: typeof AppGoalsRoute
+  AppPlannerRoute: typeof AppPlannerRoute
   AppTraniningCalendarRoute: typeof AppTraniningCalendarRoute
   AppWeeklyWrappedRoute: typeof AppWeeklyWrappedRoute
   AppActivityActivityIdRoute: typeof AppActivityActivityIdRoute
@@ -258,6 +278,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAvailabilityRoute: AppAvailabilityRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppGoalsRoute: AppGoalsRoute,
+  AppPlannerRoute: AppPlannerRoute,
   AppTraniningCalendarRoute: AppTraniningCalendarRoute,
   AppWeeklyWrappedRoute: AppWeeklyWrappedRoute,
   AppActivityActivityIdRoute: AppActivityActivityIdRoute,
