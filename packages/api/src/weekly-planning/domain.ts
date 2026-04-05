@@ -2,6 +2,8 @@ import type {
   CorexPerceivedAbilitySummary,
   DayOfWeek,
   DraftGenerationContext,
+  PlannerGoalOption,
+  PlannerIntent,
   IntervalBlock,
   PlannerDefaults,
   WeeklyPlanPayload,
@@ -10,6 +12,7 @@ import {
   COREX_PERCEIVED_ABILITY_LEVELS,
   DAYS_OF_WEEK,
   SUPPORTED_RACE_DISTANCES,
+  TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITY_LEVELS,
   generateWeeklyDraftInputSchema,
   weeklyPlanPayloadSchema,
@@ -20,7 +23,6 @@ import type {
   PlanningPerformanceSnapshot,
   PlanningPr,
 } from "../planning-data/contracts";
-import type { GoalListItem } from "../goals/service";
 import type { WeeklyAvailability } from "../training-settings/contracts";
 import {
   InvalidStructuredOutput,
@@ -42,6 +44,46 @@ const orderedDays: DayOfWeek[] = [
   DAYS_OF_WEEK.friday,
   DAYS_OF_WEEK.saturday,
   DAYS_OF_WEEK.sunday,
+];
+
+export const plannerGoalOptions: PlannerGoalOption[] = [
+  {
+    value: TRAINING_PLAN_GOALS.race,
+    label: "Race",
+    description: "Booked in a race and want this plan shaped around it.",
+  },
+  {
+    value: TRAINING_PLAN_GOALS.runSpecificDistance,
+    label: "Run a specific distance",
+    description:
+      "Build toward covering a target distance, without race inputs.",
+  },
+  {
+    value: TRAINING_PLAN_GOALS.startRunning,
+    label: "Start running",
+    description: "Begin running with conservative structure and progression.",
+  },
+  {
+    value: TRAINING_PLAN_GOALS.getBackIntoRunning,
+    label: "Get back into running",
+    description: "Rebuild consistency after time away from regular running.",
+  },
+  {
+    value: TRAINING_PLAN_GOALS.improvement5k,
+    label: "5k improvement",
+    description: "Improve 5k performance through balanced weekly training.",
+  },
+  {
+    value: TRAINING_PLAN_GOALS.generalTraining,
+    label: "General training",
+    description:
+      "Maintain or build general running fitness without a race target.",
+  },
+  {
+    value: TRAINING_PLAN_GOALS.parkrunImprovement,
+    label: "parkrun improvement",
+    description: "Train for stronger weekly parkrun performances.",
+  },
 ];
 
 function addDays(date: string, count: number) {
@@ -139,6 +181,7 @@ export function buildPlannerDefaults(input: {
     null;
 
   return {
+    planGoal: TRAINING_PLAN_GOALS.generalTraining,
     userPerceivedAbility:
       input.derivedAbility.level === COREX_PERCEIVED_ABILITY_LEVELS.advanced
         ? USER_PERCEIVED_ABILITY_LEVELS.advanced
@@ -146,15 +189,20 @@ export function buildPlannerDefaults(input: {
             COREX_PERCEIVED_ABILITY_LEVELS.intermediate
           ? USER_PERCEIVED_ABILITY_LEVELS.intermediate
           : USER_PERCEIVED_ABILITY_LEVELS.beginner,
-    estimatedRaceDistance:
-      prSource?.distanceLabel === "5k"
-        ? SUPPORTED_RACE_DISTANCES["5k"]
-        : prSource?.distanceLabel === "half marathon"
-          ? SUPPORTED_RACE_DISTANCES.halfMarathon
-          : prSource?.distanceLabel === "marathon"
-            ? SUPPORTED_RACE_DISTANCES.marathon
-            : SUPPORTED_RACE_DISTANCES["10k"],
-    estimatedRaceTimeSeconds: prSource?.durationSeconds ?? null,
+    raceBenchmark:
+      prSource?.durationSeconds != null
+        ? {
+            estimatedRaceDistance:
+              prSource.distanceLabel === "5k"
+                ? SUPPORTED_RACE_DISTANCES["5k"]
+                : prSource.distanceLabel === "half marathon"
+                  ? SUPPORTED_RACE_DISTANCES.halfMarathon
+                  : prSource.distanceLabel === "marathon"
+                    ? SUPPORTED_RACE_DISTANCES.marathon
+                    : SUPPORTED_RACE_DISTANCES["10k"],
+            estimatedRaceTimeSeconds: prSource.durationSeconds,
+          }
+        : null,
     longRunDay: chooseDefaultLongRunDay(input.availability),
     startDate: input.startDate,
     planDurationWeeks: input.historyQuality.meetsSnapshotThreshold ? 4 : 6,
@@ -264,7 +312,7 @@ export function validateGeneratedPayload(input: {
 
       if (day.session.sessionType !== "rest" && !availability.available) {
         throw new InvalidStructuredOutput({
-          message: "Sessions cannot be scheduled on unavailable days",
+          message: `Generated ${day.session.sessionType} scheduled on ${dayOfWeek} ${day.date}, but that day is unavailable`,
         });
       }
 
@@ -308,32 +356,31 @@ export function validateGeneratedPayload(input: {
 }
 
 export function createDraftGenerationContext(input: {
-  goal: GoalListItem;
+  plannerIntent: PlannerIntent;
+  currentDate: string;
   availability: WeeklyAvailability;
   historySnapshot: PlanningHistorySnapshot;
   historyQuality: PlanningHistoryQuality;
   performanceSnapshot: PlanningPerformanceSnapshot;
   userPerceivedAbility: DraftGenerationContext["userPerceivedAbility"];
   corexPerceivedAbility: CorexPerceivedAbilitySummary;
-  estimatedRaceDistance: DraftGenerationContext["estimatedRaceDistance"];
-  estimatedRaceTimeSeconds: number;
   longRunDay: DayOfWeek;
   startDate: string;
   planDurationWeeks: number;
 }): DraftGenerationContext {
   return {
-    goalId: input.goal.id,
-    goal: input.goal.goal,
+    plannerIntent: input.plannerIntent,
+    currentDate: input.currentDate,
+    currentDayOfWeek: getDayOfWeek(input.currentDate),
     availability: input.availability,
     historySnapshot: input.historySnapshot,
     historyQuality: input.historyQuality,
     performanceSnapshot: input.performanceSnapshot,
     userPerceivedAbility: input.userPerceivedAbility,
     corexPerceivedAbility: input.corexPerceivedAbility,
-    estimatedRaceDistance: input.estimatedRaceDistance,
-    estimatedRaceTimeSeconds: input.estimatedRaceTimeSeconds,
     longRunDay: input.longRunDay,
     startDate: input.startDate,
+    startDateDayOfWeek: getDayOfWeek(input.startDate),
     endDate: endDateForStartDate(input.startDate),
     planDurationWeeks: input.planDurationWeeks,
   };

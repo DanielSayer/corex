@@ -4,10 +4,12 @@ import { Cause, Effect, Exit, Option } from "effect";
 import {
   DAYS_OF_WEEK,
   SUPPORTED_RACE_DISTANCES,
+  TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITY_LEVELS,
   type PlannerState,
   type WeeklyPlanDraft,
 } from "./contracts";
+import { plannerGoalOptions } from "./domain";
 import { DraftConflict, InvalidStructuredOutput } from "./errors";
 import type { PlannerModelPort } from "./model";
 import type { WeeklyPlanningRepository } from "./repository";
@@ -43,21 +45,7 @@ function createRepository(
 
 function createPlannerState(): PlannerState {
   return {
-    goalCandidates: [
-      {
-        id: "goal-1",
-        status: "active",
-        goal: {
-          type: "volume_goal",
-          metric: "distance",
-          period: "week",
-          targetValue: 40,
-          unit: "km",
-        },
-        createdAt: "2026-04-01T00:00:00.000Z",
-        updatedAt: "2026-04-01T00:00:00.000Z",
-      },
-    ],
+    planGoalOptions: plannerGoalOptions,
     availability: {
       monday: { available: true, maxDurationMinutes: 45 },
       tuesday: { available: true, maxDurationMinutes: 45 },
@@ -204,9 +192,6 @@ function createService(
   const state = options.state ?? createPlannerState();
 
   return createWeeklyPlanningService({
-    goalsApi: {
-      getForUser: () => Effect.succeed(state.goalCandidates),
-    },
     trainingSettingsService: {
       getForUser: () =>
         Effect.succeed({
@@ -243,9 +228,13 @@ describe("weekly planning service", () => {
 
     const state = await Effect.runPromise(service.getState("user-1"));
 
-    expect(state.goalCandidates).toHaveLength(1);
+    expect(state.planGoalOptions).toHaveLength(7);
     expect(state.defaults).toMatchObject({
-      estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+      planGoal: TRAINING_PLAN_GOALS.generalTraining,
+      raceBenchmark: {
+        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+        estimatedRaceTimeSeconds: 3000,
+      },
       longRunDay: DAYS_OF_WEEK.saturday,
     });
     expect(state.activeDraft).toBeNull();
@@ -256,38 +245,45 @@ describe("weekly planning service", () => {
 
     const draft = await Effect.runPromise(
       service.generateDraft("user-1", {
-        goalId: "goal-1",
+        planGoal: TRAINING_PLAN_GOALS.race,
         startDate: "2026-04-06",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 4,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-        estimatedRaceTimeSeconds: 3000,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+          estimatedRaceTimeSeconds: 3000,
+        },
       }),
     );
 
     expect(draft.status).toBe("draft");
+    expect(draft.goalId).toBeNull();
     expect(draft.startDate).toBe("2026-04-06");
     expect(draft.endDate).toBe("2026-04-12");
+    expect(draft.generationContext.currentDate).toBe("2026-04-01");
+    expect(draft.generationContext.currentDayOfWeek).toBe(
+      DAYS_OF_WEEK.wednesday,
+    );
+    expect(draft.generationContext.startDateDayOfWeek).toBe(
+      DAYS_OF_WEEK.monday,
+    );
   });
 
   it("rejects generation when an active draft already exists", async () => {
     const existingDraft: WeeklyPlanDraft = {
       id: "draft-1",
       userId: "user-1",
-      goalId: "goal-1",
+      goalId: null,
       status: "draft",
       startDate: "2026-04-06",
       endDate: "2026-04-12",
       generationContext: {
-        goalId: "goal-1",
-        goal: {
-          type: "volume_goal",
-          metric: "distance",
-          period: "week",
-          targetValue: 40,
-          unit: "km",
+        plannerIntent: {
+          planGoal: TRAINING_PLAN_GOALS.generalTraining,
         },
+        currentDate: "2026-04-01",
+        currentDayOfWeek: DAYS_OF_WEEK.wednesday,
         availability: createPlannerState().availability!,
         historySnapshot: createPlannerState().historySnapshot,
         historyQuality: createPlannerState().historyQuality,
@@ -297,10 +293,9 @@ describe("weekly planning service", () => {
           level: "intermediate",
           rationale: "Stable running history.",
         },
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-        estimatedRaceTimeSeconds: 3000,
         longRunDay: DAYS_OF_WEEK.saturday,
         startDate: "2026-04-06",
+        startDateDayOfWeek: DAYS_OF_WEEK.monday,
         endDate: "2026-04-12",
         planDurationWeeks: 4,
       },
@@ -321,13 +316,11 @@ describe("weekly planning service", () => {
 
     const exit = await Effect.runPromiseExit(
       service.generateDraft("user-1", {
-        goalId: "goal-1",
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
         startDate: "2026-04-06",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 4,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-        estimatedRaceTimeSeconds: 3000,
       }),
     );
 
@@ -358,13 +351,15 @@ describe("weekly planning service", () => {
 
     const exit = await Effect.runPromiseExit(
       service.generateDraft("user-1", {
-        goalId: "goal-1",
+        planGoal: TRAINING_PLAN_GOALS.race,
         startDate: "2026-04-06",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 4,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-        estimatedRaceTimeSeconds: 3000,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+          estimatedRaceTimeSeconds: 3000,
+        },
       }),
     );
 

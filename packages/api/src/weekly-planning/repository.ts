@@ -37,7 +37,7 @@ export type WeeklyPlanningRepository = {
   createDraft: (input: {
     id: string;
     userId: string;
-    goalId: string;
+    goalId: string | null;
     startDate: string;
     endDate: string;
     generationContext: DraftGenerationContext;

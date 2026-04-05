@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 
 import { Effect } from "effect";
 
-import type { GoalsApi } from "../goals/service";
 import type { PlanningDataService } from "../planning-data/service";
 import type { TrainingSettingsService } from "../training-settings/service";
 import type {
@@ -14,6 +13,7 @@ import {
   buildPlannerDefaults,
   createDraftGenerationContext,
   deriveCorexPerceivedAbility,
+  plannerGoalOptions,
   validateGeneratedPayload,
   validateGenerateWeeklyDraftInput,
 } from "./domain";
@@ -21,7 +21,6 @@ import type { PlannerModelPort } from "./model";
 import type { WeeklyPlanningRepository } from "./repository";
 import {
   DraftConflict,
-  MissingGoal,
   MissingTrainingSettings,
   NoLocalHistory,
   toFailureCategory,
@@ -44,7 +43,6 @@ export type WeeklyPlanningService = ReturnType<
 >;
 
 export function createWeeklyPlanningService(options: {
-  goalsApi: Pick<GoalsApi, "getForUser">;
   trainingSettingsService: Pick<TrainingSettingsService, "getForUser">;
   planningDataService: Pick<
     PlanningDataService,
@@ -64,14 +62,12 @@ export function createWeeklyPlanningService(options: {
     getState(userId: string): Effect.Effect<PlannerState, unknown> {
       return Effect.gen(function* () {
         const [
-          goals,
           settings,
           historySnapshot,
           historyQuality,
           performanceSnapshot,
           activeDraft,
         ] = yield* Effect.all([
-          options.goalsApi.getForUser(userId),
           options.trainingSettingsService.getForUser(userId),
           options.planningDataService.getPlanningHistorySnapshot(userId),
           options.planningDataService.getHistoryQuality(userId),
@@ -95,7 +91,7 @@ export function createWeeklyPlanningService(options: {
             : null;
 
         return {
-          goalCandidates: goals,
+          planGoalOptions: plannerGoalOptions,
           availability:
             settings.status === "complete" ? settings.availability : null,
           historySnapshot,
@@ -117,14 +113,12 @@ export function createWeeklyPlanningService(options: {
         });
         const [
           existingDraft,
-          goals,
           settings,
           historySnapshot,
           historyQuality,
           performanceSnapshot,
         ] = yield* Effect.all([
           options.repo.getActiveDraft(userId),
-          options.goalsApi.getForUser(userId),
           options.trainingSettingsService.getForUser(userId),
           options.planningDataService.getPlanningHistorySnapshot(userId),
           options.planningDataService.getHistoryQuality(userId),
@@ -157,31 +151,28 @@ export function createWeeklyPlanningService(options: {
 
         const availability = settings.availability;
 
-        const goal = goals.find((candidate) => candidate.id === input.goalId);
-
-        if (!goal) {
-          return yield* Effect.fail(
-            new MissingGoal({
-              message: "Selected goal could not be found",
-            }),
-          );
-        }
-
         const derivedAbility = deriveCorexPerceivedAbility({
           historySnapshot,
           historyQuality,
           performanceSnapshot,
         });
         const generationContext = createDraftGenerationContext({
-          goal,
+          plannerIntent:
+            input.planGoal === "race"
+              ? {
+                  planGoal: input.planGoal,
+                  raceBenchmark: input.raceBenchmark,
+                }
+              : {
+                  planGoal: input.planGoal,
+                },
+          currentDate: toDateOnly(clock.now()),
           availability,
           historySnapshot,
           historyQuality,
           performanceSnapshot,
           userPerceivedAbility: input.userPerceivedAbility,
           corexPerceivedAbility: derivedAbility,
-          estimatedRaceDistance: input.estimatedRaceDistance,
-          estimatedRaceTimeSeconds: input.estimatedRaceTimeSeconds,
           longRunDay: input.longRunDay,
           startDate: input.startDate,
           planDurationWeeks: input.planDurationWeeks,
@@ -194,7 +185,7 @@ export function createWeeklyPlanningService(options: {
               yield* options.repo.recordGenerationEvent({
                 id: idGenerator(),
                 userId,
-                goalId: goal.id,
+                goalId: null,
                 weeklyPlanId: null,
                 status: "failure",
                 provider: options.model.provider,
@@ -226,7 +217,7 @@ export function createWeeklyPlanningService(options: {
               yield* options.repo.recordGenerationEvent({
                 id: idGenerator(),
                 userId,
-                goalId: goal.id,
+                goalId: null,
                 weeklyPlanId: null,
                 status: "failure",
                 provider: options.model.provider,
@@ -245,7 +236,7 @@ export function createWeeklyPlanningService(options: {
           options.repo.createDraft({
             id: idGenerator(),
             userId,
-            goalId: goal.id,
+            goalId: null,
             startDate: generationContext.startDate,
             endDate: generationContext.endDate,
             generationContext,
@@ -256,7 +247,7 @@ export function createWeeklyPlanningService(options: {
               yield* options.repo.recordGenerationEvent({
                 id: idGenerator(),
                 userId,
-                goalId: goal.id,
+                goalId: null,
                 weeklyPlanId: null,
                 status: "failure",
                 provider: options.model.provider,
@@ -275,7 +266,7 @@ export function createWeeklyPlanningService(options: {
         yield* options.repo.recordGenerationEvent({
           id: idGenerator(),
           userId,
-          goalId: goal.id,
+          goalId: null,
           weeklyPlanId: draft.id,
           status: "success",
           provider: options.model.provider,

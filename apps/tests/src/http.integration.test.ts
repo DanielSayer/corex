@@ -146,7 +146,7 @@ describe("http integration", () => {
         service: {
           getState: () =>
             Effect.succeed({
-              goalCandidates: [],
+              planGoalOptions: [],
               availability: null,
               historySnapshot: {
                 generatedAt: "2026-04-01T00:00:00.000Z",
@@ -194,6 +194,6 @@ describe("http integration", () => {
 
     expect(response.status).toBe(200);
     expect(body).toContain("historySnapshot");
-    expect(body).toContain("goalCandidates");
+    expect(body).toContain("planGoalOptions");
   });
 });

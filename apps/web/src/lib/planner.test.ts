@@ -2,26 +2,22 @@ import { describe, expect, it } from "bun:test";
 
 import {
   createPlannerFormState,
-  formatGoalLabel,
+  formatLongRunDayLabel,
+  formatPlanGoalLabel,
+  formatPlanGoalValueLabel,
+  formatRaceDistanceLabel,
+  formatUserPerceivedAbilityLabel,
   parseRaceTimeToSeconds,
 } from "./planner";
 
 describe("planner helpers", () => {
   it("creates a form state from planner defaults", () => {
     const state = createPlannerFormState({
-      goalCandidates: [
+      planGoalOptions: [
         {
-          id: "goal-1",
-          status: "active",
-          goal: {
-            type: "volume_goal",
-            metric: "distance",
-            period: "week",
-            targetValue: 40,
-            unit: "km",
-          },
-          createdAt: "2026-04-01T00:00:00.000Z",
-          updatedAt: "2026-04-01T00:00:00.000Z",
+          value: "general_training",
+          label: "General training",
+          description: "General training plan",
         },
       ],
       availability: null,
@@ -43,9 +39,12 @@ describe("planner helpers", () => {
         processingWarnings: [],
       },
       defaults: {
+        planGoal: "general_training",
         userPerceivedAbility: "intermediate",
-        estimatedRaceDistance: "10k",
-        estimatedRaceTimeSeconds: 3000,
+        raceBenchmark: {
+          estimatedRaceDistance: "10k",
+          estimatedRaceTimeSeconds: 3000,
+        },
         longRunDay: "saturday",
         startDate: "2026-04-06",
         planDurationWeeks: 4,
@@ -54,7 +53,7 @@ describe("planner helpers", () => {
     });
 
     expect(state).toEqual({
-      goalId: "goal-1",
+      planGoal: "general_training",
       startDate: "2026-04-06",
       longRunDay: "saturday",
       planDurationWeeks: "4",
@@ -72,21 +71,18 @@ describe("planner helpers", () => {
 
   it("formats goal labels for display", () => {
     expect(
-      formatGoalLabel({
-        id: "goal-1",
-        status: "active",
-        goal: {
-          type: "event_goal",
-          targetDistance: {
-            value: 21.1,
-            unit: "km",
-          },
-          targetDate: "2026-08-01",
-          eventName: "Half race",
-        },
-        createdAt: "2026-04-01T00:00:00.000Z",
-        updatedAt: "2026-04-01T00:00:00.000Z",
+      formatPlanGoalLabel({
+        value: "race",
+        label: "Race",
+        description: "Booked in a race and want this plan shaped around it.",
       }),
-    ).toBe("Half race (21.1km)");
+    ).toBe("Race");
+  });
+
+  it("formats selected planner values for display", () => {
+    expect(formatPlanGoalValueLabel("start_running")).toBe("Start running");
+    expect(formatLongRunDayLabel("sunday")).toBe("Sunday");
+    expect(formatUserPerceivedAbilityLabel("beginner")).toBe("Beginner");
+    expect(formatRaceDistanceLabel("half_marathon")).toBe("Half marathon");
   });
 });

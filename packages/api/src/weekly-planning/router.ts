@@ -7,7 +7,6 @@ import {
   DraftConflict,
   GenerationTimeout,
   InvalidStructuredOutput,
-  MissingGoal,
   MissingTrainingSettings,
   NoLocalHistory,
   ProviderFailure,
@@ -31,7 +30,6 @@ function mapWeeklyPlanningError(error: unknown) {
   }
 
   if (
-    error instanceof MissingGoal ||
     error instanceof MissingTrainingSettings ||
     error instanceof NoLocalHistory ||
     error instanceof WeeklyPlanningValidationError ||
