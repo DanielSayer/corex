@@ -64,6 +64,13 @@
       "when": 1775250000000,
       "tag": "0008_weekly_planning",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1775340000000,
+      "tag": "0009_planner_intent",
+      "breakpoints": true
     }
   ]
 }

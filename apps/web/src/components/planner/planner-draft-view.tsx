@@ -15,6 +15,7 @@ type PlannerDraftViewProps = {
 
 export function PlannerDraftView(props: PlannerDraftViewProps) {
   const draft = props.draft;
+  const planGoal = draft.generationContext.plannerIntent.planGoal;
 
   return (
     <Card>
@@ -29,6 +30,7 @@ export function PlannerDraftView(props: PlannerDraftViewProps) {
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{draft.startDate}</Badge>
           <Badge variant="outline">{draft.endDate}</Badge>
+          <Badge variant="outline">{planGoal}</Badge>
           <Badge variant="outline">{draft.generationContext.longRunDay}</Badge>
         </div>
 

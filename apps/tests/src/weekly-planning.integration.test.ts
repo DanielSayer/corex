@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { Cause, Effect, Exit, Option } from "effect";
 
 import { createUser } from "@corex/api/application/commands/create-user";
-import { createLiveGoalsApi } from "@corex/api/goals/live";
 import { createLivePlanningDataService } from "@corex/api/planning-data/live";
 import { createLiveTrainingSettingsService } from "@corex/api/training-settings/live";
 import {
   DAYS_OF_WEEK,
   SUPPORTED_RACE_DISTANCES,
+  TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITY_LEVELS,
 } from "@corex/api/weekly-planning/contracts";
 import {
@@ -123,18 +123,6 @@ async function seedPlannerUser() {
     }),
   );
 
-  const goalsApi = createLiveGoalsApi({ db });
-
-  const goal = await Effect.runPromise(
-    goalsApi.createForUser(user.id, {
-      type: "volume_goal",
-      metric: "distance",
-      period: "week",
-      targetValue: 40,
-      unit: "km",
-    }),
-  );
-
   await db.insert(importedActivity).values([
     {
       userId: user.id,
@@ -169,7 +157,6 @@ async function seedPlannerUser() {
   ]);
 
   const service = createWeeklyPlanningService({
-    goalsApi,
     trainingSettingsService: createLiveTrainingSettingsService({ db }),
     planningDataService: createLivePlanningDataService({ db }),
     repo: createWeeklyPlanningRepository(db),
@@ -181,7 +168,7 @@ async function seedPlannerUser() {
     })(),
   });
 
-  return { db, user, goal, service };
+  return { db, user, service };
 }
 
 describe("weekly planning integration", () => {
@@ -194,24 +181,26 @@ describe("weekly planning integration", () => {
 
     const state = await Effect.runPromise(service.getState(user.id));
 
-    expect(state.goalCandidates).toHaveLength(1);
+    expect(state.planGoalOptions).toHaveLength(7);
     expect(state.availability?.saturday.maxDurationMinutes).toBe(120);
     expect(state.historyQuality.hasAnyHistory).toBe(true);
     expect(state.activeDraft).toBeNull();
   });
 
   it("persists a draft and generation event on successful generation", async () => {
-    const { db, user, goal, service } = await seedPlannerUser();
+    const { db, user, service } = await seedPlannerUser();
 
     const draft = await Effect.runPromise(
       service.generateDraft(user.id, {
-        goalId: goal.id,
+        planGoal: TRAINING_PLAN_GOALS.race,
         startDate: "2026-04-06",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 4,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-        estimatedRaceTimeSeconds: 3000,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+          estimatedRaceTimeSeconds: 3000,
+        },
       }),
     );
 
@@ -223,14 +212,15 @@ describe("weekly planning integration", () => {
     const events = await db.select().from(plannerGenerationEvent);
 
     expect(storedDraft?.startDate).toBe("2026-04-06");
+    expect(storedDraft?.goalId).toBeNull();
     expect(events).toHaveLength(1);
     expect(events[0]?.status).toBe("success");
+    expect(events[0]?.goalId).toBeNull();
   });
 
   it("records a failed generation event and does not persist a draft for invalid model output", async () => {
-    const { db, user, goal } = await seedPlannerUser();
+    const { db, user } = await seedPlannerUser();
     const service = createWeeklyPlanningService({
-      goalsApi: createLiveGoalsApi({ db }),
       trainingSettingsService: createLiveTrainingSettingsService({ db }),
       planningDataService: createLivePlanningDataService({ db }),
       repo: createWeeklyPlanningRepository(db),
@@ -252,13 +242,15 @@ describe("weekly planning integration", () => {
 
     const exit = await Effect.runPromiseExit(
       service.generateDraft(user.id, {
-        goalId: goal.id,
+        planGoal: TRAINING_PLAN_GOALS.race,
         startDate: "2026-04-06",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 4,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-        estimatedRaceTimeSeconds: 3000,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+          estimatedRaceTimeSeconds: 3000,
+        },
       }),
     );
 
@@ -282,29 +274,33 @@ describe("weekly planning integration", () => {
   });
 
   it("blocks a second generation when an active draft already exists", async () => {
-    const { db, user, goal, service } = await seedPlannerUser();
+    const { db, user, service } = await seedPlannerUser();
 
     await Effect.runPromise(
       service.generateDraft(user.id, {
-        goalId: goal.id,
+        planGoal: TRAINING_PLAN_GOALS.race,
         startDate: "2026-04-06",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 4,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-        estimatedRaceTimeSeconds: 3000,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+          estimatedRaceTimeSeconds: 3000,
+        },
       }),
     );
 
     const exit = await Effect.runPromiseExit(
       service.generateDraft(user.id, {
-        goalId: goal.id,
+        planGoal: TRAINING_PLAN_GOALS.race,
         startDate: "2026-04-13",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 4,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-        estimatedRaceTimeSeconds: 3000,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+          estimatedRaceTimeSeconds: 3000,
+        },
       }),
     );
 
@@ -346,16 +342,6 @@ describe("weekly planning integration", () => {
       }),
     );
 
-    const goalsApi = createLiveGoalsApi({ db });
-    const goal = await Effect.runPromise(
-      goalsApi.createForUser(user.id, {
-        type: "volume_goal",
-        metric: "distance",
-        period: "week",
-        targetValue: 25,
-        unit: "km",
-      }),
-    );
     await db.insert(importedActivity).values({
       userId: user.id,
       upstreamActivityId: "run-low-1",
@@ -370,7 +356,6 @@ describe("weekly planning integration", () => {
     });
 
     const service = createWeeklyPlanningService({
-      goalsApi,
       trainingSettingsService,
       planningDataService: createLivePlanningDataService({ db }),
       repo: createWeeklyPlanningRepository(db),
@@ -380,13 +365,15 @@ describe("weekly planning integration", () => {
 
     const draft = await Effect.runPromise(
       service.generateDraft(user.id, {
-        goalId: goal.id,
+        planGoal: TRAINING_PLAN_GOALS.race,
         startDate: "2026-04-06",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 6,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.beginner,
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["5k"],
-        estimatedRaceTimeSeconds: 1800,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["5k"],
+          estimatedRaceTimeSeconds: 1800,
+        },
       }),
     );
 

@@ -1,7 +1,7 @@
 import type { PlannerRouterOutputs } from "@/utils/types";
 
 export type PlannerFormState = {
-  goalId: string;
+  planGoal: string;
   startDate: string;
   longRunDay: string;
   planDurationWeeks: string;
@@ -58,28 +58,73 @@ export function createPlannerFormState(
   state: PlannerRouterOutputs["getState"],
 ): PlannerFormState {
   return {
-    goalId: state.goalCandidates[0]?.id ?? "",
+    planGoal: state.defaults?.planGoal ?? "general_training",
     startDate: state.defaults?.startDate ?? "",
     longRunDay: state.defaults?.longRunDay ?? "saturday",
     planDurationWeeks: String(state.defaults?.planDurationWeeks ?? 4),
     userPerceivedAbility: state.defaults?.userPerceivedAbility ?? "beginner",
-    estimatedRaceDistance: state.defaults?.estimatedRaceDistance ?? "10k",
+    estimatedRaceDistance:
+      state.defaults?.raceBenchmark?.estimatedRaceDistance ?? "10k",
     estimatedRaceTime: formatSecondsToRaceTime(
-      state.defaults?.estimatedRaceTimeSeconds ?? null,
+      state.defaults?.raceBenchmark?.estimatedRaceTimeSeconds ?? null,
     ),
   };
 }
 
-export function formatGoalLabel(
-  goal: PlannerRouterOutputs["getState"]["goalCandidates"][number],
+export function formatPlanGoalLabel(
+  goal: PlannerRouterOutputs["getState"]["planGoalOptions"][number],
 ) {
-  if (goal.goal.type === "event_goal") {
-    const distance = `${goal.goal.targetDistance.value}${goal.goal.targetDistance.unit}`;
-    return goal.goal.eventName?.trim()
-      ? `${goal.goal.eventName} (${distance})`
-      : `Event goal (${distance})`;
+  return goal.label;
+}
+
+export function formatPlanGoalValueLabel(value: string) {
+  switch (value) {
+    case "race":
+      return "Race";
+    case "run_specific_distance":
+      return "Run a specific distance";
+    case "start_running":
+      return "Start running";
+    case "get_back_into_running":
+      return "Get back into running";
+    case "5k_improvement":
+      return "5k improvement";
+    case "general_training":
+      return "General training";
+    case "parkrun_improvement":
+      return "parkrun improvement";
+    default:
+      return value;
+  }
+}
+
+export function formatLongRunDayLabel(value: string) {
+  if (value.length === 0) {
+    return value;
   }
 
-  const unit = goal.goal.metric === "time" ? "minutes" : goal.goal.unit;
-  return `${goal.goal.targetValue} ${unit} per ${goal.goal.period}`;
+  return `${value[0]!.toUpperCase()}${value.slice(1)}`;
+}
+
+export function formatUserPerceivedAbilityLabel(value: string) {
+  if (value.length === 0) {
+    return value;
+  }
+
+  return `${value[0]!.toUpperCase()}${value.slice(1)}`;
+}
+
+export function formatRaceDistanceLabel(value: string) {
+  switch (value) {
+    case "5k":
+      return "5k";
+    case "10k":
+      return "10k";
+    case "half_marathon":
+      return "Half marathon";
+    case "marathon":
+      return "Marathon";
+    default:
+      return value;
+  }
 }

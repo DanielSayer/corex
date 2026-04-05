@@ -6,6 +6,7 @@ import type { Context } from "../context";
 import {
   DAYS_OF_WEEK,
   SUPPORTED_RACE_DISTANCES,
+  TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITY_LEVELS,
 } from "./contracts";
 import { DraftConflict } from "./errors";
@@ -38,7 +39,7 @@ describe("weekly planning router", () => {
         getState: (userId) => {
           requestedUserId = userId;
           return Effect.succeed({
-            goalCandidates: [],
+            planGoalOptions: [],
             availability: null,
             historySnapshot: {
               generatedAt: "2026-04-01T00:00:00.000Z",
@@ -113,13 +114,15 @@ describe("weekly planning router", () => {
 
     await expect(
       caller.generateDraft({
-        goalId: "goal-1",
+        planGoal: TRAINING_PLAN_GOALS.race,
         startDate: "2026-04-06",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 4,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
-        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-        estimatedRaceTimeSeconds: 3000,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+          estimatedRaceTimeSeconds: 3000,
+        },
       }),
     ).rejects.toMatchObject({
       code: "CONFLICT",

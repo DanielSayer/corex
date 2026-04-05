@@ -4,6 +4,7 @@ import {
   DAYS_OF_WEEK,
   SESSION_TYPES,
   SUPPORTED_RACE_DISTANCES,
+  TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITY_LEVELS,
   type WeeklyPlanPayload,
 } from "./contracts";
@@ -108,9 +109,12 @@ describe("weekly planning domain", () => {
     });
 
     expect(defaults).toMatchObject({
+      planGoal: TRAINING_PLAN_GOALS.generalTraining,
       userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
-      estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
-      estimatedRaceTimeSeconds: 3000,
+      raceBenchmark: {
+        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+        estimatedRaceTimeSeconds: 3000,
+      },
       longRunDay: DAYS_OF_WEEK.saturday,
       startDate: "2026-04-06",
       planDurationWeeks: 4,
@@ -257,31 +261,116 @@ describe("weekly planning domain", () => {
     ).toThrow(InvalidStructuredOutput);
   });
 
-  it("validates generation input and context dates", () => {
+  it("reports the exact unavailable day when a session is scheduled there", () => {
+    const payload: WeeklyPlanPayload = {
+      days: [
+        { date: "2026-04-06", session: null },
+        {
+          date: "2026-04-07",
+          session: {
+            sessionType: SESSION_TYPES.easyRun,
+            title: "Easy",
+            summary: "Easy run",
+            coachingNotes: null,
+            estimatedDurationSeconds: 1800,
+            estimatedDistanceMeters: 5000,
+            intervalBlocks: [
+              {
+                blockType: "steady",
+                order: 1,
+                repetitions: 1,
+                title: "Steady",
+                notes: null,
+                target: {
+                  durationSeconds: 1800,
+                  distanceMeters: null,
+                  pace: null,
+                  heartRate: "Z2",
+                  rpe: 4,
+                },
+              },
+            ],
+          },
+        },
+        { date: "2026-04-08", session: null },
+        { date: "2026-04-09", session: null },
+        { date: "2026-04-10", session: null },
+        {
+          date: "2026-04-11",
+          session: {
+            sessionType: SESSION_TYPES.longRun,
+            title: "Long run",
+            summary: "Long run",
+            coachingNotes: null,
+            estimatedDurationSeconds: 3600,
+            estimatedDistanceMeters: 16000,
+            intervalBlocks: [
+              {
+                blockType: "steady",
+                order: 1,
+                repetitions: 1,
+                title: "Long",
+                notes: null,
+                target: {
+                  durationSeconds: 3600,
+                  distanceMeters: null,
+                  pace: null,
+                  heartRate: "Z2",
+                  rpe: 5,
+                },
+              },
+            ],
+          },
+        },
+        { date: "2026-04-12", session: null },
+      ],
+    };
+
+    expect(() =>
+      validateGeneratedPayload({
+        payload,
+        availability: {
+          monday: { available: true, maxDurationMinutes: 60 },
+          tuesday: { available: false, maxDurationMinutes: null },
+          wednesday: { available: true, maxDurationMinutes: 60 },
+          thursday: { available: true, maxDurationMinutes: 60 },
+          friday: { available: true, maxDurationMinutes: 90 },
+          saturday: { available: true, maxDurationMinutes: 90 },
+          sunday: { available: true, maxDurationMinutes: 90 },
+        },
+        longRunDay: DAYS_OF_WEEK.saturday,
+        startDate: "2026-04-06",
+      }),
+    ).toThrow(
+      "Generated easy_run scheduled on tuesday 2026-04-07, but that day is unavailable",
+    );
+  });
+
+  it("accepts race plans with required benchmark inputs", () => {
     const input = validateGenerateWeeklyDraftInput({
-      goalId: "goal-1",
+      planGoal: TRAINING_PLAN_GOALS.race,
       startDate: "2026-04-06",
       longRunDay: DAYS_OF_WEEK.saturday,
       planDurationWeeks: 4,
       userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.beginner,
-      estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["5k"],
-      estimatedRaceTimeSeconds: 1800,
+      raceBenchmark: {
+        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["5k"],
+        estimatedRaceTimeSeconds: 1800,
+      },
     });
 
     const context = createDraftGenerationContext({
-      goal: {
-        id: "goal-1",
-        status: "active",
-        goal: {
-          type: "volume_goal",
-          metric: "distance",
-          period: "week",
-          targetValue: 40,
-          unit: "km",
-        },
-        createdAt: "2026-04-01T00:00:00.000Z",
-        updatedAt: "2026-04-01T00:00:00.000Z",
+      plannerIntent: {
+        planGoal: input.planGoal,
+        raceBenchmark:
+          input.planGoal === TRAINING_PLAN_GOALS.race
+            ? input.raceBenchmark
+            : {
+                estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["5k"],
+                estimatedRaceTimeSeconds: 1800,
+              },
       },
+      currentDate: "2026-04-01",
       availability: {
         monday: { available: true, maxDurationMinutes: 45 },
         tuesday: { available: true, maxDurationMinutes: 45 },
@@ -313,13 +402,61 @@ describe("weekly planning domain", () => {
         level: "beginner",
         rationale: "Limited history",
       },
-      estimatedRaceDistance: input.estimatedRaceDistance,
-      estimatedRaceTimeSeconds: input.estimatedRaceTimeSeconds,
       longRunDay: input.longRunDay,
       startDate: input.startDate,
       planDurationWeeks: input.planDurationWeeks,
     });
 
     expect(context.endDate).toBe("2026-04-12");
+    expect(context.currentDate).toBe("2026-04-01");
+    expect(context.currentDayOfWeek).toBe(DAYS_OF_WEEK.wednesday);
+    expect(context.startDateDayOfWeek).toBe(DAYS_OF_WEEK.monday);
+    expect(context.plannerIntent).toEqual({
+      planGoal: TRAINING_PLAN_GOALS.race,
+      raceBenchmark: {
+        estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["5k"],
+        estimatedRaceTimeSeconds: 1800,
+      },
+    });
+  });
+
+  it("accepts non-race plan goals without benchmark inputs", () => {
+    const input = validateGenerateWeeklyDraftInput({
+      planGoal: TRAINING_PLAN_GOALS.generalTraining,
+      startDate: "2026-04-06",
+      longRunDay: DAYS_OF_WEEK.saturday,
+      planDurationWeeks: 4,
+      userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.beginner,
+    });
+
+    expect(input.planGoal).toBe(TRAINING_PLAN_GOALS.generalTraining);
+  });
+
+  it("rejects non-race goals when race benchmark inputs are provided", () => {
+    expect(() =>
+      validateGenerateWeeklyDraftInput({
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.beginner,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["5k"],
+          estimatedRaceTimeSeconds: 1800,
+        },
+      }),
+    ).toThrow('Unrecognized key: "raceBenchmark"');
+  });
+
+  it("rejects unsupported planner goals", () => {
+    expect(() =>
+      validateGenerateWeeklyDraftInput({
+        planGoal: "functional_fitness",
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.beginner,
+      }),
+    ).toThrow("Invalid input");
   });
 });

@@ -29,9 +29,9 @@ export const weeklyPlan = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    goalId: text("goal_id")
-      .notNull()
-      .references(() => trainingGoal.id, { onDelete: "cascade" }),
+    goalId: text("goal_id").references(() => trainingGoal.id, {
+      onDelete: "cascade",
+    }),
     status: weeklyPlanStatusEnum("status").notNull(),
     startDate: text("start_date").notNull(),
     endDate: text("end_date").notNull(),

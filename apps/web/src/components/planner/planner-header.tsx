@@ -9,7 +9,7 @@ import {
 import { PlannerContextRow } from "./planner-context-row";
 
 type PlannerHeaderProps = {
-  goalCount: number;
+  planGoalCount: number;
   meetsSnapshotThreshold: boolean;
   hasRecentSync: boolean;
   hasActiveDraft: boolean;
@@ -26,10 +26,10 @@ export function PlannerHeader(props: PlannerHeaderProps) {
           Generate the next training week
         </h1>
         <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-          corex uses your stored goal, availability, and synced running history
-          to draft one structured week. Editing and regeneration stay out of
-          scope until phase 6, so this page will hold a single active draft at a
-          time.
+          corex uses your selected training-plan intent, availability, and
+          synced running history to draft one structured week. Editing and
+          regeneration stay out of scope until phase 6, so this page will hold a
+          single active draft at a time.
         </p>
       </div>
 
@@ -41,7 +41,10 @@ export function PlannerHeader(props: PlannerHeaderProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm">
-          <PlannerContextRow label="Goals" value={String(props.goalCount)} />
+          <PlannerContextRow
+            label="Plan goals"
+            value={String(props.planGoalCount)}
+          />
           <PlannerContextRow
             label="History threshold"
             value={props.meetsSnapshotThreshold ? "Met" : "Below"}

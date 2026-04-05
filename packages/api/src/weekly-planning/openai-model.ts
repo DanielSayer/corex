@@ -1,11 +1,59 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { Effect } from "effect";
 
 import type { DraftGenerationContext } from "./contracts";
 import { weeklyPlanPayloadSchema } from "./contracts";
 import { GenerationTimeout, ProviderFailure } from "./errors";
 import type { PlannerModelPort } from "./model";
+
+type OpenAiPlannerModelDependencies = {
+  createClient: typeof createOpenAI;
+  generateText: typeof generateText;
+};
+
+const defaultDependencies: OpenAiPlannerModelDependencies = {
+  createClient: createOpenAI,
+  generateText,
+};
+
+function describeProviderFailure(message: string, model: string) {
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("incorrect api key") ||
+    normalized.includes("invalid api key") ||
+    normalized.includes("authentication")
+  ) {
+    return "Weekly plan generation failed: OpenAI API authentication failed. Check OPENAI_API_KEY.";
+  }
+
+  if (
+    normalized.includes("model") &&
+    (normalized.includes("not found") || normalized.includes("does not exist"))
+  ) {
+    return `Weekly plan generation failed: configured model "${model}" is unavailable. Check PLANNER_OPENAI_MODEL.`;
+  }
+
+  if (
+    normalized.includes("quota") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("too many requests")
+  ) {
+    return "Weekly plan generation failed: OpenAI quota or rate limit reached. Retry shortly or check billing.";
+  }
+
+  if (
+    normalized.includes("network") ||
+    normalized.includes("fetch failed") ||
+    normalized.includes("econnrefused") ||
+    normalized.includes("enotfound")
+  ) {
+    return "Weekly plan generation failed: OpenAI could not be reached from the server.";
+  }
+
+  return `Weekly plan generation failed: ${message}`;
+}
 
 function buildSystemPrompt() {
   return [
@@ -26,8 +74,22 @@ function buildUserPrompt(context: DraftGenerationContext) {
 export function createOpenAiPlannerModel(options: {
   apiKey: string;
   model: string;
-}): PlannerModelPort {
-  const openai = createOpenAI({
+}): PlannerModelPort;
+export function createOpenAiPlannerModel(
+  options: {
+    apiKey: string;
+    model: string;
+  },
+  dependencies: OpenAiPlannerModelDependencies,
+): PlannerModelPort;
+export function createOpenAiPlannerModel(
+  options: {
+    apiKey: string;
+    model: string;
+  },
+  dependencies: OpenAiPlannerModelDependencies = defaultDependencies,
+): PlannerModelPort {
+  const openai = dependencies.createClient({
     apiKey: options.apiKey,
   });
 
@@ -37,14 +99,16 @@ export function createOpenAiPlannerModel(options: {
     generateWeeklyPlan(context) {
       return Effect.tryPromise({
         try: async () => {
-          const result = await generateObject({
+          const result = await dependencies.generateText({
             model: openai(options.model),
-            schema: weeklyPlanPayloadSchema,
             system: buildSystemPrompt(),
             prompt: buildUserPrompt(context),
+            output: Output.object({
+              schema: weeklyPlanPayloadSchema,
+            }),
           });
 
-          return result.object;
+          return result.output;
         },
         catch: (cause) => {
           const message =
@@ -58,7 +122,7 @@ export function createOpenAiPlannerModel(options: {
           }
 
           return new ProviderFailure({
-            message: "Weekly plan generation failed",
+            message: describeProviderFailure(message, options.model),
             cause,
           });
         },

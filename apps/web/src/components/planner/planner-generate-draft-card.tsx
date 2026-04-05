@@ -19,20 +19,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@corex/ui/components/select";
-import { formatGoalLabel, type PlannerFormState } from "@/lib/planner";
+import {
+  formatLongRunDayLabel,
+  formatPlanGoalLabel,
+  formatPlanGoalValueLabel,
+  formatRaceDistanceLabel,
+  formatUserPerceivedAbilityLabel,
+  type PlannerFormState,
+} from "@/lib/planner";
 
 import {
   ESTIMATED_RACE_DISTANCES,
   LONG_RUN_DAYS,
+  TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITIES,
 } from "./planner-constants";
 import { PlannerField } from "./planner-field";
 
-type GoalCandidate = Parameters<typeof formatGoalLabel>[0];
+type PlanGoalOption = Parameters<typeof formatPlanGoalLabel>[0];
 
 type PlannerGenerateDraftCardProps = {
   form: PlannerFormState;
-  goalCandidates: GoalCandidate[];
+  planGoalOptions: PlanGoalOption[];
   raceTimeSeconds: number | null;
   isLowHistoryMode: boolean;
   errorMessage: string | null;
@@ -44,10 +52,11 @@ type PlannerGenerateDraftCardProps = {
 };
 
 export function PlannerGenerateDraftCard(props: PlannerGenerateDraftCardProps) {
+  const isRaceGoal = props.form.planGoal === TRAINING_PLAN_GOALS[0];
   const isSubmitDisabled =
     props.isGenerating ||
-    !props.raceTimeSeconds ||
-    props.form.goalId.length === 0 ||
+    (isRaceGoal && !props.raceTimeSeconds) ||
+    props.form.planGoal.length === 0 ||
     props.form.startDate.length === 0;
 
   return (
@@ -55,31 +64,33 @@ export function PlannerGenerateDraftCard(props: PlannerGenerateDraftCardProps) {
       <CardHeader>
         <CardTitle>Generate draft</CardTitle>
         <CardDescription>
-          Select one goal and confirm the benchmark inputs that should steer
-          this week.
+          Select the training plan you want and confirm the inputs that should
+          steer this week.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2">
-          <PlannerField label="Goal">
+          <PlannerField label="Training plan">
             <Select
-              value={props.form.goalId}
+              value={props.form.planGoal}
               onValueChange={(value) =>
                 value
                   ? props.onFormChange((current) => ({
                       ...current,
-                      goalId: value,
+                      planGoal: value,
                     }))
                   : undefined
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select goal" />
+                <SelectValue placeholder="Select training plan">
+                  {formatPlanGoalValueLabel(props.form.planGoal)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {props.goalCandidates.map((goal) => (
-                  <SelectItem key={goal.id} value={goal.id}>
-                    {formatGoalLabel(goal)}
+                {props.planGoalOptions.map((goal) => (
+                  <SelectItem key={goal.value} value={goal.value}>
+                    {formatPlanGoalLabel(goal)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -112,12 +123,14 @@ export function PlannerGenerateDraftCard(props: PlannerGenerateDraftCardProps) {
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select day" />
+                <SelectValue placeholder="Select day">
+                  {formatLongRunDayLabel(props.form.longRunDay)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {LONG_RUN_DAYS.map((day) => (
                   <SelectItem key={day} value={day}>
-                    {day}
+                    {formatLongRunDayLabel(day)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -152,55 +165,65 @@ export function PlannerGenerateDraftCard(props: PlannerGenerateDraftCardProps) {
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select ability" />
+                <SelectValue placeholder="Select ability">
+                  {formatUserPerceivedAbilityLabel(
+                    props.form.userPerceivedAbility,
+                  )}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {USER_PERCEIVED_ABILITIES.map((value) => (
                   <SelectItem key={value} value={value}>
-                    {value}
+                    {formatUserPerceivedAbilityLabel(value)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </PlannerField>
 
-          <PlannerField label="Estimated race distance">
-            <Select
-              value={props.form.estimatedRaceDistance}
-              onValueChange={(value) =>
-                value
-                  ? props.onFormChange((current) => ({
-                      ...current,
-                      estimatedRaceDistance: value,
-                    }))
-                  : undefined
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select race distance" />
-              </SelectTrigger>
-              <SelectContent>
-                {ESTIMATED_RACE_DISTANCES.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {value}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </PlannerField>
+          {isRaceGoal ? (
+            <PlannerField label="Estimated race distance">
+              <Select
+                value={props.form.estimatedRaceDistance}
+                onValueChange={(value) =>
+                  value
+                    ? props.onFormChange((current) => ({
+                        ...current,
+                        estimatedRaceDistance: value,
+                      }))
+                    : undefined
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select race distance">
+                    {formatRaceDistanceLabel(props.form.estimatedRaceDistance)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {ESTIMATED_RACE_DISTANCES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {formatRaceDistanceLabel(value)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </PlannerField>
+          ) : null}
 
-          <PlannerField label="Estimated race time">
-            <Input
-              placeholder="50:00 or 1:35:00"
-              value={props.form.estimatedRaceTime}
-              onChange={(event) =>
-                props.onFormChange((current) => ({
-                  ...current,
-                  estimatedRaceTime: event.currentTarget.value,
-                }))
-              }
-            />
-          </PlannerField>
+          {isRaceGoal ? (
+            <PlannerField label="Estimated race time">
+              <Input
+                placeholder="50:00 or 1:35:00"
+                value={props.form.estimatedRaceTime}
+                onChange={(event) =>
+                  props.onFormChange((current) => ({
+                    ...current,
+                    estimatedRaceTime: event.currentTarget.value,
+                  }))
+                }
+              />
+            </PlannerField>
+          ) : null}
         </div>
 
         {props.isLowHistoryMode ? (
@@ -223,7 +246,9 @@ export function PlannerGenerateDraftCard(props: PlannerGenerateDraftCardProps) {
 
         <div className="flex items-center justify-between gap-4">
           <div className="text-sm text-muted-foreground">
-            A valid race time is required to generate the draft.
+            {isRaceGoal
+              ? "A valid race time is required for race plans."
+              : "Non-race plans generate without race benchmark inputs."}
           </div>
           <Button disabled={isSubmitDisabled} onClick={props.onGenerateDraft}>
             {props.isGenerating ? "Generating..." : "Generate draft"}

@@ -6,7 +6,7 @@ export const serverTestEnvDefaults = {
   CORS_ORIGIN: "http://127.0.0.1:3001",
   SETTINGS_MASTER_KEY_BASE64: Buffer.alloc(32, 1).toString("base64"),
   OPENAI_API_KEY: "test-openai-key",
-  PLANNER_OPENAI_MODEL: "gpt-4.1-mini",
+  PLANNER_OPENAI_MODEL: "gpt-5.4-mini",
 } as const;
 
 type ServerTestEnvKey = keyof typeof serverTestEnvDefaults;
@@ -34,12 +34,12 @@ export function installServerTestEnv(
 
   for (const key of Object.keys(serverTestEnvDefaults) as ServerTestEnvKey[]) {
     const nextValue =
-      options.overwrite || process.env[key] == null
+      options.overwrite || Bun.env[key] == null
         ? (overrides[key] ?? serverTestEnvDefaults[key])
-        : process.env[key]!;
+        : Bun.env[key]!;
 
     runtimeEnv[key] = nextValue;
-    process.env[key] = nextValue;
+    Bun.env[key] = nextValue;
   }
 
   currentServerTestEnv = runtimeEnv;
