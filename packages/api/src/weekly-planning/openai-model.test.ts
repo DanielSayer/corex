@@ -132,6 +132,15 @@ describe("openai planner model", () => {
     expect(generateTextCalls[0]?.system).toContain(
       "Return structured JSON only.",
     );
+    expect(generateTextCalls[0]?.system).toContain(
+      "Treat availability as an upper bound, not a target number of runs.",
+    );
+    expect(generateTextCalls[0]?.system).toContain(
+      "Use historySnapshot.detailedRuns and historySnapshot.weeklyRollups to infer the athlete's current running pattern",
+    );
+    expect(generateTextCalls[0]?.system).toContain(
+      "For beginner or limited-history athletes, prefer fewer running days and more rest",
+    );
     expect(generateTextCalls[0]?.prompt).toBe(JSON.stringify(createContext()));
   });
 

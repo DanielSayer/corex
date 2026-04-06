@@ -64,6 +64,14 @@ function buildSystemPrompt() {
     "Use only supported interval block types: warmup, steady, work, recovery, cooldown.",
     "Schedule exactly one long_run on the requested longRunDay.",
     "Never exceed the day's availability max duration when one exists.",
+    "Treat availability as an upper bound, not a target number of runs.",
+    "Use historySnapshot.detailedRuns and historySnapshot.weeklyRollups to infer the athlete's current running pattern, including weekly frequency, long-run habit, recent volume, and consistency.",
+    "Use userPerceivedAbility and corexPerceivedAbility together to choose an appropriate level of training stress, complexity, and recovery.",
+    "For beginner or limited-history athletes, prefer fewer running days and more rest; do not schedule a run on every available day unless the history clearly supports that frequency.",
+    "Keep the draft close to the athlete's recent pattern, then make only a sensible step toward the plan goal rather than a dramatic jump.",
+    "Bias workouts and long-run sizing to the goal, but preserve a believable week that the athlete could complete right now.",
+    "If history is sparse, inconsistent, or not recent, choose the more conservative interpretation.",
+    "Use rest days when needed to support recovery and adaptation.",
   ].join(" ");
 }
 
