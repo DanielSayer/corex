@@ -63,21 +63,6 @@ export const DAYS_OF_WEEK = {
 
 const isoDateSchema = z.iso.date();
 
-function getDayOfWeekForIsoDate(date: string) {
-  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
-  const orderedDays = [
-    DAYS_OF_WEEK.monday,
-    DAYS_OF_WEEK.tuesday,
-    DAYS_OF_WEEK.wednesday,
-    DAYS_OF_WEEK.thursday,
-    DAYS_OF_WEEK.friday,
-    DAYS_OF_WEEK.saturday,
-    DAYS_OF_WEEK.sunday,
-  ] as const;
-
-  return orderedDays[(day + 6) % 7]!;
-}
-
 const userPerceivedAbilitySchema = z.enum([
   USER_PERCEIVED_ABILITY_LEVELS.beginner,
   USER_PERCEIVED_ABILITY_LEVELS.intermediate,
@@ -253,7 +238,7 @@ export const generateWeeklyDraftInputSchema = z.discriminatedUnion("planGoal", [
     .strict(),
 ]);
 
-const draftGenerationContextV2Schema = z.object({
+const draftGenerationContextSchema = z.object({
   plannerIntent: plannerIntentSchema,
   currentDate: isoDateSchema,
   currentDayOfWeek: dayOfWeekSchema,
@@ -269,60 +254,6 @@ const draftGenerationContextV2Schema = z.object({
   endDate: isoDateSchema,
   planDurationWeeks: z.number().int().min(1).max(24),
 });
-
-const legacyDraftGenerationContextSchema = z
-  .object({
-    goalId: z.string().trim().min(1),
-    goal: z
-      .object({
-        type: z.enum(["event_goal", "volume_goal"]),
-      })
-      .passthrough(),
-    availability: weeklyAvailabilitySchema,
-    historySnapshot: z.custom<PlanningHistorySnapshot>(),
-    historyQuality: z.custom<PlanningHistoryQuality>(),
-    performanceSnapshot: z.custom<PlanningPerformanceSnapshot>(),
-    userPerceivedAbility: userPerceivedAbilitySchema,
-    corexPerceivedAbility: corexPerceivedAbilitySummarySchema,
-    estimatedRaceDistance: supportedRaceDistanceSchema,
-    estimatedRaceTimeSeconds: z.number().int().positive(),
-    longRunDay: dayOfWeekSchema,
-    startDate: isoDateSchema,
-    endDate: isoDateSchema,
-    planDurationWeeks: z.number().int().min(1).max(24),
-  })
-  .transform((legacy) => ({
-    plannerIntent:
-      legacy.goal.type === "event_goal"
-        ? {
-            planGoal: TRAINING_PLAN_GOALS.race,
-            raceBenchmark: {
-              estimatedRaceDistance: legacy.estimatedRaceDistance,
-              estimatedRaceTimeSeconds: legacy.estimatedRaceTimeSeconds,
-            },
-          }
-        : {
-            planGoal: TRAINING_PLAN_GOALS.generalTraining,
-          },
-    currentDate: legacy.startDate,
-    currentDayOfWeek: getDayOfWeekForIsoDate(legacy.startDate),
-    availability: legacy.availability,
-    historySnapshot: legacy.historySnapshot,
-    historyQuality: legacy.historyQuality,
-    performanceSnapshot: legacy.performanceSnapshot,
-    userPerceivedAbility: legacy.userPerceivedAbility,
-    corexPerceivedAbility: legacy.corexPerceivedAbility,
-    longRunDay: legacy.longRunDay,
-    startDate: legacy.startDate,
-    startDateDayOfWeek: getDayOfWeekForIsoDate(legacy.startDate),
-    endDate: legacy.endDate,
-    planDurationWeeks: legacy.planDurationWeeks,
-  }));
-
-export const draftGenerationContextSchema = z.union([
-  draftGenerationContextV2Schema,
-  legacyDraftGenerationContextSchema,
-]);
 
 export const weeklyPlanDraftSchema = z.object({
   id: z.string().min(1),
