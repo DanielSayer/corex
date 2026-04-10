@@ -6,6 +6,7 @@ import { getPrivateData } from "../session/private-data";
 import { getHealthCheck } from "../system/health-check";
 import { intervalsSyncRouter } from "../intervals-sync/router";
 import { publicProcedure, router } from "../index";
+import { trainingCalendarRouter } from "../training-calendar/router";
 import { trainingSettingsRouter } from "../training-settings/router";
 import { weeklyPlanningRouter } from "../weekly-planning/router";
 import { weeklySnapshotsRouter } from "../weekly-snapshots/router";
@@ -16,6 +17,7 @@ type CreateAppRouterOptions = {
   goalProgress?: typeof goalProgressRouter;
   goals?: typeof goalsRouter;
   trainingSettings?: typeof trainingSettingsRouter;
+  trainingCalendar?: typeof trainingCalendarRouter;
   intervalsSync?: typeof intervalsSyncRouter;
   weeklyPlanning?: typeof weeklyPlanningRouter;
   weeklySnapshots?: typeof weeklySnapshotsRouter;
@@ -32,6 +34,7 @@ export function createAppRouter(options: CreateAppRouterOptions = {}) {
     goalProgress: options.goalProgress ?? goalProgressRouter,
     goals: options.goals ?? goalsRouter,
     trainingSettings: options.trainingSettings ?? trainingSettingsRouter,
+    trainingCalendar: options.trainingCalendar ?? trainingCalendarRouter,
     intervalsSync: options.intervalsSync ?? intervalsSyncRouter,
     weeklyPlanning: options.weeklyPlanning ?? weeklyPlanningRouter,
     weeklySnapshots: options.weeklySnapshots ?? weeklySnapshotsRouter,
