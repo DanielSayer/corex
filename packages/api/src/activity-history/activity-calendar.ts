@@ -164,7 +164,7 @@ function createWeekSummaries(from: Date, to: Date, timezone: string) {
   return summaries;
 }
 
-function getLocalDateKey(date: Date, timezone: string) {
+export function getLocalDateKey(date: Date, timezone: string) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     year: "numeric",

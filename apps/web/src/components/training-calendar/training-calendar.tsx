@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { ActivityHistoryRouterOutputs } from "@/utils/types";
+import type { TrainingCalendarRouterOutputs } from "@/utils/types";
 import { Button } from "@corex/ui/components/button";
 import {
   addMonths,
@@ -13,12 +13,15 @@ import {
   subMonths,
 } from "date-fns";
 import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from "lucide-react";
+import { PlannedSessionCard } from "./planned-session-card";
 import { WeekSummaryCell } from "./week-summary-cell";
 import { WorkoutCard } from "./workout-card";
 
 type CalendarActivity =
-  ActivityHistoryRouterOutputs["calendar"]["activities"][number];
-type CalendarWeek = ActivityHistoryRouterOutputs["calendar"]["weeks"][number];
+  TrainingCalendarRouterOutputs["month"]["activities"][number];
+type CalendarWeek = TrainingCalendarRouterOutputs["month"]["weeks"][number];
+type PlannedSession =
+  TrainingCalendarRouterOutputs["month"]["plannedSessions"][number];
 
 type WorkoutCalendarProps = {
   loading: boolean;
@@ -28,6 +31,10 @@ type WorkoutCalendarProps = {
   monthEnd: Date;
   activities: CalendarActivity[];
   weeks: CalendarWeek[];
+  plannedSessions: PlannedSession[];
+  onLinkActivity: (plannedDate: string, activityId: string) => void;
+  linkingActivityId: string | null;
+  linkingPlannedDate: string | null;
 };
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -40,6 +47,10 @@ function WorkoutCalendar({
   monthEnd,
   activities,
   weeks,
+  plannedSessions,
+  onLinkActivity,
+  linkingActivityId,
+  linkingPlannedDate,
 }: WorkoutCalendarProps) {
   const calendarWeeks = eachWeekOfInterval(
     { start: monthStart, end: monthEnd },
@@ -54,6 +65,9 @@ function WorkoutCalendar({
     return acc;
   }, {});
   const weeksByStart = new Map(weeks.map((week) => [week.weekStart, week]));
+  const plannedSessionByDate = new Map(
+    plannedSessions.map((session) => [session.date, session]),
+  );
 
   return (
     <div className="border-border/60 bg-background flex h-full flex-col overflow-hidden rounded-xl border shadow-sm">
@@ -144,6 +158,7 @@ function WorkoutCalendar({
                 {weekDays.map((day) => {
                   const key = format(day, "yyyy-MM-dd");
                   const dayActivities = activitiesByDate[key] ?? [];
+                  const plannedSession = plannedSessionByDate.get(key) ?? null;
                   const isCurrentMonth = isSameMonth(day, currentDate);
                   const isCurrentDay = isToday(day);
 
@@ -174,6 +189,18 @@ function WorkoutCalendar({
 
                       {/* Workouts container */}
                       <div className="flex flex-col gap-1.5">
+                        {plannedSession ? (
+                          <PlannedSessionCard
+                            session={plannedSession}
+                            onLinkActivity={onLinkActivity}
+                            isLinking={
+                              linkingPlannedDate === plannedSession.date ||
+                              plannedSession.candidateActivities.some(
+                                (activity) => activity.id === linkingActivityId,
+                              )
+                            }
+                          />
+                        ) : null}
                         {dayActivities.map((activity) => (
                           <WorkoutCard key={activity.id} workout={activity} />
                         ))}

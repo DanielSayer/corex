@@ -1,15 +1,18 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  foreignKey,
   index,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { importedActivity } from "./intervals-sync";
 import { trainingGoal } from "./training-settings";
 
 export const weeklyPlanStatusEnum = pgEnum("weekly_plan_status", [
@@ -87,6 +90,46 @@ export const generationEvent = pgTable(
   ],
 );
 
+export const weeklyPlanActivityLink = pgTable(
+  "weekly_plan_activity_link",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    weeklyPlanId: text("weekly_plan_id")
+      .notNull()
+      .references(() => weeklyPlan.id, { onDelete: "cascade" }),
+    plannedDate: text("planned_date").notNull(),
+    activityId: text("activity_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.weeklyPlanId, table.plannedDate],
+    }),
+    uniqueIndex("weekly_plan_activity_link_user_activity_unique").on(
+      table.userId,
+      table.activityId,
+    ),
+    index("weekly_plan_activity_link_user_plan_idx").on(
+      table.userId,
+      table.weeklyPlanId,
+    ),
+    foreignKey({
+      columns: [table.userId, table.activityId],
+      foreignColumns: [
+        importedActivity.userId,
+        importedActivity.upstreamActivityId,
+      ],
+      name: "weekly_plan_activity_link_imported_activity_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
 export const weeklyPlanRelations = relations(weeklyPlan, ({ one }) => ({
   user: one(user, {
     fields: [weeklyPlan.userId],
@@ -111,6 +154,20 @@ export const generationEventRelations = relations(
     }),
     weeklyPlan: one(weeklyPlan, {
       fields: [generationEvent.weeklyPlanId],
+      references: [weeklyPlan.id],
+    }),
+  }),
+);
+
+export const weeklyPlanActivityLinkRelations = relations(
+  weeklyPlanActivityLink,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [weeklyPlanActivityLink.userId],
+      references: [user.id],
+    }),
+    weeklyPlan: one(weeklyPlan, {
+      fields: [weeklyPlanActivityLink.weeklyPlanId],
       references: [weeklyPlan.id],
     }),
   }),
