@@ -128,6 +128,7 @@ describe("http integration", () => {
         service: {
           getState: () => Effect.die("not used"),
           generateDraft: () => Effect.die("not used"),
+          generateNextWeek: () => Effect.die("not used"),
         },
       }),
     });
@@ -172,6 +173,7 @@ describe("http integration", () => {
               activeDraft: null,
             }),
           generateDraft: () => Effect.die("not used"),
+          generateNextWeek: () => Effect.die("not used"),
         },
       }),
     });

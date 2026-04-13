@@ -196,6 +196,8 @@ export const weeklyPlanPayloadSchema = z.object({
   days: z.array(plannedDaySchema).length(7),
 });
 
+export const weeklyGenerationModeSchema = z.enum(["initial", "renewal"]);
+
 export const corexPerceivedAbilitySummarySchema = z.object({
   level: corexPerceivedAbilitySchema,
   rationale: z.string().trim().min(1).max(500),
@@ -240,6 +242,14 @@ export const generateWeeklyDraftInputSchema = z.discriminatedUnion("planGoal", [
 
 const draftGenerationContextSchema = z.object({
   plannerIntent: plannerIntentSchema,
+  generationMode: weeklyGenerationModeSchema,
+  parentWeeklyPlanId: z.string().min(1).nullable(),
+  previousPlanWindow: z
+    .object({
+      startDate: isoDateSchema,
+      endDate: isoDateSchema,
+    })
+    .nullable(),
   currentDate: isoDateSchema,
   currentDayOfWeek: dayOfWeekSchema,
   availability: weeklyAvailabilitySchema,
@@ -255,17 +265,22 @@ const draftGenerationContextSchema = z.object({
   planDurationWeeks: z.number().int().min(1).max(24),
 });
 
-export const weeklyPlanDraftSchema = z.object({
+export const weeklyPlanSchema = z.object({
   id: z.string().min(1),
   userId: z.string().min(1),
   goalId: z.string().min(1).nullable(),
-  status: z.literal("draft"),
+  parentWeeklyPlanId: z.string().min(1).nullable(),
+  status: z.enum(["draft", "finalized"]),
   startDate: isoDateSchema,
   endDate: isoDateSchema,
   generationContext: draftGenerationContextSchema,
   payload: weeklyPlanPayloadSchema,
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+});
+
+export const weeklyPlanDraftSchema = weeklyPlanSchema.extend({
+  status: z.literal("draft"),
 });
 
 export const generationEventCategorySchema = z.enum([
@@ -293,7 +308,9 @@ export type GenerateWeeklyDraftInput = z.infer<
 export type DraftGenerationContext = z.infer<
   typeof draftGenerationContextSchema
 >;
+export type WeeklyPlan = z.infer<typeof weeklyPlanSchema>;
 export type WeeklyPlanDraft = z.infer<typeof weeklyPlanDraftSchema>;
+export type WeeklyGenerationMode = z.infer<typeof weeklyGenerationModeSchema>;
 export type CorexPerceivedAbilitySummary = z.infer<
   typeof corexPerceivedAbilitySummarySchema
 >;

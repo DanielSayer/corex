@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
 import { Effect } from "effect";
 
 import type { Database } from "@corex/db";
@@ -7,10 +7,11 @@ import { generationEvent, weeklyPlan } from "@corex/db/schema/weekly-planning";
 import type {
   DraftGenerationContext,
   GenerationFailureCategory,
+  WeeklyPlan,
   WeeklyPlanDraft,
   WeeklyPlanPayload,
 } from "./contracts";
-import { weeklyPlanDraftSchema } from "./contracts";
+import { weeklyPlanDraftSchema, weeklyPlanSchema } from "./contracts";
 import { WeeklyPlanningPersistenceFailure } from "./errors";
 
 export type StoredGenerationEvent = {
@@ -34,10 +35,26 @@ export type WeeklyPlanningRepository = {
   getActiveDraft: (
     userId: string,
   ) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
+  getLatestPlan: (
+    userId: string,
+  ) => Effect.Effect<WeeklyPlan | null, WeeklyPlanningPersistenceFailure>;
+  getDraftForStartDate: (
+    userId: string,
+    startDate: string,
+  ) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
+  getPlanForDate: (
+    userId: string,
+    date: string,
+  ) => Effect.Effect<WeeklyPlan | null, WeeklyPlanningPersistenceFailure>;
+  listPlansInRange: (
+    userId: string,
+    input: { startDate: string; endDate: string },
+  ) => Effect.Effect<WeeklyPlan[], WeeklyPlanningPersistenceFailure>;
   createDraft: (input: {
     id: string;
     userId: string;
     goalId: string | null;
+    parentWeeklyPlanId: string | null;
     startDate: string;
     endDate: string;
     generationContext: DraftGenerationContext;
@@ -59,11 +76,12 @@ export type WeeklyPlanningRepository = {
   }) => Effect.Effect<StoredGenerationEvent, WeeklyPlanningPersistenceFailure>;
 };
 
-function mapDraft(row: typeof weeklyPlan.$inferSelect): WeeklyPlanDraft {
-  const parsed = weeklyPlanDraftSchema.safeParse({
+function mapWeeklyPlan(row: typeof weeklyPlan.$inferSelect): WeeklyPlan {
+  const parsed = weeklyPlanSchema.safeParse({
     id: row.id,
     userId: row.userId,
     goalId: row.goalId,
+    parentWeeklyPlanId: row.parentWeeklyPlanId,
     status: row.status,
     startDate: row.startDate,
     endDate: row.endDate,
@@ -72,6 +90,19 @@ function mapDraft(row: typeof weeklyPlan.$inferSelect): WeeklyPlanDraft {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   });
+
+  if (!parsed.success) {
+    throw new WeeklyPlanningPersistenceFailure({
+      message: "Persisted weekly plan draft was invalid",
+      cause: parsed.error,
+    });
+  }
+
+  return parsed.data;
+}
+
+function mapDraft(row: typeof weeklyPlan.$inferSelect): WeeklyPlanDraft {
+  const parsed = weeklyPlanDraftSchema.safeParse(mapWeeklyPlan(row));
 
   if (!parsed.success) {
     throw new WeeklyPlanningPersistenceFailure({
@@ -117,7 +148,7 @@ export function createWeeklyPlanningRepository(
               eq(weeklyPlan.userId, userId),
               eq(weeklyPlan.status, "draft"),
             ),
-            orderBy: desc(weeklyPlan.createdAt),
+            orderBy: desc(weeklyPlan.startDate),
           });
 
           return row ? mapDraft(row) : null;
@@ -131,6 +162,108 @@ export function createWeeklyPlanningRepository(
               }),
       });
     },
+    getLatestPlan(userId) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await db.query.weeklyPlan.findFirst({
+            where: eq(weeklyPlan.userId, userId),
+            orderBy: [desc(weeklyPlan.startDate), desc(weeklyPlan.createdAt)],
+          });
+
+          return row ? mapWeeklyPlan(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to load latest weekly plan",
+                cause,
+              }),
+      });
+    },
+    getDraftForStartDate(userId, startDate) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await db.query.weeklyPlan.findFirst({
+            where: and(
+              eq(weeklyPlan.userId, userId),
+              eq(weeklyPlan.status, "draft"),
+              eq(weeklyPlan.startDate, startDate),
+            ),
+          });
+
+          return row ? mapDraft(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to load weekly plan draft for start date",
+                cause,
+              }),
+      });
+    },
+    getPlanForDate(userId, date) {
+      return Effect.tryPromise({
+        try: async () => {
+          const rows = await db.query.weeklyPlan.findMany({
+            where: and(
+              eq(weeklyPlan.userId, userId),
+              lte(weeklyPlan.startDate, date),
+              gte(weeklyPlan.endDate, date),
+            ),
+            orderBy: [desc(weeklyPlan.status), desc(weeklyPlan.startDate)],
+          });
+
+          const row =
+            rows.find((candidate) => candidate.status === "draft") ?? rows[0];
+          return row ? mapDraft(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to load weekly plan for date",
+                cause,
+              }),
+      });
+    },
+    listPlansInRange(userId, input) {
+      return Effect.tryPromise({
+        try: async () => {
+          const rows = await db.query.weeklyPlan.findMany({
+            where: and(
+              eq(weeklyPlan.userId, userId),
+              lte(weeklyPlan.startDate, input.endDate),
+              gte(weeklyPlan.endDate, input.startDate),
+            ),
+            orderBy: [asc(weeklyPlan.startDate), asc(weeklyPlan.createdAt)],
+          });
+
+          const plansByStartDate = new Map<string, (typeof rows)[number]>();
+
+          for (const row of rows) {
+            const existing = plansByStartDate.get(row.startDate);
+
+            if (
+              !existing ||
+              (existing.status !== "draft" && row.status === "draft")
+            ) {
+              plansByStartDate.set(row.startDate, row);
+            }
+          }
+
+          return [...plansByStartDate.values()].map(mapWeeklyPlan);
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to list weekly plans in range",
+                cause,
+              }),
+      });
+    },
     createDraft(input) {
       return Effect.tryPromise({
         try: async () => {
@@ -140,6 +273,7 @@ export function createWeeklyPlanningRepository(
               id: input.id,
               userId: input.userId,
               goalId: input.goalId,
+              parentWeeklyPlanId: input.parentWeeklyPlanId,
               status: "draft",
               startDate: input.startDate,
               endDate: input.endDate,

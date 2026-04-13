@@ -25,6 +25,7 @@ describe("weekly planning router", () => {
       service: {
         getState: () => Effect.die("not used"),
         generateDraft: () => Effect.die("not used"),
+        generateNextWeek: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(createCallerContext(null));
@@ -63,6 +64,7 @@ describe("weekly planning router", () => {
           });
         },
         generateDraft: () => Effect.die("not used"),
+        generateNextWeek: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -95,6 +97,7 @@ describe("weekly planning router", () => {
               message: "An active weekly draft already exists for this user",
             }),
           ),
+        generateNextWeek: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -127,5 +130,36 @@ describe("weekly planning router", () => {
     ).rejects.toMatchObject({
       code: "CONFLICT",
     });
+  });
+
+  it("passes the authenticated user id through to next-week generation", async () => {
+    let requestedUserId: string | undefined;
+    const router = createWeeklyPlanningRouter({
+      service: {
+        getState: () => Effect.die("not used"),
+        generateDraft: () => Effect.die("not used"),
+        generateNextWeek: (userId) => {
+          requestedUserId = userId;
+          return Effect.die("stop after capture");
+        },
+      },
+    });
+    const caller = router.createCaller(
+      createCallerContext({
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
+      } as NonNullable<Context["session"]>),
+    );
+
+    await expect(caller.generateNextWeek()).rejects.toBeInstanceOf(TRPCError);
+    expect(requestedUserId).toBe("user-1");
   });
 });

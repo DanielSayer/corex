@@ -36,7 +36,7 @@ export type TrainingCalendarMonth = {
 };
 
 type BuildTrainingCalendarMonthState = {
-  draft: Pick<WeeklyPlanDraft, "id" | "payload"> | null;
+  plans: Array<Pick<WeeklyPlanDraft, "id" | "payload">>;
   activityRecords: CalendarActivityRecord[];
   links: TrainingCalendarLinkRecord[];
 };
@@ -61,7 +61,7 @@ export function buildTrainingCalendarMonth(
     return acc;
   }, new Map());
 
-  if (!state.draft) {
+  if (state.plans.length === 0) {
     return {
       weeks: activityCalendar.weeks,
       activities: visibleActivities,
@@ -70,43 +70,46 @@ export function buildTrainingCalendarMonth(
   }
 
   const visibleDates = createVisibleDateRange(input);
-  const linkByPlannedDate = new Map(
-    state.links
-      .filter((link) => link.weeklyPlanId === state.draft?.id)
-      .map((link) => [link.plannedDate, link]),
-  );
+  const plannedSessions = state.plans.flatMap((plan) => {
+    const linkByPlannedDate = new Map(
+      state.links
+        .filter((link) => link.weeklyPlanId === plan.id)
+        .map((link) => [link.plannedDate, link]),
+    );
 
-  const plannedSessions = state.draft.payload.days
-    .filter(
-      (day) =>
-        day.date >= visibleDates.firstDate && day.date <= visibleDates.lastDate,
-    )
-    .flatMap((day) => {
-      if (!day.session) {
-        return [];
-      }
+    return plan.payload.days
+      .filter(
+        (day) =>
+          day.date >= visibleDates.firstDate &&
+          day.date <= visibleDates.lastDate,
+      )
+      .flatMap((day) => {
+        if (!day.session) {
+          return [];
+        }
 
-      const link = linkByPlannedDate.get(day.date);
-      const linkedActivity = link
-        ? (activityById.get(link.activityId) ?? null)
-        : null;
+        const link = linkByPlannedDate.get(day.date);
+        const linkedActivity = link
+          ? (activityById.get(link.activityId) ?? null)
+          : null;
 
-      return [
-        {
-          date: day.date,
-          status: linkedActivity ? "completed" : "planned",
-          sessionType: day.session.sessionType,
-          title: day.session.title,
-          summary: day.session.summary,
-          estimatedDurationSeconds: day.session.estimatedDurationSeconds,
-          estimatedDistanceMeters: day.session.estimatedDistanceMeters,
-          linkedActivity,
-          candidateActivities: linkedActivity
-            ? []
-            : [...(unlinkedActivitiesByDate.get(day.date) ?? [])],
-        } satisfies TrainingCalendarPlannedSession,
-      ];
-    });
+        return [
+          {
+            date: day.date,
+            status: linkedActivity ? "completed" : "planned",
+            sessionType: day.session.sessionType,
+            title: day.session.title,
+            summary: day.session.summary,
+            estimatedDurationSeconds: day.session.estimatedDurationSeconds,
+            estimatedDistanceMeters: day.session.estimatedDistanceMeters,
+            linkedActivity,
+            candidateActivities: linkedActivity
+              ? []
+              : [...(unlinkedActivitiesByDate.get(day.date) ?? [])],
+          } satisfies TrainingCalendarPlannedSession,
+        ];
+      });
+  });
 
   return {
     weeks: activityCalendar.weeks,

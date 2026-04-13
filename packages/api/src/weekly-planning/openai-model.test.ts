@@ -15,6 +15,9 @@ function createContext(): DraftGenerationContext {
         estimatedRaceTimeSeconds: 3000,
       },
     },
+    generationMode: "initial",
+    parentWeeklyPlanId: null,
+    previousPlanWindow: null,
     availability: {
       monday: { available: true, maxDurationMinutes: 45 },
       tuesday: { available: true, maxDurationMinutes: 45 },

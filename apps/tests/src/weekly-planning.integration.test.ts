@@ -13,6 +13,7 @@ import {
 import {
   DraftConflict,
   InvalidStructuredOutput,
+  MissingPriorPlan,
 } from "@corex/api/weekly-planning/errors";
 import type { PlannerModelPort } from "@corex/api/weekly-planning/model";
 import { createWeeklyPlanningRepository } from "@corex/api/weekly-planning/repository";
@@ -31,69 +32,78 @@ function createFakeModel(
   return {
     provider: "test",
     model: "fake-model",
-    generateWeeklyPlan: () =>
+    generateWeeklyPlan: (context) =>
       Effect.succeed({
-        days: [
-          {
-            date: "2026-04-06",
-            session: {
-              sessionType: "easy_run",
-              title: "Easy run",
-              summary: "Easy aerobic run",
-              coachingNotes: null,
-              estimatedDurationSeconds: 1800,
-              estimatedDistanceMeters: 5000,
-              intervalBlocks: [
-                {
-                  blockType: "steady",
-                  order: 1,
-                  repetitions: 1,
-                  title: "Steady",
-                  notes: null,
-                  target: {
-                    durationSeconds: 1800,
-                    distanceMeters: null,
-                    pace: null,
-                    heartRate: "Z2",
-                    rpe: 4,
+        days: Array.from({ length: 7 }, (_, index) => {
+          const date = new Date(`${context.startDate}T00:00:00.000Z`);
+          date.setUTCDate(date.getUTCDate() + index);
+          const isoDate = date.toISOString().slice(0, 10);
+
+          if (index === 0) {
+            return {
+              date: isoDate,
+              session: {
+                sessionType: "easy_run",
+                title: "Easy run",
+                summary: "Easy aerobic run",
+                coachingNotes: null,
+                estimatedDurationSeconds: 1800,
+                estimatedDistanceMeters: 5000,
+                intervalBlocks: [
+                  {
+                    blockType: "steady",
+                    order: 1,
+                    repetitions: 1,
+                    title: "Steady",
+                    notes: null,
+                    target: {
+                      durationSeconds: 1800,
+                      distanceMeters: null,
+                      pace: null,
+                      heartRate: "Z2",
+                      rpe: 4,
+                    },
                   },
-                },
-              ],
-            },
-          },
-          { date: "2026-04-07", session: null },
-          { date: "2026-04-08", session: null },
-          { date: "2026-04-09", session: null },
-          { date: "2026-04-10", session: null },
-          {
-            date: "2026-04-11",
-            session: {
-              sessionType: "long_run",
-              title: "Long run",
-              summary: "Long aerobic run",
-              coachingNotes: null,
-              estimatedDurationSeconds: 3600,
-              estimatedDistanceMeters: 16000,
-              intervalBlocks: [
-                {
-                  blockType: "steady",
-                  order: 1,
-                  repetitions: 1,
-                  title: "Long",
-                  notes: null,
-                  target: {
-                    durationSeconds: 3600,
-                    distanceMeters: null,
-                    pace: null,
-                    heartRate: "Z2",
-                    rpe: 5,
+                ],
+              },
+            };
+          }
+
+          if (isoDate === "2026-04-11" || isoDate === "2026-04-18") {
+            return {
+              date: isoDate,
+              session: {
+                sessionType: "long_run",
+                title: "Long run",
+                summary: "Long aerobic run",
+                coachingNotes: null,
+                estimatedDurationSeconds: 3600,
+                estimatedDistanceMeters: 16000,
+                intervalBlocks: [
+                  {
+                    blockType: "steady",
+                    order: 1,
+                    repetitions: 1,
+                    title: "Long",
+                    notes: null,
+                    target: {
+                      durationSeconds: 3600,
+                      distanceMeters: null,
+                      pace: null,
+                      heartRate: "Z2",
+                      rpe: 5,
+                    },
                   },
-                },
-              ],
-            },
-          },
-          { date: "2026-04-12", session: null },
-        ],
+                ],
+              },
+            };
+          }
+
+          return {
+            date: isoDate,
+            session: null,
+          };
+        }),
       }),
     ...overrides,
   };
@@ -273,7 +283,7 @@ describe("weekly planning integration", () => {
     expect(events[0]?.status).toBe("failure");
   });
 
-  it("blocks a second generation when an active draft already exists", async () => {
+  it("blocks a second generation for the same start date", async () => {
     const { db, user, service } = await seedPlannerUser();
 
     await Effect.runPromise(
@@ -293,7 +303,7 @@ describe("weekly planning integration", () => {
     const exit = await Effect.runPromiseExit(
       service.generateDraft(user.id, {
         planGoal: TRAINING_PLAN_GOALS.race,
-        startDate: "2026-04-13",
+        startDate: "2026-04-06",
         longRunDay: DAYS_OF_WEEK.saturday,
         planDurationWeeks: 4,
         userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
@@ -317,6 +327,118 @@ describe("weekly planning integration", () => {
 
     const drafts = await db.select().from(plannerWeeklyPlan);
     expect(drafts).toHaveLength(1);
+  });
+
+  it("generates the next chronological week from the latest stored plan and preserves prior drafts", async () => {
+    const { db, user, service } = await seedPlannerUser();
+
+    const firstDraft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.race,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+          estimatedRaceTimeSeconds: 3000,
+        },
+      }),
+    );
+
+    await db.insert(importedActivity).values({
+      userId: user.id,
+      upstreamActivityId: "run-3",
+      athleteId: "athlete-1",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      startAt: new Date("2026-04-08T00:00:00.000Z"),
+      movingTimeSeconds: 2400,
+      elapsedTimeSeconds: 2410,
+      distanceMeters: 7000,
+      totalElevationGainMeters: 55,
+      averageSpeedMetersPerSecond: 2.9,
+      averageHeartrate: 152,
+      rawDetail: { id: "run-3" },
+    });
+
+    const nextDraft = await Effect.runPromise(
+      service.generateNextWeek(user.id),
+    );
+
+    expect(nextDraft.startDate).toBe("2026-04-13");
+    expect(nextDraft.endDate).toBe("2026-04-19");
+    expect(nextDraft.generationContext.plannerIntent).toEqual(
+      firstDraft.generationContext.plannerIntent,
+    );
+    expect(nextDraft.generationContext.planDurationWeeks).toBe(4);
+    expect(nextDraft.generationContext.startDate).toBe("2026-04-13");
+    expect(nextDraft.generationContext.previousPlanWindow).toEqual({
+      startDate: "2026-04-06",
+      endDate: "2026-04-12",
+    });
+    expect(nextDraft.generationContext.generationMode).toBe("renewal");
+    expect(nextDraft.generationContext.parentWeeklyPlanId).toBe(firstDraft.id);
+    expect(nextDraft.generationContext.historySnapshot.detailedRuns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          distanceMeters: 7000,
+        }),
+      ]),
+    );
+
+    const drafts = await db.query.weeklyPlan.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+      orderBy: (table, { asc }) => [asc(table.startDate)],
+    });
+    const events = await db.select().from(plannerGenerationEvent);
+
+    expect(drafts).toHaveLength(2);
+    expect(drafts[0]).toMatchObject({
+      id: firstDraft.id,
+      status: "draft",
+      startDate: "2026-04-06",
+    });
+    expect(drafts[1]).toMatchObject({
+      id: nextDraft.id,
+      status: "draft",
+      startDate: "2026-04-13",
+      parentWeeklyPlanId: firstDraft.id,
+    });
+    expect(events).toHaveLength(2);
+    expect(events[1]).toMatchObject({
+      status: "success",
+      weeklyPlanId: nextDraft.id,
+      startDate: "2026-04-13",
+    });
+  });
+
+  it("rejects next-week generation when no prior stored week exists", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "planner-no-prior@example.com",
+      name: "No Prior Planner",
+    });
+    const service = createWeeklyPlanningService({
+      trainingSettingsService: createLiveTrainingSettingsService({ db }),
+      planningDataService: createLivePlanningDataService({ db }),
+      repo: createWeeklyPlanningRepository(db),
+      model: createFakeModel(),
+      clock: { now: () => new Date("2026-04-01T00:00:00.000Z") },
+    });
+
+    const exit = await Effect.runPromiseExit(service.generateNextWeek(user.id));
+
+    expect(Exit.isFailure(exit)).toBe(true);
+
+    if (Exit.isFailure(exit)) {
+      const failure = Cause.failureOption(exit.cause);
+      expect(Option.isSome(failure)).toBe(true);
+
+      if (Option.isSome(failure)) {
+        expect(failure.value).toBeInstanceOf(MissingPriorPlan);
+      }
+    }
   });
 
   it("supports below-threshold users when local history exists", async () => {
