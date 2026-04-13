@@ -370,6 +370,9 @@ describe("weekly planning domain", () => {
                 estimatedRaceTimeSeconds: 1800,
               },
       },
+      generationMode: "initial",
+      parentWeeklyPlanId: null,
+      previousPlanWindow: null,
       currentDate: "2026-04-01",
       availability: {
         monday: { available: true, maxDurationMinutes: 45 },

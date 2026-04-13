@@ -35,6 +35,7 @@ export const weeklyPlan = pgTable(
     goalId: text("goal_id").references(() => trainingGoal.id, {
       onDelete: "cascade",
     }),
+    parentWeeklyPlanId: text("parent_weekly_plan_id"),
     status: weeklyPlanStatusEnum("status").notNull(),
     startDate: text("start_date").notNull(),
     endDate: text("end_date").notNull(),
@@ -48,9 +49,14 @@ export const weeklyPlan = pgTable(
   },
   (table) => [
     index("weekly_plan_user_start_idx").on(table.userId, table.startDate),
-    uniqueIndex("weekly_plan_active_draft_user_unique")
-      .on(table.userId)
+    uniqueIndex("weekly_plan_draft_user_start_unique")
+      .on(table.userId, table.startDate)
       .where(sql`${table.status} = 'draft'`),
+    foreignKey({
+      columns: [table.parentWeeklyPlanId],
+      foreignColumns: [table.id],
+      name: "weekly_plan_parent_weekly_plan_id_weekly_plan_id_fk",
+    }).onDelete("set null"),
   ],
 );
 

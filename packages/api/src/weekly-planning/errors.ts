@@ -22,6 +22,10 @@ export class NoLocalHistory extends Data.TaggedError("NoLocalHistory")<{
   message: string;
 }> {}
 
+export class MissingPriorPlan extends Data.TaggedError("MissingPriorPlan")<{
+  message: string;
+}> {}
+
 export class DraftConflict extends Data.TaggedError("DraftConflict")<{
   message: string;
 }> {}

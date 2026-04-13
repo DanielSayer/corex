@@ -11,42 +11,44 @@ describe("training calendar domain", () => {
         timezone: "Australia/Brisbane",
       },
       {
-        draft: {
-          id: "plan-1",
-          payload: {
-            days: [
-              {
-                date: "2026-04-06",
-                session: {
-                  sessionType: "easy_run",
-                  title: "Easy run",
-                  summary: "Aerobic work",
-                  coachingNotes: null,
-                  estimatedDurationSeconds: 1800,
-                  estimatedDistanceMeters: 5000,
-                  intervalBlocks: [],
+        plans: [
+          {
+            id: "plan-1",
+            payload: {
+              days: [
+                {
+                  date: "2026-04-06",
+                  session: {
+                    sessionType: "easy_run",
+                    title: "Easy run",
+                    summary: "Aerobic work",
+                    coachingNotes: null,
+                    estimatedDurationSeconds: 1800,
+                    estimatedDistanceMeters: 5000,
+                    intervalBlocks: [],
+                  },
                 },
-              },
-              {
-                date: "2026-04-07",
-                session: {
-                  sessionType: "workout",
-                  title: "Tempo session",
-                  summary: "Threshold reps",
-                  coachingNotes: null,
-                  estimatedDurationSeconds: 2400,
-                  estimatedDistanceMeters: 7000,
-                  intervalBlocks: [],
+                {
+                  date: "2026-04-07",
+                  session: {
+                    sessionType: "workout",
+                    title: "Tempo session",
+                    summary: "Threshold reps",
+                    coachingNotes: null,
+                    estimatedDurationSeconds: 2400,
+                    estimatedDistanceMeters: 7000,
+                    intervalBlocks: [],
+                  },
                 },
-              },
-              { date: "2026-04-08", session: null },
-              { date: "2026-04-09", session: null },
-              { date: "2026-04-10", session: null },
-              { date: "2026-04-11", session: null },
-              { date: "2026-04-12", session: null },
-            ],
+                { date: "2026-04-08", session: null },
+                { date: "2026-04-09", session: null },
+                { date: "2026-04-10", session: null },
+                { date: "2026-04-11", session: null },
+                { date: "2026-04-12", session: null },
+              ],
+            },
           },
-        },
+        ],
         activityRecords: [
           {
             id: "run-1",

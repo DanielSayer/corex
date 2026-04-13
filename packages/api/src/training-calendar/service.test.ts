@@ -51,7 +51,8 @@ describe("training calendar service", () => {
 
     const service = createTrainingCalendarService({
       weeklyPlanningRepo: {
-        getActiveDraft: () => Effect.succeed(createDraft() as never),
+        getPlanForDate: () => Effect.succeed(createDraft() as never),
+        listPlansInRange: () => Effect.succeed([createDraft()] as never),
       },
       repo: {
         listActivitiesInRange: () => Effect.succeed([]),
@@ -108,7 +109,8 @@ describe("training calendar service", () => {
   it("rejects cross-date activity links", async () => {
     const service = createTrainingCalendarService({
       weeklyPlanningRepo: {
-        getActiveDraft: () => Effect.succeed(createDraft() as never),
+        getPlanForDate: () => Effect.succeed(createDraft() as never),
+        listPlansInRange: () => Effect.succeed([createDraft()] as never),
       },
       repo: {
         listActivitiesInRange: () => Effect.succeed([]),

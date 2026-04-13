@@ -31,7 +31,10 @@ export type TrainingCalendarService = ReturnType<
 
 export function createTrainingCalendarService(options: {
   repo: TrainingCalendarRepository;
-  weeklyPlanningRepo: Pick<WeeklyPlanningRepository, "getActiveDraft">;
+  weeklyPlanningRepo: Pick<
+    WeeklyPlanningRepository,
+    "getPlanForDate" | "listPlansInRange"
+  >;
 }) {
   return {
     month(
@@ -42,19 +45,25 @@ export function createTrainingCalendarService(options: {
       TrainingCalendarPersistenceFailure
     > {
       return Effect.gen(function* () {
-        const [draft, activityRecords] = yield* Effect.all([
+        const [plans, activityRecords] = yield* Effect.all([
           Effect.mapError(
-            options.weeklyPlanningRepo.getActiveDraft(userId),
+            options.weeklyPlanningRepo.listPlansInRange(userId, {
+              startDate: getLocalDateKey(new Date(input.from), input.timezone),
+              endDate: getLocalDateKey(
+                new Date(new Date(input.to).getTime() - 1),
+                input.timezone,
+              ),
+            }),
             mapWeeklyPlanningError,
           ),
           options.repo.listActivitiesInRange(userId, input),
         ]);
-        const links = draft
-          ? yield* options.repo.listLinksForDraft(userId, draft.id)
-          : [];
+        const links = yield* Effect.forEach(plans, (plan) =>
+          options.repo.listLinksForDraft(userId, plan.id),
+        ).pipe(Effect.map((results) => results.flat()));
 
         return buildTrainingCalendarMonth(input, {
-          draft,
+          plans,
           activityRecords,
           links,
         });
@@ -72,7 +81,7 @@ export function createTrainingCalendarService(options: {
     > {
       return Effect.gen(function* () {
         const draft = yield* Effect.mapError(
-          options.weeklyPlanningRepo.getActiveDraft(userId),
+          options.weeklyPlanningRepo.getPlanForDate(userId, input.plannedDate),
           mapWeeklyPlanningError,
         );
 

@@ -22,50 +22,60 @@ function createFakeModel(): PlannerModelPort {
   return {
     provider: "test",
     model: "fake-model",
-    generateWeeklyPlan: () =>
+    generateWeeklyPlan: (context) =>
       Effect.succeed({
-        days: [
-          {
-            date: "2026-04-06",
-            session: {
-              sessionType: "easy_run",
-              title: "Easy run",
-              summary: "Aerobic work",
-              coachingNotes: null,
-              estimatedDurationSeconds: 1800,
-              estimatedDistanceMeters: 5000,
-              intervalBlocks: [],
-            },
-          },
-          {
-            date: "2026-04-07",
-            session: {
-              sessionType: "workout",
-              title: "Tempo session",
-              summary: "Threshold reps",
-              coachingNotes: null,
-              estimatedDurationSeconds: 2400,
-              estimatedDistanceMeters: 7000,
-              intervalBlocks: [],
-            },
-          },
-          { date: "2026-04-08", session: null },
-          { date: "2026-04-09", session: null },
-          { date: "2026-04-10", session: null },
-          {
-            date: "2026-04-11",
-            session: {
-              sessionType: "long_run",
-              title: "Long run",
-              summary: "Steady aerobic volume",
-              coachingNotes: null,
-              estimatedDurationSeconds: 4200,
-              estimatedDistanceMeters: 14000,
-              intervalBlocks: [],
-            },
-          },
-          { date: "2026-04-12", session: null },
-        ],
+        days: Array.from({ length: 7 }, (_, index) => {
+          const date = new Date(`${context.startDate}T00:00:00.000Z`);
+          date.setUTCDate(date.getUTCDate() + index);
+          const isoDate = date.toISOString().slice(0, 10);
+
+          if (index === 0) {
+            return {
+              date: isoDate,
+              session: {
+                sessionType: "easy_run",
+                title: "Easy run",
+                summary: "Aerobic work",
+                coachingNotes: null,
+                estimatedDurationSeconds: 1800,
+                estimatedDistanceMeters: 5000,
+                intervalBlocks: [],
+              },
+            };
+          }
+
+          if (index === 1) {
+            return {
+              date: isoDate,
+              session: {
+                sessionType: "workout",
+                title: "Tempo session",
+                summary: "Threshold reps",
+                coachingNotes: null,
+                estimatedDurationSeconds: 2400,
+                estimatedDistanceMeters: 7000,
+                intervalBlocks: [],
+              },
+            };
+          }
+
+          if (index === 5) {
+            return {
+              date: isoDate,
+              session: {
+                sessionType: "long_run",
+                title: "Long run",
+                summary: "Steady aerobic volume",
+                coachingNotes: null,
+                estimatedDurationSeconds: 4200,
+                estimatedDistanceMeters: 14000,
+                intervalBlocks: [],
+              },
+            };
+          }
+
+          return { date: isoDate, session: null };
+        }),
       }),
   };
 }
@@ -179,6 +189,7 @@ async function seedTrainingCalendarUser(overrides?: {
     db,
     user,
     draft,
+    weeklyPlanningService,
     service: createLiveTrainingCalendarService({ db }),
     activities: {
       monday: `${prefix}-1`,
@@ -371,5 +382,127 @@ describe("training calendar integration", () => {
       ),
       "This planned session is already linked to an activity",
     );
+  });
+
+  it("renders the plan whose dates overlap the viewed week when multiple drafts exist", async () => {
+    const seeded = await seedTrainingCalendarUser({
+      email: "calendar-multi-week@example.com",
+      name: "Calendar Multi Week",
+      activityPrefix: "multi",
+    });
+
+    await seeded.db.insert(importedActivity).values({
+      userId: seeded.user.id,
+      upstreamActivityId: "multi-4",
+      athleteId: "athlete-1",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      name: "Second week Monday run",
+      startAt: new Date("2026-04-13T06:00:00.000Z"),
+      movingTimeSeconds: 1800,
+      elapsedTimeSeconds: 1800,
+      distanceMeters: 5000,
+      totalElevationGainMeters: 24,
+      averageSpeedMetersPerSecond: 2.7,
+      averageHeartrate: 149,
+      trainingLoad: 42,
+      rawDetail: { id: "multi-4" },
+    });
+
+    const nextDraft = await Effect.runPromise(
+      seeded.weeklyPlanningService.generateNextWeek(seeded.user.id),
+    );
+
+    const firstWeek = await Effect.runPromise(
+      seeded.service.month(seeded.user.id, {
+        from: "2026-04-06T00:00:00.000Z",
+        to: "2026-04-12T00:00:00.000Z",
+        timezone: "Australia/Brisbane",
+      }),
+    );
+    const secondWeek = await Effect.runPromise(
+      seeded.service.month(seeded.user.id, {
+        from: "2026-04-13T00:00:00.000Z",
+        to: "2026-04-19T00:00:00.000Z",
+        timezone: "Australia/Brisbane",
+      }),
+    );
+
+    expect(firstWeek.plannedSessions.map((session) => session.date)).toEqual([
+      "2026-04-06",
+      "2026-04-07",
+      "2026-04-11",
+    ]);
+    expect(secondWeek.plannedSessions.map((session) => session.date)).toEqual([
+      "2026-04-13",
+      "2026-04-14",
+      "2026-04-18",
+    ]);
+    expect(secondWeek.plannedSessions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          date: "2026-04-13",
+          status: "planned",
+          candidateActivities: [
+            expect.objectContaining({
+              id: "multi-4",
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(nextDraft.startDate).toBe("2026-04-13");
+  });
+
+  it("links an activity against the plan covering the selected date when multiple drafts exist", async () => {
+    const seeded = await seedTrainingCalendarUser({
+      email: "calendar-next-link@example.com",
+      name: "Calendar Next Link",
+      activityPrefix: "nextlink",
+    });
+
+    await seeded.db.insert(importedActivity).values({
+      userId: seeded.user.id,
+      upstreamActivityId: "nextlink-4",
+      athleteId: "athlete-1",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      name: "Second week Monday completion",
+      startAt: new Date("2026-04-13T06:00:00.000Z"),
+      movingTimeSeconds: 1800,
+      elapsedTimeSeconds: 1800,
+      distanceMeters: 5000,
+      totalElevationGainMeters: 24,
+      averageSpeedMetersPerSecond: 2.7,
+      averageHeartrate: 149,
+      trainingLoad: 42,
+      rawDetail: { id: "nextlink-4" },
+    });
+
+    const nextDraft = await Effect.runPromise(
+      seeded.weeklyPlanningService.generateNextWeek(seeded.user.id),
+    );
+
+    await Effect.runPromise(
+      seeded.service.linkActivity(seeded.user.id, {
+        plannedDate: "2026-04-13",
+        activityId: "nextlink-4",
+        timezone: "Australia/Brisbane",
+      }),
+    );
+
+    const storedLink = await seeded.db.query.weeklyPlanActivityLink.findFirst({
+      where: (table, { and, eq }) =>
+        and(
+          eq(table.userId, seeded.user.id),
+          eq(table.plannedDate, "2026-04-13"),
+        ),
+    });
+
+    expect(storedLink).toMatchObject({
+      weeklyPlanId: nextDraft.id,
+      plannedDate: "2026-04-13",
+      activityId: "nextlink-4",
+    });
   });
 });

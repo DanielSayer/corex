@@ -86,7 +86,7 @@ export const plannerGoalOptions: PlannerGoalOption[] = [
   },
 ];
 
-function addDays(date: string, count: number) {
+export function addDays(date: string, count: number) {
   const next = new Date(`${date}T00:00:00.000Z`);
   next.setUTCDate(next.getUTCDate() + count);
   return next.toISOString().slice(0, 10);
@@ -357,6 +357,9 @@ export function validateGeneratedPayload(input: {
 
 export function createDraftGenerationContext(input: {
   plannerIntent: PlannerIntent;
+  generationMode: DraftGenerationContext["generationMode"];
+  parentWeeklyPlanId: string | null;
+  previousPlanWindow: DraftGenerationContext["previousPlanWindow"];
   currentDate: string;
   availability: WeeklyAvailability;
   historySnapshot: PlanningHistorySnapshot;
@@ -370,6 +373,9 @@ export function createDraftGenerationContext(input: {
 }): DraftGenerationContext {
   return {
     plannerIntent: input.plannerIntent,
+    generationMode: input.generationMode,
+    parentWeeklyPlanId: input.parentWeeklyPlanId,
+    previousPlanWindow: input.previousPlanWindow,
     currentDate: input.currentDate,
     currentDayOfWeek: getDayOfWeek(input.currentDate),
     availability: input.availability,

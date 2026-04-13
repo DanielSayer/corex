@@ -8,6 +8,7 @@ import {
   GenerationTimeout,
   InvalidStructuredOutput,
   MissingTrainingSettings,
+  MissingPriorPlan,
   NoLocalHistory,
   ProviderFailure,
   WeeklyPlanningPersistenceFailure,
@@ -30,6 +31,7 @@ function mapWeeklyPlanningError(error: unknown) {
   }
 
   if (
+    error instanceof MissingPriorPlan ||
     error instanceof MissingTrainingSettings ||
     error instanceof NoLocalHistory ||
     error instanceof WeeklyPlanningValidationError ||
@@ -81,6 +83,12 @@ export function createWeeklyPlanningRouter(
           mapWeeklyPlanningError,
         ),
       ),
+    generateNextWeek: authedProcedure.mutation(({ ctx }) =>
+      executeEffect(
+        getService().generateNextWeek(ctx.session.user.id),
+        mapWeeklyPlanningError,
+      ),
+    ),
   });
 }
 
