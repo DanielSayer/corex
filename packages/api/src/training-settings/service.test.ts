@@ -21,12 +21,16 @@ const sampleInput: TrainingSettingsInput = {
   },
   intervalsUsername: "runner@example.com",
   intervalsApiKey: "secret-key",
+  timezone: "Australia/Brisbane",
 };
 
 function createStoredSettings(): StoredTrainingSettings {
   return {
     userId: "user-1",
     availability: sampleInput.availability,
+    preferences: {
+      timezone: sampleInput.timezone,
+    },
     intervalsCredential: {
       username: sampleInput.intervalsUsername,
       athleteId: null,
@@ -46,7 +50,13 @@ function createRepo(
 ): TrainingSettingsRepository {
   return {
     findByUserId: () => Effect.succeed(null),
+    findPreferencesByUserId: () => Effect.succeed(null),
     upsert: () => Effect.succeed(createStoredSettings()),
+    upsertPreferences: () =>
+      Effect.succeed({
+        timezone: sampleInput.timezone,
+        updatedAt: new Date("2026-03-20T00:00:00.000Z"),
+      }),
     saveIntervalsAthleteIdentity: () => Effect.void,
     ...overrides,
   };
@@ -69,6 +79,9 @@ describe("training settings service", () => {
     ).resolves.toEqual({
       status: "not_started",
       availability: null,
+      preferences: {
+        timezone: "UTC",
+      },
       intervalsCredential: {
         hasKey: false,
         username: null,
@@ -106,6 +119,9 @@ describe("training settings service", () => {
     ).resolves.toEqual({
       status: "complete",
       availability: sampleInput.availability,
+      preferences: {
+        timezone: sampleInput.timezone,
+      },
       intervalsCredential: {
         hasKey: true,
         username: sampleInput.intervalsUsername,
@@ -116,6 +132,9 @@ describe("training settings service", () => {
     expect(persistedRecord).toEqual({
       userId: "user-1",
       availability: sampleInput.availability,
+      preferences: {
+        timezone: sampleInput.timezone,
+      },
       intervalsUsername: sampleInput.intervalsUsername,
       intervalsCredential: {
         ciphertext: "ciphertext",
@@ -124,6 +143,74 @@ describe("training settings service", () => {
         keyVersion: 1,
       },
     });
+  });
+
+  it("updates timezone without requiring credentials", async () => {
+    let persistedPreferences:
+      | Parameters<TrainingSettingsRepository["upsertPreferences"]>[1]
+      | undefined;
+
+    const service = createTrainingSettingsService({
+      repo: createRepo({
+        findPreferencesByUserId: () =>
+          Effect.succeed({
+            timezone: "Pacific/Auckland",
+            updatedAt: new Date("2026-03-21T00:00:00.000Z"),
+          }),
+        upsertPreferences: (_userId, preferences) => {
+          persistedPreferences = preferences;
+          return Effect.succeed({
+            ...preferences,
+            updatedAt: new Date("2026-03-21T00:00:00.000Z"),
+          });
+        },
+      }),
+      crypto: {
+        encrypt: () => Effect.die("not used"),
+        decrypt: () => Effect.die("not used"),
+      },
+    });
+
+    await expect(
+      Effect.runPromise(
+        service.updateTimezoneForUser("user-1", {
+          timezone: "Pacific/Auckland",
+        }),
+      ),
+    ).resolves.toMatchObject({
+      preferences: {
+        timezone: "Pacific/Auckland",
+      },
+    });
+
+    expect(persistedPreferences).toEqual({
+      timezone: "Pacific/Auckland",
+    });
+  });
+
+  it("rejects invalid timezone values before persistence", async () => {
+    let upsertCalls = 0;
+    const service = createTrainingSettingsService({
+      repo: createRepo({
+        upsertPreferences: () => {
+          upsertCalls += 1;
+          return Effect.die("not used");
+        },
+      }),
+      crypto: {
+        encrypt: () => Effect.die("not used"),
+        decrypt: () => Effect.die("not used"),
+      },
+    });
+
+    const exit = await Effect.runPromiseExit(
+      service.updateTimezoneForUser("user-1", {
+        timezone: "not-a-timezone",
+      }),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+    expect(upsertCalls).toBe(0);
   });
 
   it("rejects structurally invalid settings before encryption or persistence", async () => {

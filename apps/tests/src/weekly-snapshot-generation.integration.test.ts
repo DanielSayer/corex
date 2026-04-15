@@ -46,6 +46,7 @@ async function saveTrainingSettings(input: {
       },
       intervalsUsername: "runner@example.com",
       intervalsApiKey: "intervals-secret-key",
+      timezone: "Australia/Brisbane",
     }),
   );
 
@@ -78,7 +79,7 @@ describe("weekly snapshot generation integration", () => {
     await resetDatabase();
   });
 
-  it("generates a snapshot for the prior local week using only persisted data", async () => {
+  it("ensures a snapshot for the prior local week using only persisted data", async () => {
     const { db } = await getIntegrationHarness();
     const user = await createUser(db, {
       email: "weekly-generation@example.com",
@@ -190,7 +191,7 @@ describe("weekly snapshot generation integration", () => {
     });
 
     const snapshot = await Effect.runPromise(
-      service.generateWeeklySnapshotForUser(user.id, "Australia/Brisbane"),
+      service.ensureLatestForUser(user.id),
     );
 
     expect(snapshot.timezone).toBe("Australia/Brisbane");
@@ -277,12 +278,8 @@ describe("weekly snapshot generation integration", () => {
     });
 
     const [first, second] = await Promise.all([
-      Effect.runPromise(
-        service.generateWeeklySnapshotForUser(user.id, "Australia/Brisbane"),
-      ),
-      Effect.runPromise(
-        service.generateWeeklySnapshotForUser(user.id, "Australia/Brisbane"),
-      ),
+      Effect.runPromise(service.generateWeeklySnapshotForUser(user.id)),
+      Effect.runPromise(service.generateWeeklySnapshotForUser(user.id)),
     ]);
 
     const rows = await db.query.weeklySnapshot.findMany();

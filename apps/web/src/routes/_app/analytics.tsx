@@ -18,7 +18,6 @@ import {
 } from "@/components/analytics";
 import { LoadingWrapper } from "@/components/renderers";
 import { ensureAppRouteAccess } from "@/lib/app-route";
-import { getBrowserTimeZone } from "@/lib/browser-timezone";
 import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_app/analytics")({
@@ -26,22 +25,25 @@ export const Route = createFileRoute("/_app/analytics")({
   component: RouteComponent,
 });
 
-const timezone = getBrowserTimeZone();
-const currentYear = Number(
-  new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    timeZone: timezone,
-  }).format(new Date()),
-);
-
 function RouteComponent() {
+  const trainingSettings = useQuery(trpc.trainingSettings.get.queryOptions());
+  const timezone = trainingSettings.data?.preferences.timezone ?? "UTC";
+  const currentYear = useMemo(
+    () =>
+      Number(
+        new Intl.DateTimeFormat("en-US", {
+          year: "numeric",
+          timeZone: timezone,
+        }).format(new Date()),
+      ),
+    [timezone],
+  );
   const [requestedYear, setRequestedYear] = useState(currentYear);
   const [distanceGranularity, setDistanceGranularity] =
     useState<DistanceGranularity>("month");
   const requestedAnalytics = useQuery(
     trpc.analytics.get.queryOptions({
       year: requestedYear,
-      timezone,
     }),
   );
   const fallbackYear = useMemo(() => {
@@ -57,7 +59,6 @@ function RouteComponent() {
     trpc.analytics.get.queryOptions(
       {
         year: fallbackYear ?? requestedYear,
-        timezone,
       },
       {
         enabled: typeof fallbackYear === "number",

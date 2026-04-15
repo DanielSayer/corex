@@ -3,11 +3,14 @@ export const WEEKLY_WRAPPED_STAGGER_CHILD = {
   show: { opacity: 1, y: 0 },
 };
 
-export function formatWeekRange(start: string, end: string) {
+export function formatWeekRange(start: string, end: string, timezone?: string) {
+  const inclusiveEnd = new Date(new Date(end).getTime() - 1);
+
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
-  }).formatRange(new Date(start), new Date(end));
+    timeZone: timezone,
+  }).formatRange(new Date(start), inclusiveEnd);
 }
 
 export function formatNumericValue(

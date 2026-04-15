@@ -54,6 +54,9 @@ function createTrainingSettingsRepo(
                 saturday: { available: true, maxDurationMinutes: 90 },
                 sunday: { available: false, maxDurationMinutes: null },
               },
+              preferences: {
+                timezone: "Australia/Brisbane",
+              },
               intervalsCredential: {
                 username: "runner@example.com",
                 athleteId: null,

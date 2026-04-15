@@ -12,6 +12,7 @@ import {
   stepContent,
 } from "@/components/onboarding";
 import { authClient } from "@/lib/auth-client";
+import { getBrowserTimeZone } from "@/lib/browser-timezone";
 import {
   buildTrainingGoalInput,
   buildTrainingSettingsInput,
@@ -59,7 +60,7 @@ function RouteComponent() {
   const goalsQueryOptions = trpc.goals.get.queryOptions();
   const settings = useQuery(settingsQueryOptions);
   const [draft, setDraft] = useState<OnboardingDraft>(() =>
-    createDefaultOnboardingDraft(),
+    createDefaultOnboardingDraft(new Date(), getBrowserTimeZone()),
   );
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [allowCompletedOnboardingSession, setAllowCompletedOnboardingSession] =

@@ -46,6 +46,7 @@ async function saveTrainingSettings(input: {
       },
       intervalsUsername: "runner@example.com",
       intervalsApiKey: "intervals-secret-key",
+      timezone: "Australia/Brisbane",
     }),
   );
 
@@ -131,7 +132,7 @@ describe("goal progress integration", () => {
 
     const result = await Effect.runPromise(service.getForUser(user.id));
 
-    expect(result.timezone).toBe("UTC");
+    expect(result.timezone).toBe("Australia/Brisbane");
     expect(result.sync.recommendedAction).toBe("sync_history");
     expect(result.activeGoals).toHaveLength(1);
     expect(result.activeGoals[0]).toMatchObject({
@@ -184,7 +185,7 @@ describe("goal progress integration", () => {
 
     const result = await Effect.runPromise(service.getForUser(user.id));
 
-    expect(result.timezone).toBe("UTC");
+    expect(result.timezone).toBe("Australia/Brisbane");
     expect(result.sync.latestSyncWarnings).toContain("sync_stale");
     expect(result.activeGoals).toHaveLength(1);
     expect(result.activeGoals[0]).toMatchObject({
@@ -358,9 +359,7 @@ describe("goal progress integration", () => {
     });
 
     const [weekly, monthly] = await Promise.all([
-      Effect.runPromise(
-        weeklyService.getForUser(weekUser.id, "Australia/Brisbane"),
-      ),
+      Effect.runPromise(weeklyService.getForUser(weekUser.id)),
       Effect.runPromise(monthlyService.getForUser(monthUser.id)),
     ]);
 
@@ -479,9 +478,7 @@ describe("goal progress integration", () => {
       clock: { now: () => new Date("2026-04-03T12:00:00.000Z") },
     });
 
-    const result = await Effect.runPromise(
-      service.getForUser(user.id, "Australia/Brisbane"),
-    );
+    const result = await Effect.runPromise(service.getForUser(user.id));
 
     expect(result.timezone).toBe("Australia/Brisbane");
     expect(result.activeGoals).toHaveLength(0);

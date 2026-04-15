@@ -1,9 +1,9 @@
 import { Button } from "@corex/ui/components/button";
 import { Skeleton } from "@corex/ui/components/skeleton";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FlameIcon, HistoryIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { SettingsPageShell } from "@/components/onboarding/settings-page-shell";
 import { LoadingWrapper } from "@/components/renderers";
@@ -16,7 +16,7 @@ import {
   formatWeekRange,
 } from "@/components/weekly-wrapped/utils";
 import { ensureAppRouteAccess } from "@/lib/app-route";
-import { trpc } from "@/utils/trpc";
+import { queryClient, trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_app/weekly-wrapped")({
   beforeLoad: ({ context }) => ensureAppRouteAccess(context),
@@ -24,10 +24,26 @@ export const Route = createFileRoute("/_app/weekly-wrapped")({
 });
 
 function RouteComponent() {
-  const latestSnapshot = useQuery(
-    trpc.weeklySnapshots.getLatest.queryOptions(),
-  );
+  const latestSnapshotOptions = trpc.weeklySnapshots.getLatest.queryOptions();
+  const latestSnapshot = useQuery(latestSnapshotOptions);
+  const ensureLatestSnapshot = useMutation({
+    ...trpc.weeklySnapshots.ensureLatest.mutationOptions(),
+    onSuccess: (snapshot) => {
+      queryClient.setQueryData(latestSnapshotOptions.queryKey, snapshot);
+    },
+  });
   const [open, setOpen] = useState(false);
+  const ensureRequested = useRef(false);
+  const snapshot = ensureLatestSnapshot.data ?? latestSnapshot.data;
+  const isLoading = latestSnapshot.isLoading || ensureLatestSnapshot.isPending;
+  const ensureLatest = ensureLatestSnapshot.mutate;
+
+  useEffect(() => {
+    if (!ensureRequested.current && !latestSnapshot.isLoading) {
+      ensureRequested.current = true;
+      ensureLatest();
+    }
+  }, [ensureLatest, latestSnapshot.isLoading]);
 
   return (
     <SettingsPageShell
@@ -55,12 +71,12 @@ function RouteComponent() {
       }
     >
       <LoadingWrapper
-        isLoading={latestSnapshot.isLoading}
+        isLoading={isLoading}
         fallback={<Skeleton className="h-72 w-full rounded-[1.75rem]" />}
       >
-        {latestSnapshot.data ? (
+        {snapshot ? (
           <LatestSnapshotSection
-            snapshot={latestSnapshot.data}
+            snapshot={snapshot}
             onOpen={() => setOpen(true)}
           />
         ) : (
@@ -68,11 +84,11 @@ function RouteComponent() {
         )}
       </LoadingWrapper>
 
-      {latestSnapshot.data ? (
+      {snapshot ? (
         <WeeklyWrapped
           open={open}
           onOpenChange={setOpen}
-          data={latestSnapshot.data.payload}
+          data={snapshot.payload}
         />
       ) : null}
     </SettingsPageShell>
@@ -100,7 +116,11 @@ function LatestSnapshotSection({
         <div className="space-y-2">
           <h2 className="max-w-2xl text-3xl font-semibold tracking-tight">
             {period
-              ? formatWeekRange(period.weekStart, period.weekEnd)
+              ? formatWeekRange(
+                  period.weekStart,
+                  period.weekEnd,
+                  period.timezone,
+                )
               : "Latest weekly snapshot"}
           </h2>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">

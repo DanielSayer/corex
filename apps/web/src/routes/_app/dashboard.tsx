@@ -13,7 +13,6 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ensureAppRouteAccess } from "@/lib/app-route";
-import { getBrowserTimeZone } from "@/lib/browser-timezone";
 import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_app/dashboard")({
@@ -23,14 +22,9 @@ export const Route = createFileRoute("/_app/dashboard")({
 
 function RouteComponent() {
   const { session } = Route.useRouteContext();
-  const timezone = getBrowserTimeZone();
 
   const privateData = useQuery(trpc.privateData.queryOptions());
-  const goalProgress = useQuery(
-    trpc.goalProgress.get.queryOptions({
-      timezone,
-    }),
-  );
+  const goalProgress = useQuery(trpc.goalProgress.get.queryOptions());
   const recentActivities = useQuery(
     trpc.activityHistory.recentActivities.queryOptions(),
   );

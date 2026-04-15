@@ -28,6 +28,7 @@ import type {
   IntervalsActivityMap,
   IntervalsActivityStream,
 } from "./schemas";
+import { isValidTimeZone } from "../goal-progress/timezones";
 
 type RuntimeOptions = {
   clock: NonNullable<CreateIntervalsSyncModuleOptions["clock"]>;
@@ -104,6 +105,10 @@ function resolveAccountAndAthlete(
       yield* options.accounts.saveResolvedAthlete(userId, {
         athleteId,
         resolvedAt: runtime.clock.now(),
+        timezone:
+          profile.timezone && isValidTimeZone(profile.timezone)
+            ? profile.timezone
+            : null,
       });
     }
 

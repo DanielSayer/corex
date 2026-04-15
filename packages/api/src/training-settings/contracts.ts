@@ -1,7 +1,12 @@
 import { z } from "zod";
 
+import { isValidTimeZone } from "../goal-progress/timezones";
+
 const isoDateSchema = z.iso.date();
 const optionalNotesSchema = z.string().trim().max(500).optional();
+const timezoneSchema = z.string().trim().min(1).refine(isValidTimeZone, {
+  message: "Invalid timezone",
+});
 
 export const eventGoalSchema = z.object({
   type: z.literal("event_goal"),
@@ -64,8 +69,18 @@ export const trainingSettingsInputSchema = z.object({
   availability: weeklyAvailabilitySchema,
   intervalsUsername: z.string().trim().min(1).max(255),
   intervalsApiKey: z.string().trim().min(1).max(512),
+  timezone: timezoneSchema,
+});
+
+export const trainingPreferencesSchema = z.object({
+  timezone: timezoneSchema,
+});
+
+export const updateTimezoneInputSchema = z.object({
+  timezone: timezoneSchema,
 });
 
 export type TrainingGoal = z.infer<typeof trainingGoalSchema>;
 export type WeeklyAvailability = z.infer<typeof weeklyAvailabilitySchema>;
 export type TrainingSettingsInput = z.infer<typeof trainingSettingsInputSchema>;
+export type TrainingPreferences = z.infer<typeof trainingPreferencesSchema>;

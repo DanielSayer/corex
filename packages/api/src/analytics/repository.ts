@@ -20,7 +20,7 @@ import type {
   AnalyticsPrTrend,
   AnalyticsView,
 } from "./contracts";
-import type { AnalyticsService } from "./service";
+import type { AnalyticsRepository } from "./service";
 
 type RunRow = {
   startAt: Date;
@@ -177,9 +177,9 @@ function buildPrTrendSeries(
   };
 }
 
-export function createAnalyticsRepository(db: Database): AnalyticsService {
+export function createAnalyticsRepository(db: Database): AnalyticsRepository {
   return {
-    getForUser(userId, input) {
+    getForUserInTimezone(userId, input) {
       return Effect.tryPromise(async () => {
         const yearStartKey = `${input.year}-01-01`;
         const nextYearStartKey = `${input.year + 1}-01-01`;

@@ -6,14 +6,18 @@ import { createLivePlanningDataService } from "@corex/api/planning-data/live";
 import { createLiveTrainingSettingsService } from "@corex/api/training-settings/live";
 import {
   DAYS_OF_WEEK,
+  INTERVAL_BLOCK_TYPES,
+  SESSION_TYPES,
   SUPPORTED_RACE_DISTANCES,
   TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITY_LEVELS,
 } from "@corex/api/weekly-planning/contracts";
 import {
+  DraftNotFound,
   DraftConflict,
   InvalidStructuredOutput,
   MissingPriorPlan,
+  WeeklyPlanningValidationError,
 } from "@corex/api/weekly-planning/errors";
 import type { PlannerModelPort } from "@corex/api/weekly-planning/model";
 import { createWeeklyPlanningRepository } from "@corex/api/weekly-planning/repository";
@@ -121,7 +125,7 @@ async function seedPlannerUser() {
     trainingSettingsService.upsertForUser(user.id, {
       availability: {
         monday: { available: true, maxDurationMinutes: 45 },
-        tuesday: { available: true, maxDurationMinutes: 45 },
+        tuesday: { available: false, maxDurationMinutes: null },
         wednesday: { available: true, maxDurationMinutes: 60 },
         thursday: { available: true, maxDurationMinutes: 45 },
         friday: { available: true, maxDurationMinutes: 90 },
@@ -130,6 +134,7 @@ async function seedPlannerUser() {
       },
       intervalsUsername: "runner@example.com",
       intervalsApiKey: "secret-key",
+      timezone: "Australia/Brisbane",
     }),
   );
 
@@ -461,6 +466,7 @@ describe("weekly planning integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "secret-key",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -500,5 +506,275 @@ describe("weekly planning integration", () => {
     );
 
     expect(draft.status).toBe("draft");
+  });
+
+  it("edits an existing draft session without creating a new weekly plan row", async () => {
+    const { db, user, service } = await seedPlannerUser();
+    const draft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+
+    const edited = await Effect.runPromise(
+      service.updateDraftSession(user.id, {
+        draftId: draft.id,
+        date: "2026-04-06",
+        session: {
+          sessionType: SESSION_TYPES.easyRun,
+          title: "Short aerobic run",
+          summary: "Keep this deliberately short before work.",
+          coachingNotes: "Stop early if the legs feel flat.",
+          estimatedDurationSeconds: 1500,
+          estimatedDistanceMeters: 4200,
+          intervalBlocks: [
+            {
+              blockType: INTERVAL_BLOCK_TYPES.steady,
+              order: 1,
+              repetitions: 1,
+              title: "Gentle aerobic block",
+              notes: null,
+              target: {
+                durationSeconds: 1500,
+                distanceMeters: null,
+                pace: null,
+                heartRate: "Z2",
+                rpe: 3,
+              },
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(edited.id).toBe(draft.id);
+    expect(edited.payload.days[0]?.session).toMatchObject({
+      title: "Short aerobic run",
+      estimatedDurationSeconds: 1500,
+      estimatedDistanceMeters: 4200,
+    });
+
+    const storedDrafts = await db.query.weeklyPlan.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+
+    expect(storedDrafts).toHaveLength(1);
+    expect(storedDrafts[0]?.id).toBe(draft.id);
+    expect(storedDrafts[0]?.payload).toEqual(edited.payload);
+  });
+
+  it("rejects draft edits for plans owned by another user", async () => {
+    const primary = await seedPlannerUser();
+    const otherUser = await createUser(primary.db, {
+      email: "planner-other-owner@example.com",
+      name: "Other Planner",
+    });
+    const draft = await Effect.runPromise(
+      primary.service.generateDraft(primary.user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+
+    const exit = await Effect.runPromiseExit(
+      primary.service.updateDraftSession(otherUser.id, {
+        draftId: draft.id,
+        date: "2026-04-06",
+        session: draft.payload.days[0]!.session!,
+      }),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+
+    if (Exit.isFailure(exit)) {
+      const failure = Cause.failureOption(exit.cause);
+      expect(Option.isSome(failure)).toBe(true);
+
+      if (Option.isSome(failure)) {
+        expect(failure.value).toBeInstanceOf(DraftNotFound);
+      }
+    }
+  });
+
+  it("rejects moving a draft session to an unavailable day", async () => {
+    const { user, service } = await seedPlannerUser();
+    const draft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+
+    const exit = await Effect.runPromiseExit(
+      service.moveDraftSession(user.id, {
+        draftId: draft.id,
+        fromDate: "2026-04-06",
+        toDate: "2026-04-07",
+        mode: "move",
+      }),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+
+    if (Exit.isFailure(exit)) {
+      const failure = Cause.failureOption(exit.cause);
+      expect(Option.isSome(failure)).toBe(true);
+
+      if (Option.isSome(failure)) {
+        expect(failure.value).toBeInstanceOf(WeeklyPlanningValidationError);
+      }
+    }
+  });
+
+  it("regenerates a selected draft in place and records regeneration mode", async () => {
+    const { db, user, service } = await seedPlannerUser();
+    const draft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+
+    const regeneratingService = createWeeklyPlanningService({
+      trainingSettingsService: createLiveTrainingSettingsService({ db }),
+      planningDataService: createLivePlanningDataService({ db }),
+      repo: createWeeklyPlanningRepository(db),
+      model: createFakeModel({
+        generateWeeklyPlan: (context) =>
+          Effect.succeed({
+            days: Array.from({ length: 7 }, (_, index) => {
+              const date = new Date(`${context.startDate}T00:00:00.000Z`);
+              date.setUTCDate(date.getUTCDate() + index);
+              const isoDate = date.toISOString().slice(0, 10);
+
+              if (index === 2) {
+                return {
+                  date: isoDate,
+                  session: {
+                    sessionType: "workout",
+                    title: "Regenerated workout",
+                    summary: "Fresh midweek workout",
+                    coachingNotes: null,
+                    estimatedDurationSeconds: 2700,
+                    estimatedDistanceMeters: 8000,
+                    intervalBlocks: [
+                      {
+                        blockType: "warmup",
+                        order: 1,
+                        repetitions: 1,
+                        title: "Warm up",
+                        notes: null,
+                        target: {
+                          durationSeconds: 600,
+                          distanceMeters: null,
+                          pace: null,
+                          heartRate: "Z2",
+                          rpe: 3,
+                        },
+                      },
+                      {
+                        blockType: "work",
+                        order: 2,
+                        repetitions: 4,
+                        title: "Controlled reps",
+                        notes: null,
+                        target: {
+                          durationSeconds: 300,
+                          distanceMeters: null,
+                          pace: null,
+                          heartRate: null,
+                          rpe: 7,
+                        },
+                      },
+                    ],
+                  },
+                };
+              }
+
+              if (index === 5) {
+                return {
+                  date: isoDate,
+                  session: {
+                    sessionType: "long_run",
+                    title: "Regenerated long run",
+                    summary: "Fresh long run",
+                    coachingNotes: null,
+                    estimatedDurationSeconds: 3900,
+                    estimatedDistanceMeters: 15000,
+                    intervalBlocks: [
+                      {
+                        blockType: "steady",
+                        order: 1,
+                        repetitions: 1,
+                        title: "Long aerobic block",
+                        notes: null,
+                        target: {
+                          durationSeconds: 3900,
+                          distanceMeters: null,
+                          pace: null,
+                          heartRate: "Z2",
+                          rpe: 5,
+                        },
+                      },
+                    ],
+                  },
+                };
+              }
+
+              return { date: isoDate, session: null };
+            }),
+          }),
+      }),
+      clock: { now: () => new Date("2026-04-02T00:00:00.000Z") },
+      idGenerator: (() => {
+        let index = 0;
+        return () => `planner-regen-${++index}`;
+      })(),
+    });
+
+    const regenerated = await Effect.runPromise(
+      regeneratingService.regenerateDraft(user.id, { draftId: draft.id }),
+    );
+
+    expect(regenerated.id).toBe(draft.id);
+    expect(regenerated.status).toBe("draft");
+    expect(regenerated.generationContext.generationMode).toBe("regeneration");
+    expect(regenerated.payload.days[2]?.session).toMatchObject({
+      title: "Regenerated workout",
+    });
+    expect(regenerated.payload.days[0]?.session).toBeNull();
+
+    const storedDrafts = await db.query.weeklyPlan.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+    });
+    const events = await db.query.generationEvent.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+      orderBy: (table, { asc }) => [asc(table.createdAt)],
+    });
+
+    expect(storedDrafts).toHaveLength(1);
+    expect(storedDrafts[0]?.id).toBe(draft.id);
+    expect(events).toHaveLength(2);
+    expect(events[1]).toMatchObject({
+      status: "success",
+      weeklyPlanId: draft.id,
+      startDate: "2026-04-06",
+    });
+    expect(events[1]?.generationContext).toMatchObject({
+      generationMode: "regeneration",
+    });
   });
 });

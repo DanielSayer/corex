@@ -181,6 +181,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -297,6 +298,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -341,6 +343,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -398,6 +401,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -475,6 +479,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -527,6 +532,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -589,6 +595,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -709,6 +716,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -787,6 +795,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -867,6 +876,7 @@ describe("intervals sync integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
 

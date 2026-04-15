@@ -35,6 +35,7 @@ async function saveTrainingSettings(userId: string) {
       },
       intervalsUsername: "runner@example.com",
       intervalsApiKey: "intervals-secret-key",
+      timezone: "Australia/Brisbane",
     }),
   );
 }

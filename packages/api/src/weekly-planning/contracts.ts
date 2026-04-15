@@ -61,6 +61,21 @@ export const DAYS_OF_WEEK = {
   sunday: "sunday",
 } as const;
 
+const orderedDaysOfWeek = [
+  DAYS_OF_WEEK.monday,
+  DAYS_OF_WEEK.tuesday,
+  DAYS_OF_WEEK.wednesday,
+  DAYS_OF_WEEK.thursday,
+  DAYS_OF_WEEK.friday,
+  DAYS_OF_WEEK.saturday,
+  DAYS_OF_WEEK.sunday,
+] as const;
+
+function getUtcDayOfWeek(date: string) {
+  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return orderedDaysOfWeek[(day + 6) % 7]!;
+}
+
 const isoDateSchema = z.iso.date();
 
 const userPerceivedAbilitySchema = z.enum([
@@ -196,7 +211,11 @@ export const weeklyPlanPayloadSchema = z.object({
   days: z.array(plannedDaySchema).length(7),
 });
 
-export const weeklyGenerationModeSchema = z.enum(["initial", "renewal"]);
+export const weeklyGenerationModeSchema = z.enum([
+  "initial",
+  "renewal",
+  "regeneration",
+]);
 
 export const corexPerceivedAbilitySummarySchema = z.object({
   level: corexPerceivedAbilitySchema,
@@ -240,30 +259,62 @@ export const generateWeeklyDraftInputSchema = z.discriminatedUnion("planGoal", [
     .strict(),
 ]);
 
-const draftGenerationContextSchema = z.object({
-  plannerIntent: plannerIntentSchema,
-  generationMode: weeklyGenerationModeSchema,
-  parentWeeklyPlanId: z.string().min(1).nullable(),
-  previousPlanWindow: z
-    .object({
-      startDate: isoDateSchema,
-      endDate: isoDateSchema,
-    })
-    .nullable(),
-  currentDate: isoDateSchema,
-  currentDayOfWeek: dayOfWeekSchema,
-  availability: weeklyAvailabilitySchema,
-  historySnapshot: z.custom<PlanningHistorySnapshot>(),
-  historyQuality: z.custom<PlanningHistoryQuality>(),
-  performanceSnapshot: z.custom<PlanningPerformanceSnapshot>(),
-  userPerceivedAbility: userPerceivedAbilitySchema,
-  corexPerceivedAbility: corexPerceivedAbilitySummarySchema,
-  longRunDay: dayOfWeekSchema,
-  startDate: isoDateSchema,
-  startDateDayOfWeek: dayOfWeekSchema,
-  endDate: isoDateSchema,
-  planDurationWeeks: z.number().int().min(1).max(24),
-});
+export const updateDraftSessionInputSchema = z
+  .object({
+    draftId: z.string().trim().min(1),
+    date: isoDateSchema,
+    session: plannedSessionSchema,
+  })
+  .strict();
+
+export const moveDraftSessionInputSchema = z
+  .object({
+    draftId: z.string().trim().min(1),
+    fromDate: isoDateSchema,
+    toDate: isoDateSchema,
+    mode: z.enum(["move", "swap"]),
+  })
+  .strict();
+
+export const regenerateDraftInputSchema = z
+  .object({
+    draftId: z.string().trim().min(1),
+  })
+  .strict();
+
+const draftGenerationContextSchema = z
+  .object({
+    plannerIntent: plannerIntentSchema,
+    generationMode: weeklyGenerationModeSchema.default("initial"),
+    parentWeeklyPlanId: z.string().min(1).nullable().default(null),
+    previousPlanWindow: z
+      .object({
+        startDate: isoDateSchema,
+        endDate: isoDateSchema,
+      })
+      .nullable()
+      .default(null),
+    currentDate: isoDateSchema,
+    currentDayOfWeek: dayOfWeekSchema.optional(),
+    availability: weeklyAvailabilitySchema,
+    historySnapshot: z.custom<PlanningHistorySnapshot>(),
+    historyQuality: z.custom<PlanningHistoryQuality>(),
+    performanceSnapshot: z.custom<PlanningPerformanceSnapshot>(),
+    userPerceivedAbility: userPerceivedAbilitySchema,
+    corexPerceivedAbility: corexPerceivedAbilitySummarySchema,
+    longRunDay: dayOfWeekSchema,
+    startDate: isoDateSchema,
+    startDateDayOfWeek: dayOfWeekSchema.optional(),
+    endDate: isoDateSchema,
+    planDurationWeeks: z.number().int().min(1).max(24),
+  })
+  .transform((context) => ({
+    ...context,
+    currentDayOfWeek:
+      context.currentDayOfWeek ?? getUtcDayOfWeek(context.currentDate),
+    startDateDayOfWeek:
+      context.startDateDayOfWeek ?? getUtcDayOfWeek(context.startDate),
+  }));
 
 export const weeklyPlanSchema = z.object({
   id: z.string().min(1),
@@ -305,6 +356,11 @@ export type PlannerDefaults = z.infer<typeof plannerDefaultsSchema>;
 export type GenerateWeeklyDraftInput = z.infer<
   typeof generateWeeklyDraftInputSchema
 >;
+export type UpdateDraftSessionInput = z.infer<
+  typeof updateDraftSessionInputSchema
+>;
+export type MoveDraftSessionInput = z.infer<typeof moveDraftSessionInputSchema>;
+export type RegenerateDraftInput = z.infer<typeof regenerateDraftInputSchema>;
 export type DraftGenerationContext = z.infer<
   typeof draftGenerationContextSchema
 >;

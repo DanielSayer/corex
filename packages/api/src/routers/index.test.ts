@@ -21,7 +21,9 @@ describe("appRouter", () => {
       trainingSettings: createTrainingSettingsRouter({
         service: {
           getForUser: () => Effect.die("not used"),
+          getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
+          updateTimezoneForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -52,7 +54,9 @@ describe("appRouter", () => {
       trainingSettings: createTrainingSettingsRouter({
         service: {
           getForUser: () => Effect.die("not used"),
+          getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
+          updateTimezoneForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -71,7 +75,9 @@ describe("appRouter", () => {
       trainingSettings: createTrainingSettingsRouter({
         service: {
           getForUser: () => Effect.die("not used"),
+          getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
+          updateTimezoneForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -109,7 +115,9 @@ describe("appRouter", () => {
       trainingSettings: createTrainingSettingsRouter({
         service: {
           getForUser: () => Effect.die("not used"),
+          getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
+          updateTimezoneForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -132,8 +140,10 @@ describe("appRouter", () => {
             requestedUserId = userId;
             return Effect.succeed({
               status: "not_started" as const,
-              goal: null,
               availability: null,
+              preferences: {
+                timezone: "UTC",
+              },
               intervalsCredential: {
                 hasKey: false,
                 username: null,
@@ -141,7 +151,9 @@ describe("appRouter", () => {
               },
             });
           },
+          getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
+          updateTimezoneForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -175,12 +187,14 @@ describe("appRouter", () => {
       trainingSettings: createTrainingSettingsRouter({
         service: {
           getForUser: () => Effect.die("not used"),
+          getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () =>
             Effect.fail(
               new InvalidSettings({
                 message: "Unavailable days cannot define a max duration",
               }),
             ),
+          updateTimezoneForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -224,6 +238,7 @@ describe("appRouter", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-key",
+        timezone: "Australia/Brisbane",
       }),
     ).rejects.toMatchObject({
       code: "BAD_REQUEST",

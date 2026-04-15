@@ -25,6 +25,7 @@ export type IntervalsAccountPort = {
     identity: {
       athleteId: string;
       resolvedAt: Date;
+      timezone?: string | null;
     },
   ) => Effect.Effect<void, SyncPersistenceFailure>;
 };

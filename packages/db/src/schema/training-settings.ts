@@ -89,6 +89,18 @@ export const trainingAvailability = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.dayOfWeek] })],
 );
 
+export const userTrainingPreference = pgTable("user_training_preference", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  timezone: text("timezone").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
 export const intervalsCredential = pgTable("intervals_credential", {
   userId: text("user_id")
     .primaryKey()
@@ -130,6 +142,16 @@ export const intervalsCredentialRelations = relations(
   ({ one }) => ({
     user: one(user, {
       fields: [intervalsCredential.userId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const userTrainingPreferenceRelations = relations(
+  userTrainingPreference,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [userTrainingPreference.userId],
       references: [user.id],
     }),
   }),

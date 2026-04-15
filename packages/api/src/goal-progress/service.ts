@@ -13,6 +13,7 @@ import type {
   GoalProgressCard,
   GoalProgressView,
 } from "./contracts";
+import type { TrainingSettingsService } from "../training-settings/service";
 import {
   buildEventGoalProgress,
   buildGoalProgressSyncState,
@@ -93,6 +94,7 @@ function mapPerformanceSnapshot(snapshot: PlanningPerformanceSnapshot | null) {
 export function createGoalProgressService(options: {
   goalsRepo: Pick<GoalRepository, "listByUserId">;
   planningRepo: Pick<PlanningDataRepository, "getHistoryRuns">;
+  trainingSettingsService: Pick<TrainingSettingsService, "getTimezoneForUser">;
   planningDataService: Pick<
     ReturnType<typeof createPlanningDataService>,
     "getHistoryQuality" | "getPlanningPerformanceSnapshot"
@@ -102,11 +104,10 @@ export function createGoalProgressService(options: {
   const clock = options.clock ?? { now: () => new Date() };
 
   return {
-    getForUser(
-      userId: string,
-      timezone = "UTC",
-    ): Effect.Effect<GoalProgressView, unknown> {
+    getForUser(userId: string): Effect.Effect<GoalProgressView, unknown> {
       return Effect.gen(function* () {
+        const timezone =
+          yield* options.trainingSettingsService.getTimezoneForUser(userId);
         const now = clock.now();
         const today = getLocalDateKey(now, timezone);
         const storedGoals = yield* options.goalsRepo.listByUserId(userId);

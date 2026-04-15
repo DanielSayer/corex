@@ -8,7 +8,11 @@ import {
 } from "./errors";
 import { createLiveTrainingSettingsService } from "./live";
 import { type TrainingSettingsService } from "./service";
-import { trainingGoalSchema, trainingSettingsInputSchema } from "./contracts";
+import {
+  trainingGoalSchema,
+  trainingSettingsInputSchema,
+  updateTimezoneInputSchema,
+} from "./contracts";
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
 
@@ -67,6 +71,14 @@ export function createTrainingSettingsRouter(
       .mutation(({ ctx, input }) =>
         executeEffect(
           getService().upsertForUser(ctx.session.user.id, input),
+          mapTrainingSettingsError,
+        ),
+      ),
+    updateTimezone: authedProcedure
+      .input(updateTimezoneInputSchema)
+      .mutation(({ ctx, input }) =>
+        executeEffect(
+          getService().updateTimezoneForUser(ctx.session.user.id, input),
           mapTrainingSettingsError,
         ),
       ),

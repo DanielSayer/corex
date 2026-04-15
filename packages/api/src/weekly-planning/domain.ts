@@ -2,9 +2,10 @@ import type {
   CorexPerceivedAbilitySummary,
   DayOfWeek,
   DraftGenerationContext,
-  PlannerGoalOption,
   PlannerIntent,
   IntervalBlock,
+  PlannedSession,
+  PlannerGoalOption,
   PlannerDefaults,
   WeeklyPlanPayload,
 } from "./contracts";
@@ -353,6 +354,126 @@ export function validateGeneratedPayload(input: {
   }
 
   return payload;
+}
+
+export function validateEditedDraftPayload(input: {
+  payload: WeeklyPlanPayload;
+  generationContext: DraftGenerationContext;
+}): WeeklyPlanPayload {
+  try {
+    return validateGeneratedPayload({
+      payload: input.payload,
+      availability: input.generationContext.availability,
+      longRunDay: input.generationContext.longRunDay,
+      startDate: input.generationContext.startDate,
+    });
+  } catch (error) {
+    throw new WeeklyPlanningValidationError({
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function findDraftDayIndex(payload: WeeklyPlanPayload, date: string) {
+  const index = payload.days.findIndex((day) => day.date === date);
+
+  if (index === -1) {
+    throw new WeeklyPlanningValidationError({
+      message: "Selected date is outside the draft week",
+    });
+  }
+
+  return index;
+}
+
+function clonePayload(payload: WeeklyPlanPayload): WeeklyPlanPayload {
+  return {
+    days: payload.days.map((day) => ({
+      date: day.date,
+      session: day.session
+        ? {
+            ...day.session,
+            intervalBlocks: day.session.intervalBlocks.map((block) => ({
+              ...block,
+              target: { ...block.target },
+            })),
+          }
+        : null,
+    })),
+  };
+}
+
+export function applyDraftSessionUpdate(input: {
+  payload: WeeklyPlanPayload;
+  generationContext: DraftGenerationContext;
+  date: string;
+  session: PlannedSession;
+}): WeeklyPlanPayload {
+  const nextPayload = clonePayload(input.payload);
+  const dayIndex = findDraftDayIndex(nextPayload, input.date);
+
+  if (!nextPayload.days[dayIndex]!.session) {
+    throw new WeeklyPlanningValidationError({
+      message: "Selected draft day does not have a scheduled session to edit",
+    });
+  }
+
+  nextPayload.days[dayIndex] = {
+    ...nextPayload.days[dayIndex]!,
+    session: input.session,
+  };
+
+  return validateEditedDraftPayload({
+    payload: nextPayload,
+    generationContext: input.generationContext,
+  });
+}
+
+export function applyDraftSessionMove(input: {
+  payload: WeeklyPlanPayload;
+  generationContext: DraftGenerationContext;
+  fromDate: string;
+  toDate: string;
+  mode: "move" | "swap";
+}): WeeklyPlanPayload {
+  const nextPayload = clonePayload(input.payload);
+  const fromIndex = findDraftDayIndex(nextPayload, input.fromDate);
+  const toIndex = findDraftDayIndex(nextPayload, input.toDate);
+
+  if (fromIndex === toIndex) {
+    throw new WeeklyPlanningValidationError({
+      message: "Source and target dates must be different",
+    });
+  }
+
+  const fromSession = nextPayload.days[fromIndex]!.session;
+  const toSession = nextPayload.days[toIndex]!.session;
+
+  if (!fromSession) {
+    throw new WeeklyPlanningValidationError({
+      message: "Selected source day does not have a scheduled session to move",
+    });
+  }
+
+  if (input.mode === "move" && toSession) {
+    throw new WeeklyPlanningValidationError({
+      message: "Target day already has a scheduled session; use swap instead",
+    });
+  }
+
+  nextPayload.days[fromIndex] = {
+    ...nextPayload.days[fromIndex]!,
+    session: input.mode === "swap" ? toSession : null,
+  };
+  nextPayload.days[toIndex] = {
+    ...nextPayload.days[toIndex]!,
+    session: fromSession,
+  };
+
+  return validateEditedDraftPayload({
+    payload: nextPayload,
+    generationContext: input.generationContext,
+  });
 }
 
 export function createDraftGenerationContext(input: {

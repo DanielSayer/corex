@@ -8,7 +8,6 @@ import { GoalProgressCard } from "@/components/goals/goal-progress-card";
 import { GoalStep } from "@/components/onboarding/goal-step";
 import { SettingsPageShell } from "@/components/onboarding/settings-page-shell";
 import { ensureAppRouteAccess } from "@/lib/app-route";
-import { getBrowserTimeZone } from "@/lib/browser-timezone";
 import {
   buildTrainingGoalInput,
   createDefaultOnboardingDraft,
@@ -39,11 +38,8 @@ type GoalListItem = GoalsRouterOutputs["get"][number];
 type EditorMode = { type: "create" } | { type: "edit"; id: string } | null;
 
 function RouteComponent() {
-  const timezone = getBrowserTimeZone();
   const goalsQueryOptions = trpc.goals.get.queryOptions();
-  const goalProgressQueryOptions = trpc.goalProgress.get.queryOptions({
-    timezone,
-  });
+  const goalProgressQueryOptions = trpc.goalProgress.get.queryOptions();
   const trainingSettings = useQuery(trpc.trainingSettings.get.queryOptions());
   const goals = useQuery(goalsQueryOptions);
   const goalProgress = useQuery(goalProgressQueryOptions);

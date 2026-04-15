@@ -129,6 +129,9 @@ describe("http integration", () => {
           getState: () => Effect.die("not used"),
           generateDraft: () => Effect.die("not used"),
           generateNextWeek: () => Effect.die("not used"),
+          updateDraftSession: () => Effect.die("not used"),
+          moveDraftSession: () => Effect.die("not used"),
+          regenerateDraft: () => Effect.die("not used"),
         },
       }),
     });
@@ -174,6 +177,9 @@ describe("http integration", () => {
             }),
           generateDraft: () => Effect.die("not used"),
           generateNextWeek: () => Effect.die("not used"),
+          updateDraftSession: () => Effect.die("not used"),
+          moveDraftSession: () => Effect.die("not used"),
+          regenerateDraft: () => Effect.die("not used"),
         },
       }),
     });

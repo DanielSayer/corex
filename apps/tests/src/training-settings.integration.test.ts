@@ -33,6 +33,9 @@ describe("training settings integration", () => {
     expect(result).toEqual({
       status: "not_started",
       availability: null,
+      preferences: {
+        timezone: "UTC",
+      },
       intervalsCredential: {
         hasKey: false,
         username: null,
@@ -70,6 +73,7 @@ describe("training settings integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "intervals-secret-key",
+        timezone: "Australia/Brisbane",
       }),
     );
     const stored = await Effect.runPromise(repo.findByUserId(createdUser.id));
@@ -86,6 +90,7 @@ describe("training settings integration", () => {
       "intervals-secret-key",
     );
     expect(stored.intervalsCredential.username).toBe("runner@example.com");
+    expect(stored.preferences.timezone).toBe("Australia/Brisbane");
 
     const decrypted = await Effect.runPromise(
       crypto.decrypt(createdUser.id, {
@@ -128,6 +133,7 @@ describe("training settings integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "first-secret",
+        timezone: "Australia/Brisbane",
       }),
     );
     const replaced = await Effect.runPromise(
@@ -143,6 +149,7 @@ describe("training settings integration", () => {
         },
         intervalsUsername: "runner@example.com",
         intervalsApiKey: "second-secret",
+        timezone: "Pacific/Auckland",
       }),
     );
 
@@ -153,6 +160,74 @@ describe("training settings integration", () => {
     expect(replaced.availability.monday).toEqual({
       available: false,
       maxDurationMinutes: null,
+    });
+    expect(replaced.preferences.timezone).toBe("Pacific/Auckland");
+  });
+
+  it("updates timezone without replacing credentials or availability", async () => {
+    const { db } = await getIntegrationHarness();
+    const createdUser = await createUser(db, {
+      email: "timezone-update@example.com",
+      name: "Timezone Runner",
+    });
+    const service = createTrainingSettingsService({
+      repo: createTrainingSettingsRepository(db),
+      crypto: createCredentialCrypto({
+        masterKeyBase64,
+        keyVersion: 1,
+      }),
+    });
+
+    await Effect.runPromise(
+      service.upsertForUser(createdUser.id, {
+        availability: {
+          monday: { available: true, maxDurationMinutes: 45 },
+          tuesday: { available: false, maxDurationMinutes: null },
+          wednesday: { available: true, maxDurationMinutes: 60 },
+          thursday: { available: false, maxDurationMinutes: null },
+          friday: { available: true, maxDurationMinutes: null },
+          saturday: { available: true, maxDurationMinutes: 90 },
+          sunday: { available: false, maxDurationMinutes: null },
+        },
+        intervalsUsername: "runner@example.com",
+        intervalsApiKey: "first-secret",
+        timezone: "Australia/Brisbane",
+      }),
+    );
+
+    const updated = await Effect.runPromise(
+      service.updateTimezoneForUser(createdUser.id, {
+        timezone: "Pacific/Auckland",
+      }),
+    );
+
+    expect(updated.status).toBe("complete");
+    expect(updated.preferences.timezone).toBe("Pacific/Auckland");
+    expect(updated.intervalsCredential.username).toBe("runner@example.com");
+  });
+
+  it("rejects invalid timezone updates", async () => {
+    const { db } = await getIntegrationHarness();
+    const createdUser = await createUser(db, {
+      email: "timezone-invalid@example.com",
+      name: "Timezone Invalid",
+    });
+    const service = createTrainingSettingsService({
+      repo: createTrainingSettingsRepository(db),
+      crypto: createCredentialCrypto({
+        masterKeyBase64,
+        keyVersion: 1,
+      }),
+    });
+
+    await expect(
+      Effect.runPromise(
+        service.updateTimezoneForUser(createdUser.id, {
+          timezone: "not-a-timezone",
+        }),
+      ),
+    ).rejects.toMatchObject({
+      message: "Invalid timezone",
     });
   });
 });
