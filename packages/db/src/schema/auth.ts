@@ -6,6 +6,7 @@ import {
   intervalsCredential,
   trainingAvailability,
   trainingGoal,
+  userTrainingPreference,
 } from "./training-settings";
 
 export const user = pgTable("user", {
@@ -90,6 +91,10 @@ export const userRelations = relations(user, ({ many, one }) => ({
   intervalsCredential: one(intervalsCredential, {
     fields: [user.id],
     references: [intervalsCredential.userId],
+  }),
+  trainingPreference: one(userTrainingPreference, {
+    fields: [user.id],
+    references: [userTrainingPreference.userId],
   }),
 }));
 

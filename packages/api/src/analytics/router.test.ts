@@ -24,7 +24,6 @@ describe("analytics router", () => {
     expect(
       caller.get({
         year: 2026,
-        timezone: "Australia/Brisbane",
       }),
     ).rejects.toBeInstanceOf(TRPCError);
   });
@@ -34,7 +33,6 @@ describe("analytics router", () => {
       | {
           userId: string;
           year: number;
-          timezone: string;
         }
       | undefined;
 
@@ -77,42 +75,11 @@ describe("analytics router", () => {
 
     await caller.get({
       year: 2026,
-      timezone: "Australia/Brisbane",
     });
 
     expect(requested).toEqual({
       userId: "user-1",
       year: 2026,
-      timezone: "Australia/Brisbane",
     });
-  });
-
-  it("validates timezone input before invoking the service", async () => {
-    const router = createAnalyticsRouter({
-      service: {
-        getForUser: () => Effect.die("not used"),
-      },
-    });
-    const caller = router.createCaller(
-      createCallerContext({
-        session: {
-          id: "session-1",
-          userId: "user-1",
-          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
-        },
-        user: {
-          id: "user-1",
-          email: "runner@example.com",
-          name: "Runner One",
-        },
-      } as NonNullable<Context["session"]>),
-    );
-
-    await expect(
-      caller.get({
-        year: 2026,
-        timezone: "not-a-timezone",
-      }),
-    ).rejects.toBeInstanceOf(TRPCError);
   });
 });

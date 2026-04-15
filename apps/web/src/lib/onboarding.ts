@@ -64,6 +64,7 @@ export type OnboardingDraft = {
   availability: AvailabilityDraft;
   intervalsUsername: string;
   intervalsApiKey: string;
+  timezone: string;
 };
 
 export type StepErrors = Record<string, string>;
@@ -94,6 +95,7 @@ function parsePositiveNumber(value: string) {
 
 export function createDefaultOnboardingDraft(
   now = new Date(),
+  timezone = "UTC",
 ): OnboardingDraft {
   return {
     goal: {
@@ -118,6 +120,7 @@ export function createDefaultOnboardingDraft(
     },
     intervalsUsername: "",
     intervalsApiKey: "",
+    timezone,
   };
 }
 
@@ -321,6 +324,7 @@ export function buildTrainingSettingsInput(draft: OnboardingDraft): {
     availability: WeeklyAvailability;
     intervalsUsername: string;
     intervalsApiKey: string;
+    timezone: string;
   };
   errors?: StepErrors;
 } {
@@ -336,6 +340,7 @@ export function buildTrainingSettingsInput(draft: OnboardingDraft): {
     availability: availabilityResult.value,
     intervalsUsername: draft.intervalsUsername.trim(),
     intervalsApiKey: draft.intervalsApiKey.trim(),
+    timezone: draft.timezone,
   });
 
   if (!parsed.success) {

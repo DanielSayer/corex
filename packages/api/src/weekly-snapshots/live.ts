@@ -2,6 +2,7 @@ import { db, type Database } from "@corex/db";
 
 import { createLiveGoalProgressService } from "../goal-progress/live";
 import { createPlanningDataRepository } from "../planning-data/repository";
+import { createLiveTrainingSettingsService } from "../training-settings/live";
 import { createWeeklySnapshotRepository } from "./repository";
 import {
   createWeeklySnapshotService,
@@ -23,6 +24,9 @@ export function createLiveWeeklySnapshotService(
 
   return createWeeklySnapshotService({
     snapshotRepo: createWeeklySnapshotRepository(database),
+    trainingSettingsService: createLiveTrainingSettingsService({
+      db: database,
+    }),
     planningRepo,
     createGoalProgressServiceAt: (now) =>
       createLiveGoalProgressService({

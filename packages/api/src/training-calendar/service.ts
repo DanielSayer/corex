@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import { getLocalDateKey } from "../activity-history/activity-calendar";
+import type { TrainingSettingsService } from "../training-settings/service";
 import type { WeeklyPlanningRepository } from "../weekly-planning/repository";
 import type {
   LinkTrainingCalendarActivityInput,
@@ -25,12 +26,20 @@ function mapWeeklyPlanningError(cause: unknown) {
   });
 }
 
+function mapTimezoneError(cause: unknown) {
+  return new TrainingCalendarPersistenceFailure({
+    message: "Failed to load training timezone",
+    cause,
+  });
+}
+
 export type TrainingCalendarService = ReturnType<
   typeof createTrainingCalendarService
 >;
 
 export function createTrainingCalendarService(options: {
   repo: TrainingCalendarRepository;
+  trainingSettingsService: Pick<TrainingSettingsService, "getTimezoneForUser">;
   weeklyPlanningRepo: Pick<
     WeeklyPlanningRepository,
     "getPlanForDate" | "listPlansInRange"
@@ -45,13 +54,17 @@ export function createTrainingCalendarService(options: {
       TrainingCalendarPersistenceFailure
     > {
       return Effect.gen(function* () {
+        const timezone = yield* Effect.mapError(
+          options.trainingSettingsService.getTimezoneForUser(userId),
+          mapTimezoneError,
+        );
         const [plans, activityRecords] = yield* Effect.all([
           Effect.mapError(
             options.weeklyPlanningRepo.listPlansInRange(userId, {
-              startDate: getLocalDateKey(new Date(input.from), input.timezone),
+              startDate: getLocalDateKey(new Date(input.from), timezone),
               endDate: getLocalDateKey(
                 new Date(new Date(input.to).getTime() - 1),
-                input.timezone,
+                timezone,
               ),
             }),
             mapWeeklyPlanningError,
@@ -62,11 +75,17 @@ export function createTrainingCalendarService(options: {
           options.repo.listLinksForDraft(userId, plan.id),
         ).pipe(Effect.map((results) => results.flat()));
 
-        return buildTrainingCalendarMonth(input, {
-          plans,
-          activityRecords,
-          links,
-        });
+        return buildTrainingCalendarMonth(
+          {
+            ...input,
+            timezone,
+          },
+          {
+            plans,
+            activityRecords,
+            links,
+          },
+        );
       });
     },
     linkActivity(
@@ -80,6 +99,10 @@ export function createTrainingCalendarService(options: {
       | TrainingCalendarLinkConflict
     > {
       return Effect.gen(function* () {
+        const timezone = yield* Effect.mapError(
+          options.trainingSettingsService.getTimezoneForUser(userId),
+          mapTimezoneError,
+        );
         const draft = yield* Effect.mapError(
           options.weeklyPlanningRepo.getPlanForDate(userId, input.plannedDate),
           mapWeeklyPlanningError,
@@ -125,8 +148,7 @@ export function createTrainingCalendarService(options: {
         }
 
         if (
-          getLocalDateKey(activity.startDate, input.timezone) !==
-          input.plannedDate
+          getLocalDateKey(activity.startDate, timezone) !== input.plannedDate
         ) {
           return yield* Effect.fail(
             new InvalidTrainingCalendarLink({

@@ -3,6 +3,7 @@ import { db, type Database } from "@corex/db";
 import { createGoalRepository } from "../goals/repository";
 import { createPlanningDataRepository } from "../planning-data/repository";
 import { createPlanningDataService } from "../planning-data/service";
+import { createLiveTrainingSettingsService } from "../training-settings/live";
 import { createGoalProgressService, type GoalProgressService } from "./service";
 
 type Clock = {
@@ -21,6 +22,9 @@ export function createLiveGoalProgressService(
   return createGoalProgressService({
     goalsRepo: createGoalRepository(database),
     planningRepo,
+    trainingSettingsService: createLiveTrainingSettingsService({
+      db: database,
+    }),
     planningDataService: createPlanningDataService({
       repo: planningRepo,
       clock: options.clock,

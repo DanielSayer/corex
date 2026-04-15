@@ -26,6 +26,9 @@ describe("weekly planning router", () => {
         getState: () => Effect.die("not used"),
         generateDraft: () => Effect.die("not used"),
         generateNextWeek: () => Effect.die("not used"),
+        updateDraftSession: () => Effect.die("not used"),
+        moveDraftSession: () => Effect.die("not used"),
+        regenerateDraft: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(createCallerContext(null));
@@ -65,6 +68,9 @@ describe("weekly planning router", () => {
         },
         generateDraft: () => Effect.die("not used"),
         generateNextWeek: () => Effect.die("not used"),
+        updateDraftSession: () => Effect.die("not used"),
+        moveDraftSession: () => Effect.die("not used"),
+        regenerateDraft: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -98,6 +104,9 @@ describe("weekly planning router", () => {
             }),
           ),
         generateNextWeek: () => Effect.die("not used"),
+        updateDraftSession: () => Effect.die("not used"),
+        moveDraftSession: () => Effect.die("not used"),
+        regenerateDraft: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -142,6 +151,9 @@ describe("weekly planning router", () => {
           requestedUserId = userId;
           return Effect.die("stop after capture");
         },
+        updateDraftSession: () => Effect.die("not used"),
+        moveDraftSession: () => Effect.die("not used"),
+        regenerateDraft: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(

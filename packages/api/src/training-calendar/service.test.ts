@@ -50,6 +50,9 @@ describe("training calendar service", () => {
       | undefined;
 
     const service = createTrainingCalendarService({
+      trainingSettingsService: {
+        getTimezoneForUser: () => Effect.succeed("Australia/Brisbane"),
+      },
       weeklyPlanningRepo: {
         getPlanForDate: () => Effect.succeed(createDraft() as never),
         listPlansInRange: () => Effect.succeed([createDraft()] as never),
@@ -90,7 +93,6 @@ describe("training calendar service", () => {
       service.linkActivity("user-1", {
         plannedDate: "2026-04-06",
         activityId: "run-1",
-        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -108,6 +110,9 @@ describe("training calendar service", () => {
 
   it("rejects cross-date activity links", async () => {
     const service = createTrainingCalendarService({
+      trainingSettingsService: {
+        getTimezoneForUser: () => Effect.succeed("Australia/Brisbane"),
+      },
       weeklyPlanningRepo: {
         getPlanForDate: () => Effect.succeed(createDraft() as never),
         listPlansInRange: () => Effect.succeed([createDraft()] as never),
@@ -142,7 +147,6 @@ describe("training calendar service", () => {
         service.linkActivity("user-1", {
           plannedDate: "2026-04-06",
           activityId: "run-2",
-          timezone: "Australia/Brisbane",
         }),
       ),
     ).rejects.toMatchObject({

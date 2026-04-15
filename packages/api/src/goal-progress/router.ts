@@ -1,10 +1,8 @@
 import { TRPCError } from "@trpc/server";
-import { z } from "zod";
 
 import { PersistenceFailure } from "../training-settings/errors";
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
-import { isValidTimeZone } from "./timezones";
 import { createLiveGoalProgressService } from "./live";
 import type { GoalProgressService } from "./service";
 
@@ -32,26 +30,14 @@ export function createGoalProgressRouter(
   options: CreateGoalProgressRouterOptions = {},
 ) {
   const getService = () => options.service ?? createLiveGoalProgressService();
-  const goalProgressInputSchema = z
-    .object({
-      timezone: z.string().trim().min(1).refine(isValidTimeZone, {
-        message: "Invalid timezone",
-      }),
-    })
-    .optional();
 
   return router({
-    get: authedProcedure
-      .input(goalProgressInputSchema)
-      .query(({ ctx, input }) =>
-        executeEffect(
-          getService().getForUser(
-            ctx.session.user.id,
-            input?.timezone ?? "UTC",
-          ),
-          mapGoalProgressError,
-        ),
+    get: authedProcedure.query(({ ctx }) =>
+      executeEffect(
+        getService().getForUser(ctx.session.user.id),
+        mapGoalProgressError,
       ),
+    ),
   });
 }
 

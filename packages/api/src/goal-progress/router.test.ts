@@ -26,14 +26,12 @@ describe("goal progress router", () => {
 
   it("passes the authenticated user id through to goal progress reads", async () => {
     let requestedUserId: string | undefined;
-    let requestedTimezone: string | undefined;
     const router = createGoalProgressRouter({
       service: {
-        getForUser: (userId, timezone) => {
+        getForUser: (userId) => {
           requestedUserId = userId;
-          requestedTimezone = timezone;
           return Effect.succeed({
-            timezone: timezone ?? "UTC",
+            timezone: "Australia/Brisbane",
             sync: {
               hasAnyHistory: false,
               hasRecentSync: false,
@@ -65,39 +63,8 @@ describe("goal progress router", () => {
       } as NonNullable<Context["session"]>),
     );
 
-    await caller.get({
-      timezone: "Australia/Brisbane",
-    });
+    await caller.get();
 
     expect(requestedUserId).toBe("user-1");
-    expect(requestedTimezone).toBe("Australia/Brisbane");
-  });
-
-  it("validates timezone input before invoking the service", async () => {
-    const router = createGoalProgressRouter({
-      service: {
-        getForUser: () => Effect.die("not used"),
-      },
-    });
-    const caller = router.createCaller(
-      createCallerContext({
-        session: {
-          id: "session-1",
-          userId: "user-1",
-          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
-        },
-        user: {
-          id: "user-1",
-          email: "runner@example.com",
-          name: "Runner One",
-        },
-      } as NonNullable<Context["session"]>),
-    );
-
-    await expect(
-      caller.get({
-        timezone: "not-a-timezone",
-      }),
-    ).rejects.toBeInstanceOf(TRPCError);
   });
 });

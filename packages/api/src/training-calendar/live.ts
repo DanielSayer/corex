@@ -1,6 +1,7 @@
 import { db, type Database } from "@corex/db";
 
 import { createWeeklyPlanningRepository } from "../weekly-planning/repository";
+import { createLiveTrainingSettingsService } from "../training-settings/live";
 import { createTrainingCalendarRepository } from "./repository";
 import {
   createTrainingCalendarService,
@@ -16,6 +17,9 @@ export function createLiveTrainingCalendarService(
 
   return createTrainingCalendarService({
     repo: createTrainingCalendarRepository(database),
+    trainingSettingsService: createLiveTrainingSettingsService({
+      db: database,
+    }),
     weeklyPlanningRepo: createWeeklyPlanningRepository(database),
   });
 }

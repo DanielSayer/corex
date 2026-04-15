@@ -15,6 +15,7 @@ export const intervalsAthleteProfileSchema = z
     firstname: nullableString,
     lastname: nullableString,
     email: nullableString,
+    timezone: nullableString,
   })
   .loose();
 

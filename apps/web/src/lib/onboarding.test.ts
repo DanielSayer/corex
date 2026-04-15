@@ -83,6 +83,7 @@ describe("onboarding goal transforms", () => {
       },
       intervalsUsername: "runner@example.com",
       intervalsApiKey: "secret-key",
+      timezone: "Australia/Brisbane",
     });
 
     expect(result.value).toEqual({
@@ -97,6 +98,7 @@ describe("onboarding goal transforms", () => {
       },
       intervalsUsername: "runner@example.com",
       intervalsApiKey: "secret-key",
+      timezone: "Australia/Brisbane",
     });
   });
 });

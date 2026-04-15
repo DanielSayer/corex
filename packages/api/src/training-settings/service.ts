@@ -1,9 +1,11 @@
 import { Effect } from "effect";
 
 import {
+  trainingPreferencesSchema,
   trainingSettingsInputSchema,
   type TrainingSettingsInput,
   type TrainingGoal,
+  type TrainingPreferences,
 } from "./contracts";
 import type { CredentialCrypto } from "../intervals/crypto";
 import { InvalidApiKeyFormat, InvalidSettings } from "./errors";
@@ -15,6 +17,7 @@ import type {
 export type TrainingSettingsView = {
   status: "not_started" | "complete";
   availability: TrainingSettingsInput["availability"] | null;
+  preferences: TrainingPreferences;
   intervalsCredential: {
     hasKey: boolean;
     username: string | null;
@@ -31,6 +34,9 @@ function createEmptyState(): TrainingSettingsView {
   return {
     status: "not_started",
     availability: null,
+    preferences: {
+      timezone: "UTC",
+    },
     intervalsCredential: {
       hasKey: false,
       username: null,
@@ -43,12 +49,30 @@ function toView(stored: StoredTrainingSettings): TrainingSettingsView {
   return {
     status: "complete",
     availability: stored.availability,
+    preferences: stored.preferences,
     intervalsCredential: {
       hasKey: true,
       username: stored.intervalsCredential.username,
       updatedAt: stored.intervalsCredential.updatedAt.toISOString(),
     },
   };
+}
+
+function validatePreferences(
+  input: TrainingPreferences,
+): Effect.Effect<TrainingPreferences, InvalidSettings> {
+  const result = trainingPreferencesSchema.safeParse(input);
+
+  if (!result.success) {
+    return Effect.fail(
+      new InvalidSettings({
+        message:
+          result.error.issues[0]?.message ?? "Invalid training preferences",
+      }),
+    );
+  }
+
+  return Effect.succeed(result.data);
 }
 
 function validateInput(
@@ -92,10 +116,35 @@ function validateInput(
 export function createTrainingSettingsService(
   options: CreateTrainingSettingsServiceOptions,
 ) {
+  const getForUser = (
+    userId: string,
+  ): Effect.Effect<TrainingSettingsView, unknown> =>
+    Effect.gen(function* () {
+      const [stored, preferences] = yield* Effect.all([
+        options.repo.findByUserId(userId),
+        options.repo.findPreferencesByUserId(userId),
+      ]);
+
+      if (stored) {
+        return toView(stored);
+      }
+
+      return {
+        ...createEmptyState(),
+        preferences: {
+          timezone: preferences?.timezone ?? "UTC",
+        },
+      };
+    });
+
   return {
     getForUser(userId: string): Effect.Effect<TrainingSettingsView, unknown> {
-      return Effect.map(options.repo.findByUserId(userId), (stored) =>
-        stored ? toView(stored) : createEmptyState(),
+      return getForUser(userId);
+    },
+    getTimezoneForUser(userId: string): Effect.Effect<string, unknown> {
+      return Effect.map(
+        options.repo.findPreferencesByUserId(userId),
+        (preferences) => preferences?.timezone ?? "UTC",
       );
     },
     upsertForUser(
@@ -111,11 +160,24 @@ export function createTrainingSettingsService(
         const stored = yield* options.repo.upsert({
           userId,
           availability: validatedInput.availability,
+          preferences: {
+            timezone: validatedInput.timezone,
+          },
           intervalsUsername: validatedInput.intervalsUsername.trim(),
           intervalsCredential: encryptedCredential,
         });
 
         return toView(stored);
+      });
+    },
+    updateTimezoneForUser(
+      userId: string,
+      preferences: TrainingPreferences,
+    ): Effect.Effect<TrainingSettingsView, unknown> {
+      return Effect.gen(function* () {
+        const validatedPreferences = yield* validatePreferences(preferences);
+        yield* options.repo.upsertPreferences(userId, validatedPreferences);
+        return yield* getForUser(userId);
       });
     },
   };

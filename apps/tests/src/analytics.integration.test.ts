@@ -8,6 +8,7 @@ import {
   userAllTimePr,
   userMonthlyBest,
 } from "@corex/db/schema/intervals-sync";
+import { userTrainingPreference } from "@corex/db/schema/training-settings";
 
 import { getIntegrationHarness, resetDatabase } from "./harness";
 
@@ -21,6 +22,10 @@ describe("analytics integration", () => {
     const user = await createUser(db, {
       email: "analytics@example.com",
       name: "Analytics User",
+    });
+    await db.insert(userTrainingPreference).values({
+      userId: user.id,
+      timezone: "Australia/Brisbane",
     });
 
     await db.insert(importedActivity).values([
@@ -133,7 +138,6 @@ describe("analytics integration", () => {
     const result = await Effect.runPromise(
       service.getForUser(user.id, {
         year: 2026,
-        timezone: "Australia/Brisbane",
       }),
     );
 

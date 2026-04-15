@@ -42,6 +42,10 @@ export type WeeklyPlanningRepository = {
     userId: string,
     startDate: string,
   ) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
+  getDraftById: (
+    userId: string,
+    draftId: string,
+  ) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
   getPlanForDate: (
     userId: string,
     date: string,
@@ -60,6 +64,17 @@ export type WeeklyPlanningRepository = {
     generationContext: DraftGenerationContext;
     payload: WeeklyPlanPayload;
   }) => Effect.Effect<WeeklyPlanDraft, WeeklyPlanningPersistenceFailure>;
+  updateDraftPayload: (input: {
+    userId: string;
+    draftId: string;
+    payload: WeeklyPlanPayload;
+  }) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
+  replaceDraftGeneration: (input: {
+    userId: string;
+    draftId: string;
+    generationContext: DraftGenerationContext;
+    payload: WeeklyPlanPayload;
+  }) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
   recordGenerationEvent: (input: {
     id: string;
     userId: string;
@@ -203,6 +218,28 @@ export function createWeeklyPlanningRepository(
               }),
       });
     },
+    getDraftById(userId, draftId) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await db.query.weeklyPlan.findFirst({
+            where: and(
+              eq(weeklyPlan.userId, userId),
+              eq(weeklyPlan.id, draftId),
+              eq(weeklyPlan.status, "draft"),
+            ),
+          });
+
+          return row ? mapDraft(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to load weekly plan draft",
+                cause,
+              }),
+      });
+    },
     getPlanForDate(userId, date) {
       return Effect.tryPromise({
         try: async () => {
@@ -295,6 +332,65 @@ export function createWeeklyPlanningRepository(
             ? cause
             : new WeeklyPlanningPersistenceFailure({
                 message: "Failed to persist weekly plan draft",
+                cause,
+              }),
+      });
+    },
+    updateDraftPayload(input) {
+      return Effect.tryPromise({
+        try: async () => {
+          const [row] = await db
+            .update(weeklyPlan)
+            .set({
+              payload: input.payload,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(weeklyPlan.userId, input.userId),
+                eq(weeklyPlan.id, input.draftId),
+                eq(weeklyPlan.status, "draft"),
+              ),
+            )
+            .returning();
+
+          return row ? mapDraft(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to update weekly plan draft payload",
+                cause,
+              }),
+      });
+    },
+    replaceDraftGeneration(input) {
+      return Effect.tryPromise({
+        try: async () => {
+          const [row] = await db
+            .update(weeklyPlan)
+            .set({
+              generationContext: input.generationContext,
+              payload: input.payload,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(weeklyPlan.userId, input.userId),
+                eq(weeklyPlan.id, input.draftId),
+                eq(weeklyPlan.status, "draft"),
+              ),
+            )
+            .returning();
+
+          return row ? mapDraft(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to replace weekly plan draft generation",
                 cause,
               }),
       });

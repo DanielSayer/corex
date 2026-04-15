@@ -2,9 +2,15 @@ import { TRPCError } from "@trpc/server";
 
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
-import { generateWeeklyDraftInputSchema } from "./contracts";
+import {
+  generateWeeklyDraftInputSchema,
+  moveDraftSessionInputSchema,
+  regenerateDraftInputSchema,
+  updateDraftSessionInputSchema,
+} from "./contracts";
 import {
   DraftConflict,
+  DraftNotFound,
   GenerationTimeout,
   InvalidStructuredOutput,
   MissingTrainingSettings,
@@ -25,6 +31,14 @@ function mapWeeklyPlanningError(error: unknown) {
   if (error instanceof DraftConflict) {
     return new TRPCError({
       code: "CONFLICT",
+      message: error.message,
+      cause: error,
+    });
+  }
+
+  if (error instanceof DraftNotFound) {
+    return new TRPCError({
+      code: "NOT_FOUND",
       message: error.message,
       cause: error,
     });
@@ -89,6 +103,30 @@ export function createWeeklyPlanningRouter(
         mapWeeklyPlanningError,
       ),
     ),
+    updateDraftSession: authedProcedure
+      .input(updateDraftSessionInputSchema)
+      .mutation(({ ctx, input }) =>
+        executeEffect(
+          getService().updateDraftSession(ctx.session.user.id, input),
+          mapWeeklyPlanningError,
+        ),
+      ),
+    moveDraftSession: authedProcedure
+      .input(moveDraftSessionInputSchema)
+      .mutation(({ ctx, input }) =>
+        executeEffect(
+          getService().moveDraftSession(ctx.session.user.id, input),
+          mapWeeklyPlanningError,
+        ),
+      ),
+    regenerateDraft: authedProcedure
+      .input(regenerateDraftInputSchema)
+      .mutation(({ ctx, input }) =>
+        executeEffect(
+          getService().regenerateDraft(ctx.session.user.id, input),
+          mapWeeklyPlanningError,
+        ),
+      ),
   });
 }
 

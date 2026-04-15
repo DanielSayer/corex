@@ -13,7 +13,6 @@ import { toast } from "sonner";
 
 import { WorkoutCalendar } from "@/components/training-calendar/training-calendar";
 import { ensureAppRouteAccess } from "@/lib/app-route";
-import { getBrowserTimeZone } from "@/lib/browser-timezone";
 import { queryClient, trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_app/tranining-calendar")({
@@ -33,12 +32,10 @@ function RouteComponent() {
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const calendarEndExclusive = startOfDay(addDays(calendarEnd, 1));
-  const timezone = getBrowserTimeZone();
   const monthQueryOptions = trpc.trainingCalendar.month.queryOptions(
     {
       from: calendarStart.toISOString(),
       to: calendarEndExclusive.toISOString(),
-      timezone,
     },
     {
       staleTime: 1000 * 60 * 5,
@@ -78,7 +75,6 @@ function RouteComponent() {
           void linkActivity.mutateAsync({
             plannedDate,
             activityId,
-            timezone,
           });
         }}
         linkingActivityId={pendingLink?.activityId ?? null}

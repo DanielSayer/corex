@@ -105,6 +105,7 @@ async function seedTrainingCalendarUser(overrides?: {
       },
       intervalsUsername: `${user.id}@example.com`,
       intervalsApiKey: "secret-key",
+      timezone: "Australia/Brisbane",
     }),
   );
 
@@ -233,7 +234,6 @@ describe("training calendar integration", () => {
       service.month(user.id, {
         from: "2026-04-06T00:00:00.000Z",
         to: "2026-04-13T00:00:00.000Z",
-        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -282,7 +282,6 @@ describe("training calendar integration", () => {
       service.linkActivity(user.id, {
         plannedDate: "2026-04-06",
         activityId: activities.monday,
-        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -304,7 +303,6 @@ describe("training calendar integration", () => {
       service.month(user.id, {
         from: "2026-04-06T00:00:00.000Z",
         to: "2026-04-13T00:00:00.000Z",
-        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -336,7 +334,6 @@ describe("training calendar integration", () => {
         primary.service.linkActivity(primary.user.id, {
           plannedDate: "2026-04-08",
           activityId: primary.activities.wednesday,
-          timezone: "Australia/Brisbane",
         }),
       ),
       "Selected planned day does not have a scheduled session",
@@ -347,7 +344,6 @@ describe("training calendar integration", () => {
         primary.service.linkActivity(primary.user.id, {
           plannedDate: "2026-04-06",
           activityId: primary.activities.wednesday,
-          timezone: "Australia/Brisbane",
         }),
       ),
       "Selected activity must occur on the same local calendar date as the planned session",
@@ -358,7 +354,6 @@ describe("training calendar integration", () => {
         primary.service.linkActivity(primary.user.id, {
           plannedDate: "2026-04-06",
           activityId: secondary.activities.monday,
-          timezone: "Australia/Brisbane",
         }),
       ),
       "Selected activity does not exist for this user",
@@ -368,7 +363,6 @@ describe("training calendar integration", () => {
       primary.service.linkActivity(primary.user.id, {
         plannedDate: "2026-04-06",
         activityId: primary.activities.monday,
-        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -377,7 +371,6 @@ describe("training calendar integration", () => {
         primary.service.linkActivity(primary.user.id, {
           plannedDate: "2026-04-06",
           activityId: primary.activities.monday,
-          timezone: "Australia/Brisbane",
         }),
       ),
       "This planned session is already linked to an activity",
@@ -417,14 +410,12 @@ describe("training calendar integration", () => {
       seeded.service.month(seeded.user.id, {
         from: "2026-04-06T00:00:00.000Z",
         to: "2026-04-12T00:00:00.000Z",
-        timezone: "Australia/Brisbane",
       }),
     );
     const secondWeek = await Effect.runPromise(
       seeded.service.month(seeded.user.id, {
         from: "2026-04-13T00:00:00.000Z",
         to: "2026-04-19T00:00:00.000Z",
-        timezone: "Australia/Brisbane",
       }),
     );
 
@@ -487,7 +478,6 @@ describe("training calendar integration", () => {
       seeded.service.linkActivity(seeded.user.id, {
         plannedDate: "2026-04-13",
         activityId: "nextlink-4",
-        timezone: "Australia/Brisbane",
       }),
     );
 

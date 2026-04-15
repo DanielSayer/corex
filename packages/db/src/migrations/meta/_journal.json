@@ -85,6 +85,13 @@
       "when": 1775800000000,
       "tag": "0011_weekly_plan_sequences",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1776200000000,
+      "tag": "0012_user_training_preferences",
+      "breakpoints": true
     }
   ]
 }

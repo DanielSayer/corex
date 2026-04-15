@@ -41,6 +41,30 @@ export function PlannerPage({ plannerForm }: PlannerPageProps) {
       });
     },
   });
+  const updateDraftSession = useMutation({
+    ...trpc.weeklyPlanning.updateDraftSession.mutationOptions(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: trpc.weeklyPlanning.getState.queryOptions().queryKey,
+      });
+    },
+  });
+  const moveDraftSession = useMutation({
+    ...trpc.weeklyPlanning.moveDraftSession.mutationOptions(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: trpc.weeklyPlanning.getState.queryOptions().queryKey,
+      });
+    },
+  });
+  const regenerateDraft = useMutation({
+    ...trpc.weeklyPlanning.regenerateDraft.mutationOptions(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: trpc.weeklyPlanning.getState.queryOptions().queryKey,
+      });
+    },
+  });
 
   const warnings = plannerForm?.historyQuality.latestSyncWarnings ?? [];
   const raceTimeSeconds = form
@@ -115,7 +139,34 @@ export function PlannerPage({ plannerForm }: PlannerPageProps) {
       ) : null}
 
       {plannerForm.activeDraft ? (
-        <PlannerDraftView draft={plannerForm.activeDraft} />
+        <PlannerDraftView
+          draft={plannerForm.activeDraft}
+          errorMessage={
+            updateDraftSession.error?.message ??
+            moveDraftSession.error?.message ??
+            regenerateDraft.error?.message ??
+            null
+          }
+          isMoving={moveDraftSession.isPending}
+          isRegenerating={regenerateDraft.isPending}
+          isUpdating={updateDraftSession.isPending}
+          key={`${plannerForm.activeDraft.id}-${plannerForm.activeDraft.updatedAt}`}
+          onMoveSession={(input) =>
+            moveDraftSession.mutate({
+              draftId: plannerForm.activeDraft!.id,
+              ...input,
+            })
+          }
+          onRegenerate={() =>
+            regenerateDraft.mutate({ draftId: plannerForm.activeDraft!.id })
+          }
+          onUpdateSession={(input) =>
+            updateDraftSession.mutate({
+              draftId: plannerForm.activeDraft!.id,
+              ...input,
+            })
+          }
+        />
       ) : (
         <PlannerGenerateDraftCard
           errorMessage={generateDraft.error?.message ?? null}

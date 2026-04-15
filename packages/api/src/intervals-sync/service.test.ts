@@ -209,12 +209,14 @@ describe("intervals sync module", () => {
 
   it("derives athlete identity, imports running activities, and reports skipped unsupported types", async () => {
     let savedAthleteId: string | undefined;
+    let savedTimezone: string | null | undefined;
     let lastUpsert: UpsertImportedActivityRecord | undefined;
 
     const service = createIntervalsSyncModule({
       accounts: createAccountPort({
         saveResolvedAthlete: (_userId, identity) => {
           savedAthleteId = identity.athleteId;
+          savedTimezone = identity.timezone;
           return Effect.void;
         },
       }),
@@ -225,7 +227,13 @@ describe("intervals sync module", () => {
           return Effect.succeed("inserted");
         },
       }),
-      upstream: createUpstreamPort(),
+      upstream: {
+        ...createUpstreamPort(),
+        getProfile: async () => ({
+          id: "i509216",
+          timezone: "Australia/Brisbane",
+        }),
+      },
       derived: createDerivedPort(),
       clock: {
         now: () => new Date("2026-03-21T00:00:00.000Z"),
@@ -236,6 +244,7 @@ describe("intervals sync module", () => {
     const result = await Effect.runPromise(service.syncNow("user-1"));
 
     expect(savedAthleteId).toBe("i509216");
+    expect(savedTimezone).toBe("Australia/Brisbane");
     expect(result.insertedCount).toBe(1);
     expect(result.skippedNonRunningCount).toBe(1);
     expect(result.unknownActivityTypes).toEqual(["Ride"]);

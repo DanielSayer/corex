@@ -30,6 +30,10 @@ export class DraftConflict extends Data.TaggedError("DraftConflict")<{
   message: string;
 }> {}
 
+export class DraftNotFound extends Data.TaggedError("DraftNotFound")<{
+  message: string;
+}> {}
+
 export class InvalidStructuredOutput extends Data.TaggedError(
   "InvalidStructuredOutput",
 )<{

@@ -30,7 +30,11 @@ function IntroSlide({ data }: { data: WeeklyWrappedData }) {
         </p>
         {data.period ? (
           <p className="text-muted-foreground mt-1 text-xs">
-            {formatWeekRange(data.period.weekStart, data.period.weekEnd)}
+            {formatWeekRange(
+              data.period.weekStart,
+              data.period.weekEnd,
+              data.period.timezone,
+            )}
           </p>
         ) : null}
       </motion.div>

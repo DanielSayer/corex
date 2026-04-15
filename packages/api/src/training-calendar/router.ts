@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
-import { isValidTimeZone } from "../activity-history/activity-calendar";
 import type {
   LinkTrainingCalendarActivityInput,
   TrainingCalendarMonthInput,
@@ -29,9 +28,6 @@ const monthInputSchema: z.ZodType<TrainingCalendarMonthInput> = z
   .object({
     from: isoTimestampSchema,
     to: isoTimestampSchema,
-    timezone: z.string().trim().min(1).refine(isValidTimeZone, {
-      message: "Invalid timezone",
-    }),
   })
   .refine(({ from, to }) => new Date(from).getTime() < new Date(to).getTime(), {
     message: "`from` must be before `to`",
@@ -42,9 +38,6 @@ const linkActivityInputSchema: z.ZodType<LinkTrainingCalendarActivityInput> =
   z.object({
     plannedDate: z.iso.date(),
     activityId: z.string().trim().min(1),
-    timezone: z.string().trim().min(1).refine(isValidTimeZone, {
-      message: "Invalid timezone",
-    }),
   });
 
 function mapTrainingCalendarError(error: unknown) {

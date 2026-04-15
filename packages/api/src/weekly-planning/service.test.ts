@@ -26,6 +26,7 @@ function createRepository(
     getActiveDraft: () => Effect.succeed(null),
     getLatestPlan: () => Effect.succeed(null),
     getDraftForStartDate: () => Effect.succeed(null),
+    getDraftById: () => Effect.succeed(null),
     getPlanForDate: () => Effect.succeed(null),
     listPlansInRange: () => Effect.succeed([]),
     createDraft: (input) =>
@@ -42,6 +43,8 @@ function createRepository(
         createdAt: "2026-04-01T00:00:00.000Z",
         updatedAt: "2026-04-01T00:00:00.000Z",
       } satisfies WeeklyPlanDraft),
+    updateDraftPayload: () => Effect.succeed(null),
+    replaceDraftGeneration: () => Effect.succeed(null),
     recordGenerationEvent: (input) =>
       Effect.succeed({
         ...input,
@@ -215,6 +218,9 @@ function createService(
         Effect.succeed({
           status: state.availability ? "complete" : "not_started",
           availability: state.availability,
+          preferences: {
+            timezone: "Australia/Brisbane",
+          },
           intervalsCredential: {
             hasKey: true,
             username: "runner@example.com",
