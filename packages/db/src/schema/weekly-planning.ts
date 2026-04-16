@@ -41,6 +41,7 @@ export const weeklyPlan = pgTable(
     endDate: text("end_date").notNull(),
     generationContext: jsonb("generation_context").notNull(),
     payload: jsonb("payload").notNull(),
+    qualityReport: jsonb("quality_report"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -81,6 +82,7 @@ export const generationEvent = pgTable(
     failureMessage: text("failure_message"),
     generationContext: jsonb("generation_context").notNull(),
     modelOutput: jsonb("model_output"),
+    qualityReport: jsonb("quality_report"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

@@ -37,8 +37,8 @@ function createFakeModel(): PlannerModelPort {
                 title: "Easy run",
                 summary: "Aerobic work",
                 coachingNotes: null,
-                estimatedDurationSeconds: 1800,
-                estimatedDistanceMeters: 5000,
+                estimatedDurationSeconds: 900,
+                estimatedDistanceMeters: 3000,
                 intervalBlocks: [],
               },
             };
@@ -52,8 +52,8 @@ function createFakeModel(): PlannerModelPort {
                 title: "Tempo session",
                 summary: "Threshold reps",
                 coachingNotes: null,
-                estimatedDurationSeconds: 2400,
-                estimatedDistanceMeters: 7000,
+                estimatedDurationSeconds: 900,
+                estimatedDistanceMeters: 2000,
                 intervalBlocks: [],
               },
             };
@@ -67,8 +67,8 @@ function createFakeModel(): PlannerModelPort {
                 title: "Long run",
                 summary: "Steady aerobic volume",
                 coachingNotes: null,
-                estimatedDurationSeconds: 4200,
-                estimatedDistanceMeters: 14000,
+                estimatedDurationSeconds: 1200,
+                estimatedDistanceMeters: 3000,
                 intervalBlocks: [],
               },
             };

@@ -217,6 +217,26 @@ export const weeklyGenerationModeSchema = z.enum([
   "regeneration",
 ]);
 
+export const planQualityItemSchema = z
+  .object({
+    code: z.string().trim().min(1),
+    severity: z.enum(["warning", "blocking"]),
+    message: z.string().trim().min(1),
+    metricValue: z.number().nullable(),
+    thresholdValue: z.number().nullable(),
+  })
+  .strict();
+
+export const planQualityReportSchema = z
+  .object({
+    status: z.enum(["pass", "warning", "blocked"]),
+    mode: z.enum(["enforced", "advisory"]),
+    summary: z.string().trim().min(1),
+    items: z.array(planQualityItemSchema),
+    generatedAt: z.iso.datetime(),
+  })
+  .strict();
+
 export const corexPerceivedAbilitySummarySchema = z.object({
   level: corexPerceivedAbilitySchema,
   rationale: z.string().trim().min(1).max(500),
@@ -326,6 +346,7 @@ export const weeklyPlanSchema = z.object({
   endDate: isoDateSchema,
   generationContext: draftGenerationContextSchema,
   payload: weeklyPlanPayloadSchema,
+  qualityReport: planQualityReportSchema.nullable().default(null),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -342,6 +363,7 @@ export const generationEventCategorySchema = z.enum([
   "provider_failure",
   "generation_timeout",
   "invalid_structured_output",
+  "quality_guardrail_failure",
 ]);
 
 export type SupportedRaceDistance = z.infer<typeof supportedRaceDistanceSchema>;
@@ -352,6 +374,8 @@ export type PlannerGoalOption = z.infer<typeof plannerGoalOptionSchema>;
 export type IntervalBlock = z.infer<typeof intervalBlockSchema>;
 export type PlannedSession = z.infer<typeof plannedSessionSchema>;
 export type WeeklyPlanPayload = z.infer<typeof weeklyPlanPayloadSchema>;
+export type PlanQualityItem = z.infer<typeof planQualityItemSchema>;
+export type PlanQualityReport = z.infer<typeof planQualityReportSchema>;
 export type PlannerDefaults = z.infer<typeof plannerDefaultsSchema>;
 export type GenerateWeeklyDraftInput = z.infer<
   typeof generateWeeklyDraftInputSchema

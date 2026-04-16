@@ -40,6 +40,12 @@ export class InvalidStructuredOutput extends Data.TaggedError(
   message: string;
 }> {}
 
+export class PlanQualityGuardrailFailure extends Data.TaggedError(
+  "PlanQualityGuardrailFailure",
+)<{
+  message: string;
+}> {}
+
 export class ProviderFailure extends Data.TaggedError("ProviderFailure")<{
   message: string;
   cause?: unknown;
@@ -89,6 +95,10 @@ export function toFailureCategory(
     error instanceof WeeklyPlanningValidationError
   ) {
     return "invalid_structured_output";
+  }
+
+  if (error instanceof PlanQualityGuardrailFailure) {
+    return "quality_guardrail_failure";
   }
 
   return null;
