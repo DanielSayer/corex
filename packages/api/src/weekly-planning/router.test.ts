@@ -9,7 +9,7 @@ import {
   TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITY_LEVELS,
 } from "./contracts";
-import { DraftConflict } from "./errors";
+import { DraftConflict, PlanFinalizationConflict } from "./errors";
 import { createWeeklyPlanningRouter } from "./router";
 
 function createCallerContext(session: Context["session"]): Context {
@@ -29,6 +29,8 @@ describe("weekly planning router", () => {
         updateDraftSession: () => Effect.die("not used"),
         moveDraftSession: () => Effect.die("not used"),
         regenerateDraft: () => Effect.die("not used"),
+        finalizeDraft: () => Effect.die("not used"),
+        listFinalizedPlans: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(createCallerContext(null));
@@ -64,6 +66,7 @@ describe("weekly planning router", () => {
             },
             defaults: null,
             activeDraft: null,
+            currentFinalizedPlan: null,
           });
         },
         generateDraft: () => Effect.die("not used"),
@@ -71,6 +74,8 @@ describe("weekly planning router", () => {
         updateDraftSession: () => Effect.die("not used"),
         moveDraftSession: () => Effect.die("not used"),
         regenerateDraft: () => Effect.die("not used"),
+        finalizeDraft: () => Effect.die("not used"),
+        listFinalizedPlans: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -107,6 +112,8 @@ describe("weekly planning router", () => {
         updateDraftSession: () => Effect.die("not used"),
         moveDraftSession: () => Effect.die("not used"),
         regenerateDraft: () => Effect.die("not used"),
+        finalizeDraft: () => Effect.die("not used"),
+        listFinalizedPlans: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -154,6 +161,8 @@ describe("weekly planning router", () => {
         updateDraftSession: () => Effect.die("not used"),
         moveDraftSession: () => Effect.die("not used"),
         regenerateDraft: () => Effect.die("not used"),
+        finalizeDraft: () => Effect.die("not used"),
+        listFinalizedPlans: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -173,5 +182,126 @@ describe("weekly planning router", () => {
 
     await expect(caller.generateNextWeek()).rejects.toBeInstanceOf(TRPCError);
     expect(requestedUserId).toBe("user-1");
+  });
+
+  it("passes the authenticated user id through to draft finalization", async () => {
+    let requestedUserId: string | undefined;
+    let requestedDraftId: string | undefined;
+    const router = createWeeklyPlanningRouter({
+      service: {
+        getState: () => Effect.die("not used"),
+        generateDraft: () => Effect.die("not used"),
+        generateNextWeek: () => Effect.die("not used"),
+        updateDraftSession: () => Effect.die("not used"),
+        moveDraftSession: () => Effect.die("not used"),
+        regenerateDraft: () => Effect.die("not used"),
+        finalizeDraft: (userId, input) => {
+          requestedUserId = userId;
+          requestedDraftId = input.draftId;
+          return Effect.die("stop after capture");
+        },
+        listFinalizedPlans: () => Effect.die("not used"),
+      },
+    });
+    const caller = router.createCaller(
+      createCallerContext({
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
+      } as NonNullable<Context["session"]>),
+    );
+
+    await expect(
+      caller.finalizeDraft({ draftId: "draft-1" }),
+    ).rejects.toBeInstanceOf(TRPCError);
+    expect(requestedUserId).toBe("user-1");
+    expect(requestedDraftId).toBe("draft-1");
+  });
+
+  it("passes the authenticated user id through to finalized history reads", async () => {
+    let requestedUserId: string | undefined;
+    let requestedLimit: number | undefined;
+    const router = createWeeklyPlanningRouter({
+      service: {
+        getState: () => Effect.die("not used"),
+        generateDraft: () => Effect.die("not used"),
+        generateNextWeek: () => Effect.die("not used"),
+        updateDraftSession: () => Effect.die("not used"),
+        moveDraftSession: () => Effect.die("not used"),
+        regenerateDraft: () => Effect.die("not used"),
+        finalizeDraft: () => Effect.die("not used"),
+        listFinalizedPlans: (userId, input) => {
+          requestedUserId = userId;
+          requestedLimit = input?.limit;
+          return Effect.succeed({ items: [], nextOffset: null });
+        },
+      },
+    });
+    const caller = router.createCaller(
+      createCallerContext({
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
+      } as NonNullable<Context["session"]>),
+    );
+
+    await caller.listFinalizedPlans({ limit: 5, offset: 0 });
+
+    expect(requestedUserId).toBe("user-1");
+    expect(requestedLimit).toBe(5);
+  });
+
+  it("maps finalization conflicts to trpc conflict errors", async () => {
+    const router = createWeeklyPlanningRouter({
+      service: {
+        getState: () => Effect.die("not used"),
+        generateDraft: () => Effect.die("not used"),
+        generateNextWeek: () => Effect.die("not used"),
+        updateDraftSession: () => Effect.die("not used"),
+        moveDraftSession: () => Effect.die("not used"),
+        regenerateDraft: () => Effect.die("not used"),
+        finalizeDraft: () =>
+          Effect.fail(
+            new PlanFinalizationConflict({
+              message: "A finalized weekly plan already overlaps this draft",
+            }),
+          ),
+        listFinalizedPlans: () => Effect.die("not used"),
+      },
+    });
+    const caller = router.createCaller(
+      createCallerContext({
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
+      } as NonNullable<Context["session"]>),
+    );
+
+    await expect(
+      caller.finalizeDraft({ draftId: "draft-1" }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
   });
 });

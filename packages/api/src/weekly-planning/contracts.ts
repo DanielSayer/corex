@@ -302,6 +302,20 @@ export const regenerateDraftInputSchema = z
   })
   .strict();
 
+export const finalizeDraftInputSchema = z
+  .object({
+    draftId: z.string().trim().min(1),
+  })
+  .strict();
+
+export const listFinalizedPlansInputSchema = z
+  .object({
+    limit: z.number().int().min(1).max(50).default(10),
+    offset: z.number().int().min(0).default(0),
+  })
+  .strict()
+  .default({ limit: 10, offset: 0 });
+
 const draftGenerationContextSchema = z
   .object({
     plannerIntent: plannerIntentSchema,
@@ -355,6 +369,10 @@ export const weeklyPlanDraftSchema = weeklyPlanSchema.extend({
   status: z.literal("draft"),
 });
 
+export const weeklyPlanFinalizedSchema = weeklyPlanSchema.extend({
+  status: z.literal("finalized"),
+});
+
 export const generationEventCategorySchema = z.enum([
   "missing_training_settings",
   "missing_goal",
@@ -385,11 +403,16 @@ export type UpdateDraftSessionInput = z.infer<
 >;
 export type MoveDraftSessionInput = z.infer<typeof moveDraftSessionInputSchema>;
 export type RegenerateDraftInput = z.infer<typeof regenerateDraftInputSchema>;
+export type FinalizeDraftInput = z.infer<typeof finalizeDraftInputSchema>;
+export type ListFinalizedPlansInput = z.input<
+  typeof listFinalizedPlansInputSchema
+>;
 export type DraftGenerationContext = z.infer<
   typeof draftGenerationContextSchema
 >;
 export type WeeklyPlan = z.infer<typeof weeklyPlanSchema>;
 export type WeeklyPlanDraft = z.infer<typeof weeklyPlanDraftSchema>;
+export type WeeklyPlanFinalized = z.infer<typeof weeklyPlanFinalizedSchema>;
 export type WeeklyGenerationMode = z.infer<typeof weeklyGenerationModeSchema>;
 export type CorexPerceivedAbilitySummary = z.infer<
   typeof corexPerceivedAbilitySummarySchema
@@ -406,4 +429,10 @@ export type PlannerState = {
   performanceSnapshot: PlanningPerformanceSnapshot;
   defaults: PlannerDefaults | null;
   activeDraft: WeeklyPlanDraft | null;
+  currentFinalizedPlan: WeeklyPlanFinalized | null;
+};
+
+export type FinalizedPlanHistory = {
+  items: WeeklyPlanFinalized[];
+  nextOffset: number | null;
 };

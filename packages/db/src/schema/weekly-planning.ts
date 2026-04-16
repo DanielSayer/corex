@@ -50,6 +50,11 @@ export const weeklyPlan = pgTable(
   },
   (table) => [
     index("weekly_plan_user_start_idx").on(table.userId, table.startDate),
+    index("weekly_plan_user_status_start_idx").on(
+      table.userId,
+      table.status,
+      table.startDate,
+    ),
     uniqueIndex("weekly_plan_draft_user_start_unique")
       .on(table.userId, table.startDate)
       .where(sql`${table.status} = 'draft'`),

@@ -99,6 +99,13 @@
       "when": 1776300000000,
       "tag": "0013_plan_quality_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1776380000000,
+      "tag": "0014_weekly_plan_finalized_history",
+      "breakpoints": true
     }
   ]
 }

@@ -34,6 +34,12 @@ export class DraftNotFound extends Data.TaggedError("DraftNotFound")<{
   message: string;
 }> {}
 
+export class PlanFinalizationConflict extends Data.TaggedError(
+  "PlanFinalizationConflict",
+)<{
+  message: string;
+}> {}
+
 export class InvalidStructuredOutput extends Data.TaggedError(
   "InvalidStructuredOutput",
 )<{

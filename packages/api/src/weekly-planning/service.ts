@@ -2,16 +2,21 @@ import { randomUUID } from "node:crypto";
 
 import { Effect } from "effect";
 
+import { getLocalDateKey } from "../activity-history/activity-calendar";
 import type { PlanningDataService } from "../planning-data/service";
 import type { TrainingSettingsService } from "../training-settings/service";
 import type {
+  FinalizedPlanHistory,
+  FinalizeDraftInput,
   GenerateWeeklyDraftInput,
+  ListFinalizedPlansInput,
   MoveDraftSessionInput,
   PlanQualityReport,
   PlannerState,
   RegenerateDraftInput,
   UpdateDraftSessionInput,
   WeeklyPlanDraft,
+  WeeklyPlanFinalized,
   WeeklyPlanPayload,
 } from "./contracts";
 import {
@@ -27,6 +32,8 @@ import {
 } from "./domain";
 import {
   moveDraftSessionInputSchema,
+  finalizeDraftInputSchema,
+  listFinalizedPlansInputSchema,
   regenerateDraftInputSchema,
   updateDraftSessionInputSchema,
 } from "./contracts";
@@ -38,6 +45,7 @@ import {
   MissingTrainingSettings,
   MissingPriorPlan,
   NoLocalHistory,
+  PlanFinalizationConflict,
   PlanQualityGuardrailFailure,
   WeeklyPlanningValidationError,
   toFailureCategory,
@@ -82,7 +90,10 @@ export type WeeklyPlanningService = ReturnType<
 >;
 
 export function createWeeklyPlanningService(options: {
-  trainingSettingsService: Pick<TrainingSettingsService, "getForUser">;
+  trainingSettingsService: Pick<
+    TrainingSettingsService,
+    "getForUser" | "getTimezoneForUser"
+  >;
   planningDataService: Pick<
     PlanningDataService,
     | "getPlanningHistorySnapshot"
@@ -411,13 +422,18 @@ export function createWeeklyPlanningService(options: {
           historyQuality,
           performanceSnapshot,
           activeDraft,
+          timezone,
         ] = yield* Effect.all([
           options.trainingSettingsService.getForUser(userId),
           options.planningDataService.getPlanningHistorySnapshot(userId),
           options.planningDataService.getHistoryQuality(userId),
           options.planningDataService.getPlanningPerformanceSnapshot(userId),
           options.repo.getActiveDraft(userId),
+          options.trainingSettingsService.getTimezoneForUser(userId),
         ]);
+        const today = getLocalDateKey(clock.now(), timezone);
+        const currentFinalizedPlan =
+          yield* options.repo.getFinalizedPlanForDate(userId, today);
 
         const defaults =
           settings.status === "complete" && settings.availability
@@ -443,6 +459,87 @@ export function createWeeklyPlanningService(options: {
           performanceSnapshot,
           defaults,
           activeDraft,
+          currentFinalizedPlan,
+        };
+      });
+    },
+    finalizeDraft(
+      userId: string,
+      rawInput: FinalizeDraftInput,
+    ): Effect.Effect<WeeklyPlanFinalized, unknown> {
+      return Effect.gen(function* () {
+        const input = yield* Effect.try({
+          try: () => finalizeDraftInputSchema.parse(rawInput),
+          catch: (error) =>
+            new WeeklyPlanningValidationError({
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Invalid draft finalization input",
+            }),
+        });
+        const draft = yield* options.repo.getDraftById(userId, input.draftId);
+
+        if (!draft) {
+          return yield* Effect.fail(
+            new DraftNotFound({
+              message: "Weekly plan draft could not be found",
+            }),
+          );
+        }
+
+        const overlappingFinalized =
+          yield* options.repo.findOverlappingFinalizedPlan(userId, {
+            startDate: draft.startDate,
+            endDate: draft.endDate,
+          });
+
+        if (overlappingFinalized) {
+          return yield* Effect.fail(
+            new PlanFinalizationConflict({
+              message: "A finalized weekly plan already overlaps this draft",
+            }),
+          );
+        }
+
+        const finalized = yield* options.repo.finalizeDraft(userId, draft.id);
+
+        if (!finalized) {
+          return yield* Effect.fail(
+            new DraftNotFound({
+              message: "Weekly plan draft could not be found",
+            }),
+          );
+        }
+
+        return finalized;
+      });
+    },
+    listFinalizedPlans(
+      userId: string,
+      rawInput: ListFinalizedPlansInput = {},
+    ): Effect.Effect<FinalizedPlanHistory, unknown> {
+      return Effect.gen(function* () {
+        const input = yield* Effect.try({
+          try: () => listFinalizedPlansInputSchema.parse(rawInput),
+          catch: (error) =>
+            new WeeklyPlanningValidationError({
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Invalid finalized plan history input",
+            }),
+        });
+        const items = yield* options.repo.listFinalizedPlans(userId, {
+          limit: input.limit + 1,
+          offset: input.offset,
+        });
+        const visibleItems = items.slice(0, input.limit);
+
+        return {
+          items: visibleItems,
+          nextOffset:
+            items.length > input.limit ? input.offset + input.limit : null,
         };
       });
     },

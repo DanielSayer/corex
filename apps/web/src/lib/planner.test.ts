@@ -50,6 +50,7 @@ describe("planner helpers", () => {
         planDurationWeeks: 4,
       },
       activeDraft: null,
+      currentFinalizedPlan: null,
     });
 
     expect(state).toEqual({

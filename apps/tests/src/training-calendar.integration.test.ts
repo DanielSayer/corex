@@ -495,4 +495,79 @@ describe("training calendar integration", () => {
       activityId: "nextlink-4",
     });
   });
+
+  it("renders finalized planned sessions when no draft overlaps the viewed dates", async () => {
+    const seeded = await seedTrainingCalendarUser({
+      email: "calendar-finalized@example.com",
+      name: "Calendar Finalized",
+      activityPrefix: "finalized",
+    });
+    await Effect.runPromise(
+      seeded.weeklyPlanningService.finalizeDraft(seeded.user.id, {
+        draftId: seeded.draft.id,
+      }),
+    );
+
+    const month = await Effect.runPromise(
+      seeded.service.month(seeded.user.id, {
+        from: "2026-04-06T00:00:00.000Z",
+        to: "2026-04-12T00:00:00.000Z",
+      }),
+    );
+
+    expect(month.plannedSessions.map((session) => session.date)).toEqual([
+      "2026-04-06",
+      "2026-04-07",
+      "2026-04-11",
+    ]);
+    expect(month.plannedSessions[0]).toMatchObject({
+      title: "Easy run",
+      status: "planned",
+    });
+  });
+
+  it("renders an overlapping draft ahead of the finalized plan", async () => {
+    const seeded = await seedTrainingCalendarUser({
+      email: "calendar-draft-over-finalized@example.com",
+      name: "Calendar Draft Over Finalized",
+      activityPrefix: "draftfinal",
+    });
+    await Effect.runPromise(
+      seeded.weeklyPlanningService.finalizeDraft(seeded.user.id, {
+        draftId: seeded.draft.id,
+      }),
+    );
+    const experimentalDraft = await Effect.runPromise(
+      seeded.weeklyPlanningService.generateDraft(seeded.user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+    await Effect.runPromise(
+      seeded.weeklyPlanningService.updateDraftSession(seeded.user.id, {
+        draftId: experimentalDraft.id,
+        date: "2026-04-06",
+        session: {
+          ...experimentalDraft.payload.days[0]!.session!,
+          title: "Experimental easy run",
+          summary: "Preview this draft ahead of the committed plan.",
+        },
+      }),
+    );
+
+    const month = await Effect.runPromise(
+      seeded.service.month(seeded.user.id, {
+        from: "2026-04-06T00:00:00.000Z",
+        to: "2026-04-12T00:00:00.000Z",
+      }),
+    );
+
+    expect(month.plannedSessions[0]).toMatchObject({
+      title: "Experimental easy run",
+      status: "planned",
+    });
+  });
 });

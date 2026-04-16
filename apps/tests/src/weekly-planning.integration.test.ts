@@ -18,6 +18,7 @@ import {
   DraftConflict,
   InvalidStructuredOutput,
   MissingPriorPlan,
+  PlanFinalizationConflict,
   WeeklyPlanningValidationError,
 } from "@corex/api/weekly-planning/errors";
 import type { PlannerModelPort } from "@corex/api/weekly-planning/model";
@@ -353,6 +354,7 @@ describe("weekly planning integration", () => {
     expect(state.availability?.saturday.maxDurationMinutes).toBe(120);
     expect(state.historyQuality.hasAnyHistory).toBe(true);
     expect(state.activeDraft).toBeNull();
+    expect(state.currentFinalizedPlan).toBeNull();
   });
 
   it("persists a draft and generation event on successful generation", async () => {
@@ -1022,6 +1024,174 @@ describe("weekly planning integration", () => {
     });
     expect(events[1]?.generationContext).toMatchObject({
       generationMode: "regeneration",
+    });
+  });
+
+  it("finalizes an owned draft and returns it in newest-first history", async () => {
+    const { db, user, service } = await seedPlannerUser();
+    const draft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+
+    const finalized = await Effect.runPromise(
+      service.finalizeDraft(user.id, { draftId: draft.id }),
+    );
+    const storedPlan = await db.query.weeklyPlan.findFirst({
+      where: (table, { eq }) => eq(table.id, draft.id),
+    });
+
+    expect(finalized).toMatchObject({
+      id: draft.id,
+      status: "finalized",
+      startDate: "2026-04-06",
+      payload: draft.payload,
+    });
+    expect(storedPlan?.status).toBe("finalized");
+
+    const nextDraft = await Effect.runPromise(
+      service.generateNextWeek(user.id),
+    );
+    await Effect.runPromise(
+      service.finalizeDraft(user.id, { draftId: nextDraft.id }),
+    );
+
+    const firstPage = await Effect.runPromise(
+      service.listFinalizedPlans(user.id, { limit: 1, offset: 0 }),
+    );
+    const secondPage = await Effect.runPromise(
+      service.listFinalizedPlans(user.id, { limit: 1, offset: 1 }),
+    );
+
+    expect(firstPage.items.map((plan) => plan.startDate)).toEqual([
+      "2026-04-13",
+    ]);
+    expect(firstPage.nextOffset).toBe(1);
+    expect(secondPage.items.map((plan) => plan.startDate)).toEqual([
+      "2026-04-06",
+    ]);
+    expect(secondPage.nextOffset).toBeNull();
+  });
+
+  it("rejects cross-user and repeated draft finalization without changing the draft", async () => {
+    const { db, user, service } = await seedPlannerUser();
+    const otherUser = await createUser(db, {
+      email: "planner-finalize-other@example.com",
+      name: "Finalize Other",
+    });
+    const draft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+
+    const crossUserExit = await Effect.runPromiseExit(
+      service.finalizeDraft(otherUser.id, { draftId: draft.id }),
+    );
+    const afterCrossUserAttempt = await db.query.weeklyPlan.findFirst({
+      where: (table, { eq }) => eq(table.id, draft.id),
+    });
+    await Effect.runPromise(
+      service.finalizeDraft(user.id, { draftId: draft.id }),
+    );
+    const repeatedExit = await Effect.runPromiseExit(
+      service.finalizeDraft(user.id, { draftId: draft.id }),
+    );
+
+    expect(Exit.isFailure(crossUserExit)).toBe(true);
+    expect(afterCrossUserAttempt?.status).toBe("draft");
+    expect(Exit.isFailure(repeatedExit)).toBe(true);
+
+    for (const exit of [crossUserExit, repeatedExit]) {
+      if (Exit.isFailure(exit)) {
+        const failure = Cause.failureOption(exit.cause);
+        expect(Option.isSome(failure)).toBe(true);
+
+        if (Option.isSome(failure)) {
+          expect(failure.value).toBeInstanceOf(DraftNotFound);
+        }
+      }
+    }
+  });
+
+  it("allows same-week draft experiments but rejects overlapping finalization", async () => {
+    const { user, service } = await seedPlannerUser();
+    const draft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+    await Effect.runPromise(
+      service.finalizeDraft(user.id, { draftId: draft.id }),
+    );
+
+    const experimentalDraft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+    const exit = await Effect.runPromiseExit(
+      service.finalizeDraft(user.id, { draftId: experimentalDraft.id }),
+    );
+
+    expect(experimentalDraft.status).toBe("draft");
+    expect(Exit.isFailure(exit)).toBe(true);
+
+    if (Exit.isFailure(exit)) {
+      const failure = Cause.failureOption(exit.cause);
+      expect(Option.isSome(failure)).toBe(true);
+
+      if (Option.isSome(failure)) {
+        expect(failure.value).toBeInstanceOf(PlanFinalizationConflict);
+      }
+    }
+  });
+
+  it("returns the current finalized plan from planner state using the stored timezone", async () => {
+    const { db, user, service } = await seedPlannerUser();
+    const draft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+    await Effect.runPromise(
+      service.finalizeDraft(user.id, { draftId: draft.id }),
+    );
+    const currentWeekService = createWeeklyPlanningService({
+      trainingSettingsService: createLiveTrainingSettingsService({ db }),
+      planningDataService: createLivePlanningDataService({ db }),
+      repo: createWeeklyPlanningRepository(db),
+      model: createFakeModel(),
+      clock: { now: () => new Date("2026-04-07T15:00:00.000Z") },
+    });
+
+    const state = await Effect.runPromise(currentWeekService.getState(user.id));
+
+    expect(state.currentFinalizedPlan).toMatchObject({
+      id: draft.id,
+      status: "finalized",
+      startDate: "2026-04-06",
     });
   });
 });
