@@ -16,6 +16,7 @@ import {
   MissingTrainingSettings,
   MissingPriorPlan,
   NoLocalHistory,
+  PlanQualityGuardrailFailure,
   ProviderFailure,
   WeeklyPlanningPersistenceFailure,
   WeeklyPlanningValidationError,
@@ -49,7 +50,8 @@ function mapWeeklyPlanningError(error: unknown) {
     error instanceof MissingTrainingSettings ||
     error instanceof NoLocalHistory ||
     error instanceof WeeklyPlanningValidationError ||
-    error instanceof InvalidStructuredOutput
+    error instanceof InvalidStructuredOutput ||
+    error instanceof PlanQualityGuardrailFailure
   ) {
     return new TRPCError({
       code: "BAD_REQUEST",

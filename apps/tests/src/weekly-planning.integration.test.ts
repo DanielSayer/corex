@@ -11,6 +11,7 @@ import {
   SUPPORTED_RACE_DISTANCES,
   TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITY_LEVELS,
+  type WeeklyPlanPayload,
 } from "@corex/api/weekly-planning/contracts";
 import {
   DraftNotFound,
@@ -51,8 +52,8 @@ function createFakeModel(
                 title: "Easy run",
                 summary: "Easy aerobic run",
                 coachingNotes: null,
-                estimatedDurationSeconds: 1800,
-                estimatedDistanceMeters: 5000,
+                estimatedDurationSeconds: 600,
+                estimatedDistanceMeters: 2000,
                 intervalBlocks: [
                   {
                     blockType: "steady",
@@ -61,7 +62,37 @@ function createFakeModel(
                     title: "Steady",
                     notes: null,
                     target: {
-                      durationSeconds: 1800,
+                      durationSeconds: 600,
+                      distanceMeters: null,
+                      pace: null,
+                      heartRate: "Z2",
+                      rpe: 4,
+                    },
+                  },
+                ],
+              },
+            };
+          }
+
+          if (index === 2) {
+            return {
+              date: isoDate,
+              session: {
+                sessionType: "easy_run",
+                title: "Aerobic run",
+                summary: "Easy aerobic run",
+                coachingNotes: null,
+                estimatedDurationSeconds: 600,
+                estimatedDistanceMeters: 2000,
+                intervalBlocks: [
+                  {
+                    blockType: "steady",
+                    order: 1,
+                    repetitions: 1,
+                    title: "Steady",
+                    notes: null,
+                    target: {
+                      durationSeconds: 600,
                       distanceMeters: null,
                       pace: null,
                       heartRate: "Z2",
@@ -81,8 +112,8 @@ function createFakeModel(
                 title: "Long run",
                 summary: "Long aerobic run",
                 coachingNotes: null,
-                estimatedDurationSeconds: 3600,
-                estimatedDistanceMeters: 16000,
+                estimatedDurationSeconds: 600,
+                estimatedDistanceMeters: 2000,
                 intervalBlocks: [
                   {
                     blockType: "steady",
@@ -91,7 +122,7 @@ function createFakeModel(
                     title: "Long",
                     notes: null,
                     target: {
-                      durationSeconds: 3600,
+                      durationSeconds: 600,
                       distanceMeters: null,
                       pace: null,
                       heartRate: "Z2",
@@ -110,6 +141,83 @@ function createFakeModel(
         }),
       }),
     ...overrides,
+  };
+}
+
+function createExcessiveGeneratedPlan(startDate: string): WeeklyPlanPayload {
+  return {
+    days: Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(`${startDate}T00:00:00.000Z`);
+      date.setUTCDate(date.getUTCDate() + index);
+      const isoDate = date.toISOString().slice(0, 10);
+
+      if (index === 5) {
+        return {
+          date: isoDate,
+          session: {
+            sessionType: "long_run",
+            title: "Excessive long run",
+            summary: "Too much long-run load",
+            coachingNotes: null,
+            estimatedDurationSeconds: 5400,
+            estimatedDistanceMeters: 25000,
+            intervalBlocks: [
+              {
+                blockType: "steady",
+                order: 1,
+                repetitions: 1,
+                title: "Long",
+                notes: null,
+                target: {
+                  durationSeconds: 5400,
+                  distanceMeters: null,
+                  pace: null,
+                  heartRate: "Z2",
+                  rpe: 5,
+                },
+              },
+            ],
+          },
+        };
+      }
+
+      if (index === 0 || index === 2 || index === 4) {
+        const durationSeconds = index === 0 ? 2400 : 3000;
+
+        return {
+          date: isoDate,
+          session: {
+            sessionType: "easy_run",
+            title: "Big easy run",
+            summary: "Too much weekly load",
+            coachingNotes: null,
+            estimatedDurationSeconds: durationSeconds,
+            estimatedDistanceMeters: 15000,
+            intervalBlocks: [
+              {
+                blockType: "steady",
+                order: 1,
+                repetitions: 1,
+                title: "Steady",
+                notes: null,
+                target: {
+                  durationSeconds,
+                  distanceMeters: null,
+                  pace: null,
+                  heartRate: "Z2",
+                  rpe: 4,
+                },
+              },
+            ],
+          },
+        };
+      }
+
+      return {
+        date: isoDate,
+        session: null,
+      };
+    }),
   };
 }
 
@@ -168,6 +276,51 @@ async function seedPlannerUser() {
       averageSpeedMetersPerSecond: 2.8,
       averageHeartrate: 145,
       rawDetail: { id: "run-2" },
+    },
+    {
+      userId: user.id,
+      upstreamActivityId: "run-3",
+      athleteId: "athlete-1",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      startAt: new Date("2026-03-24T00:00:00.000Z"),
+      movingTimeSeconds: 2400,
+      elapsedTimeSeconds: 2410,
+      distanceMeters: 7000,
+      totalElevationGainMeters: 35,
+      averageSpeedMetersPerSecond: 2.9,
+      averageHeartrate: 146,
+      rawDetail: { id: "run-3" },
+    },
+    {
+      userId: user.id,
+      upstreamActivityId: "run-4",
+      athleteId: "athlete-1",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      startAt: new Date("2026-03-20T00:00:00.000Z"),
+      movingTimeSeconds: 3100,
+      elapsedTimeSeconds: 3120,
+      distanceMeters: 10000,
+      totalElevationGainMeters: 80,
+      averageSpeedMetersPerSecond: 3.1,
+      averageHeartrate: 148,
+      rawDetail: { id: "run-4" },
+    },
+    {
+      userId: user.id,
+      upstreamActivityId: "run-5",
+      athleteId: "athlete-1",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      startAt: new Date("2026-03-17T00:00:00.000Z"),
+      movingTimeSeconds: 2700,
+      elapsedTimeSeconds: 2720,
+      distanceMeters: 8000,
+      totalElevationGainMeters: 60,
+      averageSpeedMetersPerSecond: 3,
+      averageHeartrate: 147,
+      rawDetail: { id: "run-5" },
     },
   ]);
 
@@ -228,9 +381,17 @@ describe("weekly planning integration", () => {
 
     expect(storedDraft?.startDate).toBe("2026-04-06");
     expect(storedDraft?.goalId).toBeNull();
+    expect(storedDraft?.qualityReport).toMatchObject({
+      status: "pass",
+      mode: "enforced",
+    });
     expect(events).toHaveLength(1);
     expect(events[0]?.status).toBe("success");
     expect(events[0]?.goalId).toBeNull();
+    expect(events[0]?.qualityReport).toMatchObject({
+      status: "pass",
+      mode: "enforced",
+    });
   });
 
   it("records a failed generation event and does not persist a draft for invalid model output", async () => {
@@ -286,6 +447,51 @@ describe("weekly planning integration", () => {
     expect(drafts).toHaveLength(0);
     expect(events).toHaveLength(1);
     expect(events[0]?.status).toBe("failure");
+  });
+
+  it("records a failed generation event and no draft for quality guardrail failures", async () => {
+    const { db, user } = await seedPlannerUser();
+    const service = createWeeklyPlanningService({
+      trainingSettingsService: createLiveTrainingSettingsService({ db }),
+      planningDataService: createLivePlanningDataService({ db }),
+      repo: createWeeklyPlanningRepository(db),
+      model: createFakeModel({
+        generateWeeklyPlan: (context) =>
+          Effect.succeed(createExcessiveGeneratedPlan(context.startDate)),
+      }),
+      clock: { now: () => new Date("2026-04-01T00:00:00.000Z") },
+      idGenerator: (() => {
+        let index = 0;
+        return () => `planner-quality-${++index}`;
+      })(),
+    });
+
+    const exit = await Effect.runPromiseExit(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+
+    const drafts = await db.select().from(plannerWeeklyPlan);
+    const events = await db.select().from(plannerGenerationEvent);
+
+    expect(drafts).toHaveLength(0);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      status: "failure",
+      failureCategory: "quality_guardrail_failure",
+      weeklyPlanId: null,
+    });
+    expect(events[0]?.qualityReport).toMatchObject({
+      status: "blocked",
+      mode: "enforced",
+    });
   });
 
   it("blocks a second generation for the same start date", async () => {
@@ -353,7 +559,7 @@ describe("weekly planning integration", () => {
 
     await db.insert(importedActivity).values({
       userId: user.id,
-      upstreamActivityId: "run-3",
+      upstreamActivityId: "run-next-week",
       athleteId: "athlete-1",
       upstreamActivityType: "Run",
       normalizedActivityType: "Run",
@@ -364,7 +570,7 @@ describe("weekly planning integration", () => {
       totalElevationGainMeters: 55,
       averageSpeedMetersPerSecond: 2.9,
       averageHeartrate: 152,
-      rawDetail: { id: "run-3" },
+      rawDetail: { id: "run-next-week" },
     });
 
     const nextDraft = await Effect.runPromise(
@@ -487,7 +693,48 @@ describe("weekly planning integration", () => {
       trainingSettingsService,
       planningDataService: createLivePlanningDataService({ db }),
       repo: createWeeklyPlanningRepository(db),
-      model: createFakeModel(),
+      model: createFakeModel({
+        generateWeeklyPlan: (context) =>
+          Effect.succeed({
+            days: Array.from({ length: 7 }, (_, index) => {
+              const date = new Date(`${context.startDate}T00:00:00.000Z`);
+              date.setUTCDate(date.getUTCDate() + index);
+              const isoDate = date.toISOString().slice(0, 10);
+
+              if (index === 0 || index === 2 || index === 5) {
+                return {
+                  date: isoDate,
+                  session: {
+                    sessionType: index === 5 ? "long_run" : "easy_run",
+                    title: index === 5 ? "Intro long run" : "Intro easy run",
+                    summary: "Conservative low-history run",
+                    coachingNotes: null,
+                    estimatedDurationSeconds: 600,
+                    estimatedDistanceMeters: 2000,
+                    intervalBlocks: [
+                      {
+                        blockType: "steady",
+                        order: 1,
+                        repetitions: 1,
+                        title: "Steady",
+                        notes: null,
+                        target: {
+                          durationSeconds: 600,
+                          distanceMeters: null,
+                          pace: null,
+                          heartRate: "Z2",
+                          rpe: 3,
+                        },
+                      },
+                    ],
+                  },
+                };
+              }
+
+              return { date: isoDate, session: null };
+            }),
+          }),
+      }),
       clock: { now: () => new Date("2026-04-01T00:00:00.000Z") },
     });
 
@@ -712,8 +959,8 @@ describe("weekly planning integration", () => {
                     title: "Regenerated long run",
                     summary: "Fresh long run",
                     coachingNotes: null,
-                    estimatedDurationSeconds: 3900,
-                    estimatedDistanceMeters: 15000,
+                    estimatedDurationSeconds: 1800,
+                    estimatedDistanceMeters: 5000,
                     intervalBlocks: [
                       {
                         blockType: "steady",
@@ -722,7 +969,7 @@ describe("weekly planning integration", () => {
                         title: "Long aerobic block",
                         notes: null,
                         target: {
-                          durationSeconds: 3900,
+                          durationSeconds: 1800,
                           distanceMeters: null,
                           pace: null,
                           heartRate: "Z2",

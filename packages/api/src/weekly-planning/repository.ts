@@ -7,6 +7,7 @@ import { generationEvent, weeklyPlan } from "@corex/db/schema/weekly-planning";
 import type {
   DraftGenerationContext,
   GenerationFailureCategory,
+  PlanQualityReport,
   WeeklyPlan,
   WeeklyPlanDraft,
   WeeklyPlanPayload,
@@ -27,6 +28,7 @@ export type StoredGenerationEvent = {
   failureMessage: string | null;
   generationContext: DraftGenerationContext;
   modelOutput: unknown | null;
+  qualityReport: PlanQualityReport | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -63,17 +65,20 @@ export type WeeklyPlanningRepository = {
     endDate: string;
     generationContext: DraftGenerationContext;
     payload: WeeklyPlanPayload;
+    qualityReport?: PlanQualityReport | null;
   }) => Effect.Effect<WeeklyPlanDraft, WeeklyPlanningPersistenceFailure>;
   updateDraftPayload: (input: {
     userId: string;
     draftId: string;
     payload: WeeklyPlanPayload;
+    qualityReport?: PlanQualityReport | null;
   }) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
   replaceDraftGeneration: (input: {
     userId: string;
     draftId: string;
     generationContext: DraftGenerationContext;
     payload: WeeklyPlanPayload;
+    qualityReport?: PlanQualityReport | null;
   }) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
   recordGenerationEvent: (input: {
     id: string;
@@ -88,6 +93,7 @@ export type WeeklyPlanningRepository = {
     failureMessage: string | null;
     generationContext: DraftGenerationContext;
     modelOutput: unknown | null;
+    qualityReport?: PlanQualityReport | null;
   }) => Effect.Effect<StoredGenerationEvent, WeeklyPlanningPersistenceFailure>;
 };
 
@@ -102,6 +108,7 @@ function mapWeeklyPlan(row: typeof weeklyPlan.$inferSelect): WeeklyPlan {
     endDate: row.endDate,
     generationContext: row.generationContext,
     payload: row.payload,
+    qualityReport: row.qualityReport,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   });
@@ -146,6 +153,7 @@ function mapGenerationEvent(
     failureMessage: row.failureMessage,
     generationContext: row.generationContext as DraftGenerationContext,
     modelOutput: row.modelOutput,
+    qualityReport: row.qualityReport as PlanQualityReport | null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -316,6 +324,7 @@ export function createWeeklyPlanningRepository(
               endDate: input.endDate,
               generationContext: input.generationContext,
               payload: input.payload,
+              qualityReport: input.qualityReport ?? null,
             })
             .returning();
 
@@ -343,6 +352,7 @@ export function createWeeklyPlanningRepository(
             .update(weeklyPlan)
             .set({
               payload: input.payload,
+              qualityReport: input.qualityReport ?? null,
               updatedAt: new Date(),
             })
             .where(
@@ -373,6 +383,7 @@ export function createWeeklyPlanningRepository(
             .set({
               generationContext: input.generationContext,
               payload: input.payload,
+              qualityReport: input.qualityReport ?? null,
               updatedAt: new Date(),
             })
             .where(
@@ -413,6 +424,7 @@ export function createWeeklyPlanningRepository(
               failureMessage: input.failureMessage,
               generationContext: input.generationContext,
               modelOutput: input.modelOutput,
+              qualityReport: input.qualityReport ?? null,
             })
             .returning();
 

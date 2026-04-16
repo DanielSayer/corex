@@ -170,9 +170,28 @@ function sessionLabel(session: PlannedSession | null) {
   return session?.title ?? "Rest day";
 }
 
+function getVisibleQualityItems(draft: WeeklyPlanDraft) {
+  const report = draft.qualityReport;
+
+  if (!report || report.status === "pass") {
+    return [];
+  }
+
+  return [...report.items]
+    .sort((left, right) => {
+      if (left.severity === right.severity) {
+        return 0;
+      }
+
+      return left.severity === "blocking" ? -1 : 1;
+    })
+    .slice(0, 5);
+}
+
 export function PlannerDraftView(props: PlannerDraftViewProps) {
   const draft = props.draft;
   const planGoal = draft.generationContext.plannerIntent.planGoal;
+  const qualityItems = getVisibleQualityItems(draft);
   const [formsByDate, setFormsByDate] = useState<
     Record<string, EditableSession>
   >(() =>
@@ -252,6 +271,37 @@ export function PlannerDraftView(props: PlannerDraftViewProps) {
           <Alert variant="destructive">
             <AlertTitle>Draft update failed</AlertTitle>
             <AlertDescription>{props.errorMessage}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {draft.qualityReport && qualityItems.length > 0 ? (
+          <Alert
+            variant={
+              draft.qualityReport.status === "blocked"
+                ? "destructive"
+                : "default"
+            }
+          >
+            <AlertTitle>
+              {draft.qualityReport.status === "blocked"
+                ? "Plan quality risks"
+                : "Plan quality warnings"}
+            </AlertTitle>
+            <AlertDescription>
+              <div className="flex flex-col gap-2">
+                <p>{draft.qualityReport.summary}</p>
+                <ul className="list-disc space-y-1 pl-5">
+                  {qualityItems.map((item) => (
+                    <li key={item.code}>
+                      <span className="font-medium">
+                        {item.severity === "blocking" ? "Blocking" : "Warning"}:
+                      </span>{" "}
+                      {item.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDescription>
           </Alert>
         ) : null}
 

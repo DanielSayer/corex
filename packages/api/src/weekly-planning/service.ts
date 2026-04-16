@@ -7,6 +7,7 @@ import type { TrainingSettingsService } from "../training-settings/service";
 import type {
   GenerateWeeklyDraftInput,
   MoveDraftSessionInput,
+  PlanQualityReport,
   PlannerState,
   RegenerateDraftInput,
   UpdateDraftSessionInput,
@@ -37,9 +38,11 @@ import {
   MissingTrainingSettings,
   MissingPriorPlan,
   NoLocalHistory,
+  PlanQualityGuardrailFailure,
   WeeklyPlanningValidationError,
   toFailureCategory,
 } from "./errors";
+import { reviewPlanQuality } from "./quality-review";
 
 type Clock = {
   now: () => Date;
@@ -51,6 +54,16 @@ function toDateOnly(now: Date) {
 
 function toFailureMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function createGeneratedAt(clock: Clock) {
+  return clock.now().toISOString();
+}
+
+function createQualityGuardrailFailure(report: PlanQualityReport) {
+  return new PlanQualityGuardrailFailure({
+    message: report.summary,
+  });
 }
 
 function toPlannerIntent(input: GenerateWeeklyDraftInput) {
@@ -154,6 +167,35 @@ export function createWeeklyPlanningService(options: {
           }),
       );
 
+      const qualityReport = reviewPlanQuality({
+        payload,
+        generationContext: input.generationContext,
+        mode: "enforced",
+        generatedAt: createGeneratedAt(clock),
+      });
+
+      if (qualityReport.status === "blocked") {
+        const error = createQualityGuardrailFailure(qualityReport);
+
+        yield* options.repo.recordGenerationEvent({
+          id: idGenerator(),
+          userId: input.userId,
+          goalId: input.goalId,
+          weeklyPlanId: null,
+          status: "failure",
+          provider: options.model.provider,
+          model: options.model.model,
+          startDate: input.generationContext.startDate,
+          failureCategory: toFailureCategory(error),
+          failureMessage: toFailureMessage(error),
+          generationContext: input.generationContext,
+          modelOutput: payload,
+          qualityReport,
+        });
+
+        return yield* Effect.fail(error);
+      }
+
       const draft = yield* Effect.catchAll(
         options.repo.createDraft({
           id: idGenerator(),
@@ -164,6 +206,7 @@ export function createWeeklyPlanningService(options: {
           endDate: input.generationContext.endDate,
           generationContext: input.generationContext,
           payload,
+          qualityReport,
         }),
         (error) =>
           Effect.gen(function* () {
@@ -180,6 +223,7 @@ export function createWeeklyPlanningService(options: {
               failureMessage: toFailureMessage(error),
               generationContext: input.generationContext,
               modelOutput: payload,
+              qualityReport,
             });
 
             return yield* Effect.fail(error);
@@ -199,6 +243,7 @@ export function createWeeklyPlanningService(options: {
         failureMessage: null,
         generationContext: input.generationContext,
         modelOutput: payload,
+        qualityReport,
       });
 
       return draft;
@@ -266,6 +311,35 @@ export function createWeeklyPlanningService(options: {
           }),
       );
 
+      const qualityReport = reviewPlanQuality({
+        payload,
+        generationContext: input.generationContext,
+        mode: "enforced",
+        generatedAt: createGeneratedAt(clock),
+      });
+
+      if (qualityReport.status === "blocked") {
+        const error = createQualityGuardrailFailure(qualityReport);
+
+        yield* options.repo.recordGenerationEvent({
+          id: idGenerator(),
+          userId: input.userId,
+          goalId: input.goalId,
+          weeklyPlanId: input.draftId,
+          status: "failure",
+          provider: options.model.provider,
+          model: options.model.model,
+          startDate: input.generationContext.startDate,
+          failureCategory: toFailureCategory(error),
+          failureMessage: toFailureMessage(error),
+          generationContext: input.generationContext,
+          modelOutput: payload,
+          qualityReport,
+        });
+
+        return yield* Effect.fail(error);
+      }
+
       const draft = yield* Effect.catchAll(
         Effect.gen(function* () {
           const updated = yield* options.repo.replaceDraftGeneration({
@@ -273,6 +347,7 @@ export function createWeeklyPlanningService(options: {
             draftId: input.draftId,
             generationContext: input.generationContext,
             payload,
+            qualityReport,
           });
 
           if (!updated) {
@@ -300,6 +375,7 @@ export function createWeeklyPlanningService(options: {
               failureMessage: toFailureMessage(error),
               generationContext: input.generationContext,
               modelOutput: payload,
+              qualityReport,
             });
 
             return yield* Effect.fail(error);
@@ -319,6 +395,7 @@ export function createWeeklyPlanningService(options: {
         failureMessage: null,
         generationContext: input.generationContext,
         modelOutput: payload,
+        qualityReport,
       });
 
       return draft;
@@ -574,6 +651,12 @@ export function createWeeklyPlanningService(options: {
           userId,
           draftId: draft.id,
           payload,
+          qualityReport: reviewPlanQuality({
+            payload,
+            generationContext: draft.generationContext,
+            mode: "advisory",
+            generatedAt: createGeneratedAt(clock),
+          }),
         });
 
         if (!updated) {
@@ -627,6 +710,12 @@ export function createWeeklyPlanningService(options: {
           userId,
           draftId: draft.id,
           payload,
+          qualityReport: reviewPlanQuality({
+            payload,
+            generationContext: draft.generationContext,
+            mode: "advisory",
+            generatedAt: createGeneratedAt(clock),
+          }),
         });
 
         if (!updated) {
