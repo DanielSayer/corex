@@ -29,7 +29,11 @@ function createRepository(
     getLatestPlan: () => Effect.succeed(null),
     getDraftForStartDate: () => Effect.succeed(null),
     getDraftById: () => Effect.succeed(null),
+    getPlanById: () => Effect.succeed(null),
     getPlanForDate: () => Effect.succeed(null),
+    getFinalizedPlanForDate: () => Effect.succeed(null),
+    findOverlappingFinalizedPlan: () => Effect.succeed(null),
+    listFinalizedPlans: () => Effect.succeed([]),
     listPlansInRange: () => Effect.succeed([]),
     createDraft: (input) =>
       Effect.succeed({
@@ -48,6 +52,7 @@ function createRepository(
       } satisfies WeeklyPlanDraft),
     updateDraftPayload: () => Effect.succeed(null),
     replaceDraftGeneration: () => Effect.succeed(null),
+    finalizeDraft: () => Effect.succeed(null),
     recordGenerationEvent: (input) =>
       Effect.succeed({
         ...input,
@@ -154,6 +159,7 @@ function createPlannerState(): PlannerState {
     },
     defaults: null,
     activeDraft: null,
+    currentFinalizedPlan: null,
   };
 }
 
@@ -376,6 +382,7 @@ function createService(
             updatedAt: "2026-04-01T00:00:00.000Z",
           },
         }),
+      getTimezoneForUser: () => Effect.succeed("Australia/Brisbane"),
     },
     planningDataService: {
       getPlanningHistorySnapshot: () => Effect.succeed(state.historySnapshot),

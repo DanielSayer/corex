@@ -3,7 +3,9 @@ import { TRPCError } from "@trpc/server";
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
 import {
+  finalizeDraftInputSchema,
   generateWeeklyDraftInputSchema,
+  listFinalizedPlansInputSchema,
   moveDraftSessionInputSchema,
   regenerateDraftInputSchema,
   updateDraftSessionInputSchema,
@@ -16,6 +18,7 @@ import {
   MissingTrainingSettings,
   MissingPriorPlan,
   NoLocalHistory,
+  PlanFinalizationConflict,
   PlanQualityGuardrailFailure,
   ProviderFailure,
   WeeklyPlanningPersistenceFailure,
@@ -29,7 +32,10 @@ type CreateWeeklyPlanningRouterOptions = {
 };
 
 function mapWeeklyPlanningError(error: unknown) {
-  if (error instanceof DraftConflict) {
+  if (
+    error instanceof DraftConflict ||
+    error instanceof PlanFinalizationConflict
+  ) {
     return new TRPCError({
       code: "CONFLICT",
       message: error.message,
@@ -91,6 +97,22 @@ export function createWeeklyPlanningRouter(
         mapWeeklyPlanningError,
       ),
     ),
+    listFinalizedPlans: authedProcedure
+      .input(listFinalizedPlansInputSchema)
+      .query(({ ctx, input }) =>
+        executeEffect(
+          getService().listFinalizedPlans(ctx.session.user.id, input),
+          mapWeeklyPlanningError,
+        ),
+      ),
+    finalizeDraft: authedProcedure
+      .input(finalizeDraftInputSchema)
+      .mutation(({ ctx, input }) =>
+        executeEffect(
+          getService().finalizeDraft(ctx.session.user.id, input),
+          mapWeeklyPlanningError,
+        ),
+      ),
     generateDraft: authedProcedure
       .input(generateWeeklyDraftInputSchema)
       .mutation(({ ctx, input }) =>

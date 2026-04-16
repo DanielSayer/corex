@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import {
@@ -12,8 +12,17 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@corex/ui/components/alert";
+import { Badge } from "@corex/ui/components/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@corex/ui/components/card";
 
 import type { PlannerRouterOutputs } from "@/utils/types";
+import type { WeeklyPlanFinalized } from "@corex/api/weekly-planning/contracts";
 import {
   ESTIMATED_RACE_DISTANCES,
   LONG_RUN_DAYS,
@@ -28,11 +37,113 @@ type PlannerPageProps = {
   plannerForm: PlannerRouterOutputs["getState"];
 };
 
+function countScheduledSessions(plan: WeeklyPlanFinalized) {
+  return plan.payload.days.filter((day) => day.session).length;
+}
+
+function FinalizedPlanCard(props: {
+  plan: WeeklyPlanFinalized;
+  title: string;
+  description: string;
+}) {
+  const plan = props.plan;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{props.title}</CardTitle>
+        <CardDescription>{props.description}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">{plan.startDate}</Badge>
+          <Badge variant="outline">{plan.endDate}</Badge>
+          <Badge variant="outline">
+            {countScheduledSessions(plan)} scheduled sessions
+          </Badge>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {plan.payload.days.map((day) => (
+            <div
+              className="rounded-lg border border-border/70 p-3 text-sm"
+              key={day.date}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 font-medium">
+                <span>{day.date}</span>
+                <Badge variant="secondary">
+                  {day.session?.sessionType ?? "rest"}
+                </Badge>
+              </div>
+              <p className="mt-2 text-muted-foreground">
+                {day.session?.title ?? "Recovery / no scheduled session"}
+              </p>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FinalizedHistoryCard(props: {
+  history: PlannerRouterOutputs["listFinalizedPlans"] | undefined;
+  isLoading: boolean;
+}) {
+  const plans = props.history?.items ?? [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Finalized history</CardTitle>
+        <CardDescription>Recent weeks you committed to.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {props.isLoading ? (
+          <p className="text-sm text-muted-foreground">
+            Loading finalized plans...
+          </p>
+        ) : plans.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {plans.map((plan) => (
+              <div
+                className="flex flex-col gap-2 rounded-lg border border-border/70 p-3 md:flex-row md:items-center md:justify-between"
+                key={plan.id}
+              >
+                <div>
+                  <div className="font-medium">
+                    {plan.startDate} to {plan.endDate}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {countScheduledSessions(plan)} scheduled sessions
+                  </div>
+                </div>
+                <Badge variant="outline">
+                  {plan.generationContext.plannerIntent.planGoal}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Finalized weeks will appear here.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function PlannerPage({ plannerForm }: PlannerPageProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<PlannerFormState>(
     createPlannerFormState(plannerForm),
   );
+  const finalizedHistoryQueryOptions =
+    trpc.weeklyPlanning.listFinalizedPlans.queryOptions({
+      limit: 10,
+      offset: 0,
+    });
+  const finalizedHistory = useQuery(finalizedHistoryQueryOptions);
   const generateDraft = useMutation({
     ...trpc.weeklyPlanning.generateDraft.mutationOptions(),
     onSuccess: async () => {
@@ -63,6 +174,19 @@ export function PlannerPage({ plannerForm }: PlannerPageProps) {
       await queryClient.invalidateQueries({
         queryKey: trpc.weeklyPlanning.getState.queryOptions().queryKey,
       });
+    },
+  });
+  const finalizeDraft = useMutation({
+    ...trpc.weeklyPlanning.finalizeDraft.mutationOptions(),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: trpc.weeklyPlanning.getState.queryOptions().queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: finalizedHistoryQueryOptions.queryKey,
+        }),
+      ]);
     },
   });
 
@@ -145,8 +269,10 @@ export function PlannerPage({ plannerForm }: PlannerPageProps) {
             updateDraftSession.error?.message ??
             moveDraftSession.error?.message ??
             regenerateDraft.error?.message ??
+            finalizeDraft.error?.message ??
             null
           }
+          isFinalizing={finalizeDraft.isPending}
           isMoving={moveDraftSession.isPending}
           isRegenerating={regenerateDraft.isPending}
           isUpdating={updateDraftSession.isPending}
@@ -159,6 +285,9 @@ export function PlannerPage({ plannerForm }: PlannerPageProps) {
           }
           onRegenerate={() =>
             regenerateDraft.mutate({ draftId: plannerForm.activeDraft!.id })
+          }
+          onFinalize={() =>
+            finalizeDraft.mutate({ draftId: plannerForm.activeDraft!.id })
           }
           onUpdateSession={(input) =>
             updateDraftSession.mutate({
@@ -179,6 +308,19 @@ export function PlannerPage({ plannerForm }: PlannerPageProps) {
           raceTimeSeconds={raceTimeSeconds}
         />
       )}
+
+      {plannerForm.currentFinalizedPlan ? (
+        <FinalizedPlanCard
+          description="Stable plan for this week."
+          plan={plannerForm.currentFinalizedPlan}
+          title="Current finalized week"
+        />
+      ) : null}
+
+      <FinalizedHistoryCard
+        history={finalizedHistory.data}
+        isLoading={finalizedHistory.isLoading}
+      />
     </main>
   );
 }

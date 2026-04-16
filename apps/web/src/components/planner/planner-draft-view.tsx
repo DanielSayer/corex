@@ -67,6 +67,7 @@ type PlannerDraftViewProps = {
   isUpdating: boolean;
   isMoving: boolean;
   isRegenerating: boolean;
+  isFinalizing: boolean;
   onUpdateSession: (input: { date: string; session: PlannedSession }) => void;
   onMoveSession: (input: {
     fromDate: string;
@@ -74,6 +75,7 @@ type PlannerDraftViewProps = {
     mode: "move" | "swap";
   }) => void;
   onRegenerate: () => void;
+  onFinalize: () => void;
 };
 
 function minutesFromSeconds(seconds: number | null) {
@@ -244,13 +246,21 @@ export function PlannerDraftView(props: PlannerDraftViewProps) {
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center justify-between gap-3">
           <span>Active draft</span>
-          <Button
-            disabled={props.isRegenerating}
-            onClick={props.onRegenerate}
-            variant="outline"
-          >
-            {props.isRegenerating ? "Regenerating..." : "Regenerate draft"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={props.isRegenerating || props.isFinalizing}
+              onClick={props.onRegenerate}
+              variant="outline"
+            >
+              {props.isRegenerating ? "Regenerating..." : "Regenerate draft"}
+            </Button>
+            <Button
+              disabled={props.isFinalizing || props.isRegenerating}
+              onClick={props.onFinalize}
+            >
+              {props.isFinalizing ? "Finalizing..." : "Finalize draft"}
+            </Button>
+          </div>
         </CardTitle>
         <CardDescription>
           Adjust sessions, move work inside this seven-day window, or replace

@@ -10,9 +10,14 @@ import type {
   PlanQualityReport,
   WeeklyPlan,
   WeeklyPlanDraft,
+  WeeklyPlanFinalized,
   WeeklyPlanPayload,
 } from "./contracts";
-import { weeklyPlanDraftSchema, weeklyPlanSchema } from "./contracts";
+import {
+  weeklyPlanDraftSchema,
+  weeklyPlanFinalizedSchema,
+  weeklyPlanSchema,
+} from "./contracts";
 import { WeeklyPlanningPersistenceFailure } from "./errors";
 
 export type StoredGenerationEvent = {
@@ -48,10 +53,32 @@ export type WeeklyPlanningRepository = {
     userId: string,
     draftId: string,
   ) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
+  getPlanById: (
+    userId: string,
+    planId: string,
+  ) => Effect.Effect<WeeklyPlan | null, WeeklyPlanningPersistenceFailure>;
   getPlanForDate: (
     userId: string,
     date: string,
   ) => Effect.Effect<WeeklyPlan | null, WeeklyPlanningPersistenceFailure>;
+  getFinalizedPlanForDate: (
+    userId: string,
+    date: string,
+  ) => Effect.Effect<
+    WeeklyPlanFinalized | null,
+    WeeklyPlanningPersistenceFailure
+  >;
+  findOverlappingFinalizedPlan: (
+    userId: string,
+    input: { startDate: string; endDate: string },
+  ) => Effect.Effect<
+    WeeklyPlanFinalized | null,
+    WeeklyPlanningPersistenceFailure
+  >;
+  listFinalizedPlans: (
+    userId: string,
+    input: { limit: number; offset: number },
+  ) => Effect.Effect<WeeklyPlanFinalized[], WeeklyPlanningPersistenceFailure>;
   listPlansInRange: (
     userId: string,
     input: { startDate: string; endDate: string },
@@ -80,6 +107,13 @@ export type WeeklyPlanningRepository = {
     payload: WeeklyPlanPayload;
     qualityReport?: PlanQualityReport | null;
   }) => Effect.Effect<WeeklyPlanDraft | null, WeeklyPlanningPersistenceFailure>;
+  finalizeDraft: (
+    userId: string,
+    draftId: string,
+  ) => Effect.Effect<
+    WeeklyPlanFinalized | null,
+    WeeklyPlanningPersistenceFailure
+  >;
   recordGenerationEvent: (input: {
     id: string;
     userId: string;
@@ -129,6 +163,21 @@ function mapDraft(row: typeof weeklyPlan.$inferSelect): WeeklyPlanDraft {
   if (!parsed.success) {
     throw new WeeklyPlanningPersistenceFailure({
       message: "Persisted weekly plan draft was invalid",
+      cause: parsed.error,
+    });
+  }
+
+  return parsed.data;
+}
+
+function mapFinalized(
+  row: typeof weeklyPlan.$inferSelect,
+): WeeklyPlanFinalized {
+  const parsed = weeklyPlanFinalizedSchema.safeParse(mapWeeklyPlan(row));
+
+  if (!parsed.success) {
+    throw new WeeklyPlanningPersistenceFailure({
+      message: "Persisted finalized weekly plan was invalid",
       cause: parsed.error,
     });
   }
@@ -248,6 +297,27 @@ export function createWeeklyPlanningRepository(
               }),
       });
     },
+    getPlanById(userId, planId) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await db.query.weeklyPlan.findFirst({
+            where: and(
+              eq(weeklyPlan.userId, userId),
+              eq(weeklyPlan.id, planId),
+            ),
+          });
+
+          return row ? mapWeeklyPlan(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to load weekly plan",
+                cause,
+              }),
+      });
+    },
     getPlanForDate(userId, date) {
       return Effect.tryPromise({
         try: async () => {
@@ -262,13 +332,85 @@ export function createWeeklyPlanningRepository(
 
           const row =
             rows.find((candidate) => candidate.status === "draft") ?? rows[0];
-          return row ? mapDraft(row) : null;
+          return row ? mapWeeklyPlan(row) : null;
         },
         catch: (cause) =>
           cause instanceof WeeklyPlanningPersistenceFailure
             ? cause
             : new WeeklyPlanningPersistenceFailure({
                 message: "Failed to load weekly plan for date",
+                cause,
+              }),
+      });
+    },
+    getFinalizedPlanForDate(userId, date) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await db.query.weeklyPlan.findFirst({
+            where: and(
+              eq(weeklyPlan.userId, userId),
+              eq(weeklyPlan.status, "finalized"),
+              lte(weeklyPlan.startDate, date),
+              gte(weeklyPlan.endDate, date),
+            ),
+            orderBy: [desc(weeklyPlan.startDate), desc(weeklyPlan.createdAt)],
+          });
+
+          return row ? mapFinalized(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to load finalized weekly plan for date",
+                cause,
+              }),
+      });
+    },
+    findOverlappingFinalizedPlan(userId, input) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await db.query.weeklyPlan.findFirst({
+            where: and(
+              eq(weeklyPlan.userId, userId),
+              eq(weeklyPlan.status, "finalized"),
+              lte(weeklyPlan.startDate, input.endDate),
+              gte(weeklyPlan.endDate, input.startDate),
+            ),
+            orderBy: [desc(weeklyPlan.startDate), desc(weeklyPlan.createdAt)],
+          });
+
+          return row ? mapFinalized(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to load overlapping finalized weekly plan",
+                cause,
+              }),
+      });
+    },
+    listFinalizedPlans(userId, input) {
+      return Effect.tryPromise({
+        try: async () => {
+          const rows = await db.query.weeklyPlan.findMany({
+            where: and(
+              eq(weeklyPlan.userId, userId),
+              eq(weeklyPlan.status, "finalized"),
+            ),
+            orderBy: [desc(weeklyPlan.startDate), desc(weeklyPlan.createdAt)],
+            limit: input.limit,
+            offset: input.offset,
+          });
+
+          return rows.map(mapFinalized);
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to list finalized weekly plans",
                 cause,
               }),
       });
@@ -402,6 +544,35 @@ export function createWeeklyPlanningRepository(
             ? cause
             : new WeeklyPlanningPersistenceFailure({
                 message: "Failed to replace weekly plan draft generation",
+                cause,
+              }),
+      });
+    },
+    finalizeDraft(userId, draftId) {
+      return Effect.tryPromise({
+        try: async () => {
+          const [row] = await db
+            .update(weeklyPlan)
+            .set({
+              status: "finalized",
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(weeklyPlan.userId, userId),
+                eq(weeklyPlan.id, draftId),
+                eq(weeklyPlan.status, "draft"),
+              ),
+            )
+            .returning();
+
+          return row ? mapFinalized(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to finalize weekly plan draft",
                 cause,
               }),
       });
