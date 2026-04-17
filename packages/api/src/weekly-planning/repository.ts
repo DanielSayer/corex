@@ -50,6 +50,12 @@ export type WeeklyPlanningRepository = {
   getLatestPlan: (
     userId: string,
   ) => Effect.Effect<WeeklyPlan | null, WeeklyPlanningPersistenceFailure>;
+  getLatestFinalizedPlan: (
+    userId: string,
+  ) => Effect.Effect<
+    WeeklyPlanFinalized | null,
+    WeeklyPlanningPersistenceFailure
+  >;
   getDraftForStartDate: (
     userId: string,
     startDate: string,
@@ -332,6 +338,28 @@ export function createWeeklyPlanningRepository(
             ? cause
             : new WeeklyPlanningPersistenceFailure({
                 message: "Failed to load latest weekly plan",
+                cause,
+              }),
+      });
+    },
+    getLatestFinalizedPlan(userId) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await db.query.weeklyPlan.findFirst({
+            where: and(
+              eq(weeklyPlan.userId, userId),
+              eq(weeklyPlan.status, "finalized"),
+            ),
+            orderBy: [desc(weeklyPlan.startDate), desc(weeklyPlan.createdAt)],
+          });
+
+          return row ? mapFinalized(row) : null;
+        },
+        catch: (cause) =>
+          cause instanceof WeeklyPlanningPersistenceFailure
+            ? cause
+            : new WeeklyPlanningPersistenceFailure({
+                message: "Failed to load latest finalized weekly plan",
                 cause,
               }),
       });

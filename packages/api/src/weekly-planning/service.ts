@@ -19,6 +19,7 @@ import type {
   RegenerateDraftInput,
   UpdateDraftSessionInput,
   WeeklyPlanDraft,
+  WeeklyPlan,
   WeeklyPlanFinalized,
   WeeklyPlanPayload,
 } from "./contracts";
@@ -263,6 +264,102 @@ export function createWeeklyPlanningService(options: {
       });
 
       return draft;
+    });
+  }
+
+  function generateNextWeekFromPlan(
+    userId: string,
+    latestPlan: WeeklyPlan,
+    generationDependencies: ReturnType<
+      typeof loadGenerationDependencies
+    > extends Effect.Effect<infer A, unknown, never>
+      ? A
+      : never,
+  ): Effect.Effect<WeeklyPlanDraft, unknown> {
+    return Effect.gen(function* () {
+      const [settings, historySnapshot, historyQuality, performanceSnapshot] =
+        generationDependencies;
+
+      if (settings.status !== "complete" || !settings.availability) {
+        return yield* Effect.fail(
+          new MissingTrainingSettings({
+            message: "Training settings must be completed before planning",
+          }),
+        );
+      }
+
+      if (!historyQuality.hasAnyHistory) {
+        return yield* Effect.fail(
+          new NoLocalHistory({
+            message: "At least one imported run is required before planning",
+          }),
+        );
+      }
+
+      const startDate = addDays(latestPlan.endDate, 1);
+      const existingDraft = yield* options.repo.getDraftForStartDate(
+        userId,
+        startDate,
+      );
+
+      if (existingDraft) {
+        return yield* Effect.fail(
+          new DraftConflict({
+            message: "A weekly draft already exists for this start date",
+          }),
+        );
+      }
+
+      const availability = settings.availability;
+      const derivedAbility = deriveCorexPerceivedAbility({
+        historySnapshot,
+        historyQuality,
+        performanceSnapshot,
+      });
+      const previousContext = latestPlan.generationContext;
+      const priorPlanAdherence =
+        latestPlan.status === "finalized" && options.planAdherenceService
+          ? yield* options.planAdherenceService.summaryForPlan(userId, {
+              planId: latestPlan.id,
+            })
+          : null;
+      const longRunDay = availability[previousContext.longRunDay].available
+        ? previousContext.longRunDay
+        : buildPlannerDefaults({
+            availability,
+            historyQuality,
+            performanceSnapshot,
+            startDate,
+            derivedAbility,
+          }).longRunDay;
+      const generationContext = createDraftGenerationContext({
+        plannerIntent: previousContext.plannerIntent,
+        generationMode: "renewal",
+        parentWeeklyPlanId: latestPlan.id,
+        previousPlanWindow: {
+          startDate: latestPlan.startDate,
+          endDate: latestPlan.endDate,
+        },
+        priorPlanAdherence,
+        currentDate: toDateOnly(clock.now()),
+        availability,
+        historySnapshot,
+        historyQuality,
+        performanceSnapshot,
+        userPerceivedAbility: previousContext.userPerceivedAbility,
+        corexPerceivedAbility: derivedAbility,
+        longRunDay,
+        startDate,
+        planDurationWeeks: previousContext.planDurationWeeks,
+      });
+
+      return yield* persistGeneratedDraft({
+        userId,
+        goalId: latestPlan.goalId,
+        parentWeeklyPlanId: latestPlan.id,
+        generationContext,
+        rawOutputEffect: options.model.generateWeeklyPlan(generationContext),
+      });
     });
   }
 
@@ -663,8 +760,6 @@ export function createWeeklyPlanningService(options: {
           options.repo.getLatestPlan(userId),
           loadGenerationDependencies(userId),
         ]);
-        const [settings, historySnapshot, historyQuality, performanceSnapshot] =
-          generationDependencies;
 
         if (!latestPlan) {
           return yield* Effect.fail(
@@ -675,86 +770,36 @@ export function createWeeklyPlanningService(options: {
           );
         }
 
-        if (settings.status !== "complete" || !settings.availability) {
-          return yield* Effect.fail(
-            new MissingTrainingSettings({
-              message: "Training settings must be completed before planning",
-            }),
-          );
-        }
-
-        if (!historyQuality.hasAnyHistory) {
-          return yield* Effect.fail(
-            new NoLocalHistory({
-              message: "At least one imported run is required before planning",
-            }),
-          );
-        }
-
-        const startDate = addDays(latestPlan.endDate, 1);
-        const existingDraft = yield* options.repo.getDraftForStartDate(
+        return yield* generateNextWeekFromPlan(
           userId,
-          startDate,
+          latestPlan,
+          generationDependencies,
         );
+      });
+    },
+    generateNextWeekFromLatestFinalized(
+      userId: string,
+    ): Effect.Effect<WeeklyPlanDraft, unknown> {
+      return Effect.gen(function* () {
+        const [latestPlan, generationDependencies] = yield* Effect.all([
+          options.repo.getLatestPlan(userId),
+          loadGenerationDependencies(userId),
+        ]);
 
-        if (existingDraft) {
+        if (!latestPlan || latestPlan.status !== "finalized") {
           return yield* Effect.fail(
-            new DraftConflict({
-              message: "A weekly draft already exists for this start date",
+            new MissingPriorPlan({
+              message:
+                "A latest finalized weekly plan is required before automatic renewal",
             }),
           );
         }
 
-        const availability = settings.availability;
-        const derivedAbility = deriveCorexPerceivedAbility({
-          historySnapshot,
-          historyQuality,
-          performanceSnapshot,
-        });
-        const previousContext = latestPlan.generationContext;
-        const priorPlanAdherence =
-          latestPlan.status === "finalized" && options.planAdherenceService
-            ? yield* options.planAdherenceService.summaryForPlan(userId, {
-                planId: latestPlan.id,
-              })
-            : null;
-        const longRunDay = availability[previousContext.longRunDay].available
-          ? previousContext.longRunDay
-          : buildPlannerDefaults({
-              availability,
-              historyQuality,
-              performanceSnapshot,
-              startDate,
-              derivedAbility,
-            }).longRunDay;
-        const generationContext = createDraftGenerationContext({
-          plannerIntent: previousContext.plannerIntent,
-          generationMode: "renewal",
-          parentWeeklyPlanId: latestPlan.id,
-          previousPlanWindow: {
-            startDate: latestPlan.startDate,
-            endDate: latestPlan.endDate,
-          },
-          priorPlanAdherence,
-          currentDate: toDateOnly(clock.now()),
-          availability,
-          historySnapshot,
-          historyQuality,
-          performanceSnapshot,
-          userPerceivedAbility: previousContext.userPerceivedAbility,
-          corexPerceivedAbility: derivedAbility,
-          longRunDay,
-          startDate,
-          planDurationWeeks: previousContext.planDurationWeeks,
-        });
-
-        return yield* persistGeneratedDraft({
+        return yield* generateNextWeekFromPlan(
           userId,
-          goalId: latestPlan.goalId,
-          parentWeeklyPlanId: latestPlan.id,
-          generationContext,
-          rawOutputEffect: options.model.generateWeeklyPlan(generationContext),
-        });
+          latestPlan,
+          generationDependencies,
+        );
       });
     },
     updateDraftSession(

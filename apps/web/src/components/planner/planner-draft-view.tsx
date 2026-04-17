@@ -275,7 +275,20 @@ export function PlannerDraftView(props: PlannerDraftViewProps) {
           <Badge variant="outline">
             {formatLongRunDayLabel(draft.generationContext.longRunDay)}
           </Badge>
+          {draft.generationContext.generationMode === "renewal" ? (
+            <Badge variant="secondary">Automatic renewal draft</Badge>
+          ) : null}
         </div>
+
+        {draft.generationContext.generationMode === "renewal" ? (
+          <Alert>
+            <AlertTitle>Next week is ready</AlertTitle>
+            <AlertDescription>
+              This draft was created from your latest finalized week. Review it
+              before finalizing.
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         {props.errorMessage ? (
           <Alert variant="destructive">

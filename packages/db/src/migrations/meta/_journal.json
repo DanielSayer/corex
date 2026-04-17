@@ -113,6 +113,13 @@
       "when": 1776470000000,
       "tag": "0015_scheduled_weekly_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1776550000000,
+      "tag": "0016_automatic_weekly_plan_renewal",
+      "breakpoints": true
     }
   ]
 }

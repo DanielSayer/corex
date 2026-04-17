@@ -24,6 +24,7 @@ describe("appRouter", () => {
           getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
           updateTimezoneForUser: () => Effect.die("not used"),
+          updateAutomaticWeeklyPlanRenewalForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -57,6 +58,7 @@ describe("appRouter", () => {
           getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
           updateTimezoneForUser: () => Effect.die("not used"),
+          updateAutomaticWeeklyPlanRenewalForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -78,6 +80,7 @@ describe("appRouter", () => {
           getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
           updateTimezoneForUser: () => Effect.die("not used"),
+          updateAutomaticWeeklyPlanRenewalForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -118,6 +121,7 @@ describe("appRouter", () => {
           getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
           updateTimezoneForUser: () => Effect.die("not used"),
+          updateAutomaticWeeklyPlanRenewalForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -143,6 +147,7 @@ describe("appRouter", () => {
               availability: null,
               preferences: {
                 timezone: "UTC",
+                automaticWeeklyPlanRenewalEnabled: false,
               },
               intervalsCredential: {
                 hasKey: false,
@@ -154,6 +159,7 @@ describe("appRouter", () => {
           getTimezoneForUser: () => Effect.die("not used"),
           upsertForUser: () => Effect.die("not used"),
           updateTimezoneForUser: () => Effect.die("not used"),
+          updateAutomaticWeeklyPlanRenewalForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({
@@ -195,6 +201,7 @@ describe("appRouter", () => {
               }),
             ),
           updateTimezoneForUser: () => Effect.die("not used"),
+          updateAutomaticWeeklyPlanRenewalForUser: () => Effect.die("not used"),
         },
       }),
       goalProgress: createGoalProgressRouter({

@@ -29,7 +29,18 @@ import { createLiveWeeklyPlanningService } from "./live";
 import type { WeeklyPlanningService } from "./service";
 
 type CreateWeeklyPlanningRouterOptions = {
-  service?: WeeklyPlanningService;
+  service?: Pick<
+    WeeklyPlanningService,
+    | "getState"
+    | "listFinalizedPlans"
+    | "listGenerationEvents"
+    | "finalizeDraft"
+    | "generateDraft"
+    | "generateNextWeek"
+    | "updateDraftSession"
+    | "moveDraftSession"
+    | "regenerateDraft"
+  >;
 };
 
 function mapWeeklyPlanningError(error: unknown) {

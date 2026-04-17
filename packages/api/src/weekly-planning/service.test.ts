@@ -27,6 +27,7 @@ function createRepository(
   return {
     getActiveDraft: () => Effect.succeed(null),
     getLatestPlan: () => Effect.succeed(null),
+    getLatestFinalizedPlan: () => Effect.succeed(null),
     getDraftForStartDate: () => Effect.succeed(null),
     getDraftById: () => Effect.succeed(null),
     getPlanById: () => Effect.succeed(null),
@@ -377,6 +378,7 @@ function createService(
           availability: state.availability,
           preferences: {
             timezone: "Australia/Brisbane",
+            automaticWeeklyPlanRenewalEnabled: false,
           },
           intervalsCredential: {
             hasKey: true,

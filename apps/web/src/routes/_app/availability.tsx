@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@corex/ui/components/button";
+import { Checkbox } from "@corex/ui/components/checkbox";
 import { Input } from "@corex/ui/components/input";
 
 import { AvailabilityStep } from "@/components/onboarding/availability-step";
@@ -43,14 +44,18 @@ function RouteComponent() {
 
   return (
     <AvailabilitySettingsForm
+      initialAutomaticWeeklyPlanRenewalEnabled={
+        settings.data?.preferences.automaticWeeklyPlanRenewalEnabled ?? false
+      }
       initialTimezone={settings.data?.preferences.timezone ?? "UTC"}
       settingsQueryKey={settingsQueryOptions.queryKey}
-      key={settings.data?.preferences.timezone ?? "UTC"}
+      key={`${settings.data?.preferences.timezone ?? "UTC"}-${settings.data?.preferences.automaticWeeklyPlanRenewalEnabled ?? false}`}
     />
   );
 }
 
 type AvailabilitySettingsFormProps = {
+  initialAutomaticWeeklyPlanRenewalEnabled: boolean;
   initialTimezone: string;
   settingsQueryKey: ReturnType<
     typeof trpc.trainingSettings.get.queryOptions
@@ -63,11 +68,25 @@ function AvailabilitySettingsForm(props: AvailabilitySettingsFormProps) {
   >(() => createDefaultOnboardingDraft().availability);
   const [expandedDay, setExpandedDay] = useState<AvailabilityDay>("monday");
   const [timezone, setTimezone] = useState(props.initialTimezone);
+  const [
+    automaticWeeklyPlanRenewalEnabled,
+    setAutomaticWeeklyPlanRenewalEnabled,
+  ] = useState(props.initialAutomaticWeeklyPlanRenewalEnabled);
   const updateTimezone = useMutation({
     ...trpc.trainingSettings.updateTimezone.mutationOptions(),
     onSuccess: (updatedSettings) => {
       queryClient.setQueryData(props.settingsQueryKey, updatedSettings);
       toast.success("Timezone updated");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+  const updateAutomaticWeeklyPlanRenewal = useMutation({
+    ...trpc.trainingSettings.updateAutomaticWeeklyPlanRenewal.mutationOptions(),
+    onSuccess: (updatedSettings) => {
+      queryClient.setQueryData(props.settingsQueryKey, updatedSettings);
+      toast.success("Automatic renewal updated");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -117,6 +136,28 @@ function AvailabilitySettingsForm(props: AvailabilitySettingsFormProps) {
           >
             {updateTimezone.isPending ? "Saving" : "Save timezone"}
           </Button>
+        </div>
+        <div className="flex items-start gap-3 rounded-lg border border-border/70 p-4">
+          <Checkbox
+            checked={automaticWeeklyPlanRenewalEnabled}
+            disabled={updateAutomaticWeeklyPlanRenewal.isPending}
+            id="automatic-weekly-plan-renewal"
+            onCheckedChange={(value) => {
+              const enabled = Boolean(value);
+              setAutomaticWeeklyPlanRenewalEnabled(enabled);
+              updateAutomaticWeeklyPlanRenewal.mutate({ enabled });
+            }}
+          />
+          <label
+            className="flex flex-col gap-1 text-sm"
+            htmlFor="automatic-weekly-plan-renewal"
+          >
+            <span className="font-medium">Automatic weekly plan renewal</span>
+            <span className="text-muted-foreground">
+              Create next week as a draft after the current finalized week
+              finishes.
+            </span>
+          </label>
         </div>
       </section>
     </SettingsPageShell>
