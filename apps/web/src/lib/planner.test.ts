@@ -51,6 +51,7 @@ describe("planner helpers", () => {
       },
       activeDraft: null,
       currentFinalizedPlan: null,
+      currentFinalizedPlanAdherence: null,
     });
 
     expect(state).toEqual({

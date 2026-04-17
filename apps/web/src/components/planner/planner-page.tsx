@@ -22,6 +22,7 @@ import {
 } from "@corex/ui/components/card";
 
 import type { PlannerRouterOutputs } from "@/utils/types";
+import type { PlanAdherenceSummary } from "@corex/api/plan-adherence/contracts";
 import type { WeeklyPlanFinalized } from "@corex/api/weekly-planning/contracts";
 import {
   ESTIMATED_RACE_DISTANCES,
@@ -43,10 +44,12 @@ function countScheduledSessions(plan: WeeklyPlanFinalized) {
 
 function FinalizedPlanCard(props: {
   plan: WeeklyPlanFinalized;
+  adherence: PlanAdherenceSummary | null;
   title: string;
   description: string;
 }) {
   const plan = props.plan;
+  const adherence = props.adherence;
 
   return (
     <Card>
@@ -61,6 +64,20 @@ function FinalizedPlanCard(props: {
           <Badge variant="outline">
             {countScheduledSessions(plan)} scheduled sessions
           </Badge>
+          {adherence ? (
+            <>
+              <Badge variant="outline">
+                {adherence.totals.completedCount + adherence.totals.movedCount}{" "}
+                completed
+              </Badge>
+              <Badge variant="outline">
+                {adherence.totals.missedCount} missed
+              </Badge>
+              <Badge variant="outline">
+                {adherence.totals.extraCount} extra
+              </Badge>
+            </>
+          ) : null}
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {plan.payload.days.map((day) => (
@@ -311,6 +328,7 @@ export function PlannerPage({ plannerForm }: PlannerPageProps) {
 
       {plannerForm.currentFinalizedPlan ? (
         <FinalizedPlanCard
+          adherence={plannerForm.currentFinalizedPlanAdherence}
           description="Stable plan for this week."
           plan={plannerForm.currentFinalizedPlan}
           title="Current finalized week"

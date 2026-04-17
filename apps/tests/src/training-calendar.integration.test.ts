@@ -191,7 +191,10 @@ async function seedTrainingCalendarUser(overrides?: {
     user,
     draft,
     weeklyPlanningService,
-    service: createLiveTrainingCalendarService({ db }),
+    service: createLiveTrainingCalendarService({
+      db,
+      clock: { now: () => new Date("2026-04-01T00:00:00.000Z") },
+    }),
     activities: {
       monday: `${prefix}-1`,
       tuesday: `${prefix}-2`,
@@ -253,11 +256,11 @@ describe("training calendar integration", () => {
         expect.objectContaining({
           date: "2026-04-07",
           status: "planned",
-          candidateActivities: [
+          candidateActivities: expect.arrayContaining([
             expect.objectContaining({
               id: activities.tuesday,
             }),
-          ],
+          ]),
         }),
       ]),
     );
@@ -317,7 +320,45 @@ describe("training calendar integration", () => {
     );
   });
 
-  it("rejects missing-session, wrong-date, cross-user, and duplicate planned-session links", async () => {
+  it("links a different-day activity inside the same plan week and keeps it visible on the actual day", async () => {
+    const { user, service, activities } = await seedTrainingCalendarUser({
+      email: "calendar-moved-link@example.com",
+      name: "Calendar Moved Link",
+      activityPrefix: "moved",
+    });
+
+    await Effect.runPromise(
+      service.linkActivity(user.id, {
+        plannedDate: "2026-04-07",
+        activityId: activities.wednesday,
+      }),
+    );
+
+    const month = await Effect.runPromise(
+      service.month(user.id, {
+        from: "2026-04-06T00:00:00.000Z",
+        to: "2026-04-13T00:00:00.000Z",
+      }),
+    );
+
+    expect(month.plannedSessions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          date: "2026-04-07",
+          status: "moved",
+          actualLocalDate: "2026-04-08",
+          linkedActivity: expect.objectContaining({
+            id: activities.wednesday,
+          }),
+        }),
+      ]),
+    );
+    expect(month.activities.map((activity) => activity.id)).toContain(
+      activities.wednesday,
+    );
+  });
+
+  it("rejects missing-session, outside-week, cross-user, and duplicate planned-session links", async () => {
     const primary = await seedTrainingCalendarUser({
       email: "calendar-invalid@example.com",
       name: "Calendar Invalid",
@@ -339,14 +380,28 @@ describe("training calendar integration", () => {
       "Selected planned day does not have a scheduled session",
     );
 
+    await primary.db.insert(importedActivity).values({
+      userId: primary.user.id,
+      upstreamActivityId: "primary-outside-week",
+      athleteId: "athlete-1",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      name: "Outside week run",
+      startAt: new Date("2026-04-20T06:00:00.000Z"),
+      movingTimeSeconds: 1800,
+      elapsedTimeSeconds: 1800,
+      distanceMeters: 5000,
+      rawDetail: { id: "primary-outside-week" },
+    });
+
     await expectLinkActivityError(
       Effect.runPromise(
         primary.service.linkActivity(primary.user.id, {
           plannedDate: "2026-04-06",
-          activityId: primary.activities.wednesday,
+          activityId: "primary-outside-week",
         }),
       ),
-      "Selected activity must occur on the same local calendar date as the planned session",
+      "Selected activity must occur inside the planned session week",
     );
 
     await expectLinkActivityError(
@@ -434,11 +489,11 @@ describe("training calendar integration", () => {
         expect.objectContaining({
           date: "2026-04-13",
           status: "planned",
-          candidateActivities: [
+          candidateActivities: expect.arrayContaining([
             expect.objectContaining({
               id: "multi-4",
             }),
-          ],
+          ]),
         }),
       ]),
     );

@@ -180,6 +180,7 @@ describe("http integration", () => {
               defaults: null,
               activeDraft: null,
               currentFinalizedPlan: null,
+              currentFinalizedPlanAdherence: null,
             }),
           generateDraft: () => Effect.die("not used"),
           generateNextWeek: () => Effect.die("not used"),

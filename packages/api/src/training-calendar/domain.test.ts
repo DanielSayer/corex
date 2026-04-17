@@ -14,6 +14,8 @@ describe("training calendar domain", () => {
         plans: [
           {
             id: "plan-1",
+            startDate: "2026-04-06",
+            endDate: "2026-04-12",
             payload: {
               days: [
                 {
@@ -78,6 +80,7 @@ describe("training calendar domain", () => {
             activityId: "run-1",
           },
         ],
+        currentLocalDate: "2026-04-07",
       },
     );
 
@@ -109,6 +112,8 @@ describe("training calendar domain", () => {
         summary: "Aerobic work",
         estimatedDurationSeconds: 1800,
         estimatedDistanceMeters: 5000,
+        actualLocalDate: "2026-04-06",
+        targetCompletionRatio: 1,
         linkedActivity: expect.objectContaining({
           id: "run-1",
           name: "Easy completion",
@@ -123,6 +128,8 @@ describe("training calendar domain", () => {
         summary: "Threshold reps",
         estimatedDurationSeconds: 2400,
         estimatedDistanceMeters: 7000,
+        actualLocalDate: null,
+        targetCompletionRatio: 0,
         linkedActivity: null,
         candidateActivities: [
           expect.objectContaining({

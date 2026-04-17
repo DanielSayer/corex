@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { Cause, Effect, Exit, Option } from "effect";
 
 import { createUser } from "@corex/api/application/commands/create-user";
+import { createLivePlanAdherenceService } from "@corex/api/plan-adherence/live";
 import { createLivePlanningDataService } from "@corex/api/planning-data/live";
 import { createLiveTrainingSettingsService } from "@corex/api/training-settings/live";
 import {
@@ -28,6 +29,7 @@ import { importedActivity } from "@corex/db/schema/intervals-sync";
 import {
   generationEvent as plannerGenerationEvent,
   weeklyPlan as plannerWeeklyPlan,
+  weeklyPlanActivityLink,
 } from "@corex/db/schema/weekly-planning";
 
 import { getIntegrationHarness, resetDatabase } from "./harness";
@@ -590,6 +592,7 @@ describe("weekly planning integration", () => {
       startDate: "2026-04-06",
       endDate: "2026-04-12",
     });
+    expect(nextDraft.generationContext.priorPlanAdherence).toBeNull();
     expect(nextDraft.generationContext.generationMode).toBe("renewal");
     expect(nextDraft.generationContext.parentWeeklyPlanId).toBe(firstDraft.id);
     expect(nextDraft.generationContext.historySnapshot.detailedRuns).toEqual(
@@ -1076,6 +1079,70 @@ describe("weekly planning integration", () => {
       "2026-04-06",
     ]);
     expect(secondPage.nextOffset).toBeNull();
+  });
+
+  it("includes finalized prior-plan adherence in next-week generation context", async () => {
+    const { db, user, service } = await seedPlannerUser();
+    const draft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.generalTraining,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+      }),
+    );
+
+    await db.insert(importedActivity).values({
+      userId: user.id,
+      upstreamActivityId: "run-adherence-completed",
+      athleteId: "athlete-1",
+      upstreamActivityType: "Run",
+      normalizedActivityType: "Run",
+      startAt: new Date("2026-04-06T06:00:00.000Z"),
+      movingTimeSeconds: 1200,
+      elapsedTimeSeconds: 1200,
+      distanceMeters: 4000,
+      rawDetail: { id: "run-adherence-completed" },
+    });
+    await Effect.runPromise(
+      service.finalizeDraft(user.id, { draftId: draft.id }),
+    );
+    await db.insert(weeklyPlanActivityLink).values({
+      userId: user.id,
+      weeklyPlanId: draft.id,
+      plannedDate: "2026-04-06",
+      activityId: "run-adherence-completed",
+    });
+
+    const serviceWithAdherence = createWeeklyPlanningService({
+      trainingSettingsService: createLiveTrainingSettingsService({ db }),
+      planningDataService: createLivePlanningDataService({ db }),
+      repo: createWeeklyPlanningRepository(db),
+      model: createFakeModel(),
+      planAdherenceService: createLivePlanAdherenceService({
+        db,
+        clock: { now: () => new Date("2026-04-13T00:00:00.000Z") },
+      }),
+      clock: { now: () => new Date("2026-04-13T00:00:00.000Z") },
+      idGenerator: (() => {
+        let index = 0;
+        return () => `planner-adherence-${++index}`;
+      })(),
+    });
+
+    const nextDraft = await Effect.runPromise(
+      serviceWithAdherence.generateNextWeek(user.id),
+    );
+
+    expect(nextDraft.generationContext.priorPlanAdherence).toMatchObject({
+      planId: draft.id,
+      totals: {
+        plannedSessionCount: 3,
+        completedCount: 1,
+        missedCount: 2,
+      },
+    });
   });
 
   it("rejects cross-user and repeated draft finalization without changing the draft", async () => {

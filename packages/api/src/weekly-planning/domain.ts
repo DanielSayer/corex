@@ -481,6 +481,7 @@ export function createDraftGenerationContext(input: {
   generationMode: DraftGenerationContext["generationMode"];
   parentWeeklyPlanId: string | null;
   previousPlanWindow: DraftGenerationContext["previousPlanWindow"];
+  priorPlanAdherence?: DraftGenerationContext["priorPlanAdherence"];
   currentDate: string;
   availability: WeeklyAvailability;
   historySnapshot: PlanningHistorySnapshot;
@@ -497,6 +498,7 @@ export function createDraftGenerationContext(input: {
     generationMode: input.generationMode,
     parentWeeklyPlanId: input.parentWeeklyPlanId,
     previousPlanWindow: input.previousPlanWindow,
+    priorPlanAdherence: input.priorPlanAdherence ?? null,
     currentDate: input.currentDate,
     currentDayOfWeek: getDayOfWeek(input.currentDate),
     availability: input.availability,

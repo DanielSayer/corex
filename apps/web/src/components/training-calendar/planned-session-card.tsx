@@ -6,7 +6,14 @@ import { formatCalendarDuration } from "@/components/training-calendar/formatter
 import type { TrainingCalendarRouterOutputs } from "@/utils/types";
 import { Button } from "@corex/ui/components/button";
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2Icon, LinkIcon, RouteIcon, TimerIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  ArrowRightLeftIcon,
+  CheckCircle2Icon,
+  LinkIcon,
+  RouteIcon,
+  TimerIcon,
+} from "lucide-react";
 
 type PlannedSession =
   TrainingCalendarRouterOutputs["month"]["plannedSessions"][number];
@@ -16,6 +23,28 @@ type PlannedSessionCardProps = {
   onLinkActivity: (plannedDate: string, activityId: string) => void;
   isLinking: boolean;
 };
+
+function getStatusLabel(session: PlannedSession) {
+  if (session.status === "completed") {
+    return "Planned and completed";
+  }
+
+  if (session.status === "moved") {
+    return session.actualLocalDate
+      ? `Moved to ${session.actualLocalDate}`
+      : "Moved";
+  }
+
+  if (session.status === "partial") {
+    return "Partial completion";
+  }
+
+  if (session.status === "missed") {
+    return "Missed";
+  }
+
+  return "Planned session";
+}
 
 function PlannedSessionCard({
   session,
@@ -29,9 +58,7 @@ function PlannedSessionCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[10px] font-semibold tracking-[0.16em] text-amber-700 uppercase dark:text-amber-400">
-            {session.status === "completed"
-              ? "Planned and completed"
-              : "Planned session"}
+            {getStatusLabel(session)}
           </div>
           <div className="truncate text-sm font-semibold text-foreground">
             {session.title}
@@ -40,6 +67,10 @@ function PlannedSessionCard({
         </div>
         {session.status === "completed" ? (
           <CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+        ) : session.status === "moved" ? (
+          <ArrowRightLeftIcon className="mt-0.5 size-4 shrink-0 text-sky-600" />
+        ) : session.status === "partial" || session.status === "missed" ? (
+          <AlertCircleIcon className="mt-0.5 size-4 shrink-0 text-amber-700" />
         ) : null}
       </div>
 
@@ -81,7 +112,7 @@ function PlannedSessionCard({
       ) : session.candidateActivities.length > 0 ? (
         <div className="flex flex-col gap-1.5">
           <div className="text-[10px] font-medium text-muted-foreground">
-            Same-day activities
+            Same-week activities
           </div>
           {session.candidateActivities.map((activity) => (
             <Button

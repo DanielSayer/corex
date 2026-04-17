@@ -161,6 +161,7 @@ function createPlannerState(): PlannerState {
     defaults: null,
     activeDraft: null,
     currentFinalizedPlan: null,
+    currentFinalizedPlanAdherence: null,
   };
 }
 
@@ -467,6 +468,7 @@ describe("weekly planning service", () => {
         generationMode: "initial",
         parentWeeklyPlanId: null,
         previousPlanWindow: null,
+        priorPlanAdherence: null,
         currentDate: "2026-04-01",
         currentDayOfWeek: DAYS_OF_WEEK.wednesday,
         availability: createPlannerState().availability!,
@@ -538,6 +540,7 @@ describe("weekly planning service", () => {
         generationMode: "initial",
         parentWeeklyPlanId: null,
         previousPlanWindow: null,
+        priorPlanAdherence: null,
         currentDate: "2026-04-01",
         currentDayOfWeek: DAYS_OF_WEEK.wednesday,
         availability: createPlannerState().availability!,
@@ -757,6 +760,7 @@ describe("weekly planning service", () => {
         generationMode: "initial",
         parentWeeklyPlanId: null,
         previousPlanWindow: null,
+        priorPlanAdherence: null,
         currentDate: "2026-04-01",
         currentDayOfWeek: DAYS_OF_WEEK.wednesday,
         availability: createPlannerState().availability!,
@@ -790,6 +794,7 @@ describe("weekly planning service", () => {
         generationMode: "initial",
         parentWeeklyPlanId: null,
         previousPlanWindow: null,
+        priorPlanAdherence: null,
         currentDate: "2026-04-01",
         currentDayOfWeek: DAYS_OF_WEEK.wednesday,
         availability: createPlannerState().availability!,
@@ -861,6 +866,7 @@ describe("weekly planning service", () => {
       generationMode: "initial" as const,
       parentWeeklyPlanId: null,
       previousPlanWindow: null,
+      priorPlanAdherence: null,
       currentDate: "2026-04-01",
       currentDayOfWeek: DAYS_OF_WEEK.wednesday,
       availability: createPlannerState().availability!,
