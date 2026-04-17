@@ -39,3 +39,11 @@ export type WeeklyWrappedData = {
     fastestRunPaceSecPerKm: number | null;
   } | null;
 };
+
+export type WeeklySnapshotSummary = {
+  weekStart: string;
+  weekEnd: string;
+  timezone: string;
+  generatedAt: string;
+  totals: WeeklyWrappedData["totals"];
+};

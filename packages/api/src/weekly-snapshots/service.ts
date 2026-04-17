@@ -159,6 +159,9 @@ export function createWeeklySnapshotService(options: {
     ): Effect.Effect<StoredWeeklySnapshot | null, unknown> {
       return options.snapshotRepo.getLatestForUser(userId);
     },
+    listForUser(userId: string) {
+      return options.snapshotRepo.listForUser(userId);
+    },
     ensureLatestForUser(
       userId: string,
     ): Effect.Effect<StoredWeeklySnapshot, unknown> {
@@ -185,16 +188,13 @@ export function createWeeklySnapshotService(options: {
       userId: string;
       weekStart: Date;
       weekEnd: Date;
+      timezone: string;
     }): Effect.Effect<StoredWeeklySnapshot | null, unknown> {
-      return Effect.gen(function* () {
-        const timezone =
-          yield* options.trainingSettingsService.getTimezoneForUser(
-            input.userId,
-          );
-        return yield* options.snapshotRepo.findByUserAndWeek({
-          ...input,
-          timezone,
-        });
+      return options.snapshotRepo.findByUserAndWeek({
+        userId: input.userId,
+        weekStart: input.weekStart,
+        weekEnd: input.weekEnd,
+        timezone: input.timezone,
       });
     },
     generateWeeklySnapshotForUser(

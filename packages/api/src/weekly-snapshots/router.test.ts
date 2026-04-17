@@ -43,6 +43,7 @@ describe("weekly snapshots router", () => {
     const router = createWeeklySnapshotsRouter({
       service: {
         getLatestForUser: () => Effect.die("not used"),
+        listForUser: () => Effect.die("not used"),
         ensureLatestForUser: () => Effect.die("not used"),
         getByWeekForUser: () => Effect.die("not used"),
         generateWeeklySnapshotForUser: () => Effect.die("not used"),
@@ -54,6 +55,22 @@ describe("weekly snapshots router", () => {
     expect(caller.getLatest()).rejects.toBeInstanceOf(TRPCError);
   });
 
+  it("rejects snapshot list reads without a session", () => {
+    const router = createWeeklySnapshotsRouter({
+      service: {
+        getLatestForUser: () => Effect.die("not used"),
+        listForUser: () => Effect.die("not used"),
+        ensureLatestForUser: () => Effect.die("not used"),
+        getByWeekForUser: () => Effect.die("not used"),
+        generateWeeklySnapshotForUser: () => Effect.die("not used"),
+        createWeeklySnapshotForUserIfMissing: () => Effect.die("not used"),
+      },
+    });
+    const caller = router.createCaller(createCallerContext(null));
+
+    expect(caller.list()).rejects.toBeInstanceOf(TRPCError);
+  });
+
   it("passes the authenticated user id through to latest snapshot reads", async () => {
     let requestedUserId: string | undefined;
     const router = createWeeklySnapshotsRouter({
@@ -62,6 +79,7 @@ describe("weekly snapshots router", () => {
           requestedUserId = userId;
           return Effect.succeed(null);
         },
+        listForUser: () => Effect.die("not used"),
         ensureLatestForUser: () => Effect.die("not used"),
         getByWeekForUser: () => Effect.die("not used"),
         generateWeeklySnapshotForUser: () => Effect.die("not used"),
@@ -88,6 +106,41 @@ describe("weekly snapshots router", () => {
     expect(requestedUserId).toBe("user-1");
   });
 
+  it("passes the authenticated user id through to snapshot list reads", async () => {
+    let requestedUserId: string | undefined;
+    const router = createWeeklySnapshotsRouter({
+      service: {
+        getLatestForUser: () => Effect.die("not used"),
+        listForUser: (userId) => {
+          requestedUserId = userId;
+          return Effect.succeed([]);
+        },
+        ensureLatestForUser: () => Effect.die("not used"),
+        getByWeekForUser: () => Effect.die("not used"),
+        generateWeeklySnapshotForUser: () => Effect.die("not used"),
+        createWeeklySnapshotForUserIfMissing: () => Effect.die("not used"),
+      },
+    });
+    const caller = router.createCaller(
+      createCallerContext({
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
+      } as NonNullable<Context["session"]>),
+    );
+
+    await caller.list();
+
+    expect(requestedUserId).toBe("user-1");
+  });
+
   it("passes the authenticated user id through to latest snapshot generation", async () => {
     let requested:
       | {
@@ -97,6 +150,7 @@ describe("weekly snapshots router", () => {
     const router = createWeeklySnapshotsRouter({
       service: {
         getLatestForUser: () => Effect.die("not used"),
+        listForUser: () => Effect.die("not used"),
         ensureLatestForUser: (userId) => {
           requested = { userId };
           return Effect.succeed(storedSnapshot);
@@ -134,11 +188,13 @@ describe("weekly snapshots router", () => {
           userId: string;
           weekStart: Date;
           weekEnd: Date;
+          timezone: string;
         }
       | undefined;
     const router = createWeeklySnapshotsRouter({
       service: {
         getLatestForUser: () => Effect.die("not used"),
+        listForUser: () => Effect.die("not used"),
         ensureLatestForUser: () => Effect.die("not used"),
         getByWeekForUser: (input) => {
           requested = input;
@@ -166,12 +222,14 @@ describe("weekly snapshots router", () => {
     await caller.getByWeek({
       weekStart: "2026-04-05T14:00:00.000Z",
       weekEnd: "2026-04-12T14:00:00.000Z",
+      timezone: "Australia/Brisbane",
     });
 
     expect(requested).toEqual({
       userId: "user-1",
       weekStart: new Date("2026-04-05T14:00:00.000Z"),
       weekEnd: new Date("2026-04-12T14:00:00.000Z"),
+      timezone: "Australia/Brisbane",
     });
   });
 });
