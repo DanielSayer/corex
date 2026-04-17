@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import type { Database } from "@corex/db";
 import { weeklySnapshot } from "@corex/db/schema/weekly-snapshots";
 
-import type { WeeklyWrappedData } from "./contracts";
+import type { WeeklySnapshotSummary, WeeklyWrappedData } from "./contracts";
 
 type WeeklySnapshotPersistenceFailure = Error;
 
@@ -60,6 +60,9 @@ export type WeeklySnapshotRepository = {
     StoredWeeklySnapshot | null,
     WeeklySnapshotPersistenceFailure
   >;
+  listForUser: (
+    userId: string,
+  ) => Effect.Effect<WeeklySnapshotSummary[], WeeklySnapshotPersistenceFailure>;
 };
 
 function mapRow(row: typeof weeklySnapshot.$inferSelect): StoredWeeklySnapshot {
@@ -74,6 +77,20 @@ function mapRow(row: typeof weeklySnapshot.$inferSelect): StoredWeeklySnapshot {
     payload: row.payload as WeeklyWrappedData,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+function mapSummary(
+  row: typeof weeklySnapshot.$inferSelect,
+): WeeklySnapshotSummary {
+  const payload = row.payload as WeeklyWrappedData;
+
+  return {
+    weekStart: row.weekStart.toISOString(),
+    weekEnd: row.weekEnd.toISOString(),
+    timezone: row.timezone,
+    generatedAt: row.generatedAt.toISOString(),
+    totals: payload.totals,
   };
 }
 
@@ -214,6 +231,25 @@ export function createWeeklySnapshotRepository(
         catch: (cause) =>
           new Error(
             `Failed to load latest weekly snapshot: ${cause instanceof Error ? cause.message : String(cause)}`,
+          ),
+      });
+    },
+    listForUser(userId) {
+      return Effect.tryPromise({
+        try: async () => {
+          const rows = await db.query.weeklySnapshot.findMany({
+            where: eq(weeklySnapshot.userId, userId),
+            orderBy: [
+              desc(weeklySnapshot.weekStart),
+              desc(weeklySnapshot.generatedAt),
+            ],
+          });
+
+          return rows.map(mapSummary);
+        },
+        catch: (cause) =>
+          new Error(
+            `Failed to list weekly snapshots: ${cause instanceof Error ? cause.message : String(cause)}`,
           ),
       });
     },

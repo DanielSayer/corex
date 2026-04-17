@@ -25,12 +25,19 @@ export function createWeeklySnapshotsRouter(
   const byWeekInputSchema = z.object({
     weekStart: z.iso.datetime(),
     weekEnd: z.iso.datetime(),
+    timezone: z.string().trim().min(1),
   });
 
   return router({
     getLatest: authedProcedure.query(({ ctx }) =>
       executeEffect(
         getService().getLatestForUser(ctx.session.user.id),
+        mapWeeklySnapshotsError,
+      ),
+    ),
+    list: authedProcedure.query(({ ctx }) =>
+      executeEffect(
+        getService().listForUser(ctx.session.user.id),
         mapWeeklySnapshotsError,
       ),
     ),
@@ -48,6 +55,7 @@ export function createWeeklySnapshotsRouter(
             userId: ctx.session.user.id,
             weekStart: new Date(input.weekStart),
             weekEnd: new Date(input.weekEnd),
+            timezone: input.timezone,
           }),
           mapWeeklySnapshotsError,
         ),

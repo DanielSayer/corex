@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import { createUser } from "@corex/api/application/commands/create-user";
 import { createWeeklySnapshotRepository } from "@corex/api/weekly-snapshots/repository";
+import { createWeeklySnapshotService } from "@corex/api/weekly-snapshots/service";
 import type { WeeklyWrappedData } from "@corex/api/weekly-snapshots/contracts";
 
 import { getIntegrationHarness, resetDatabase } from "./harness";
@@ -155,5 +156,166 @@ describe("weekly snapshot repository integration", () => {
 
     expect(latest?.weekStart).toEqual(new Date("2026-03-30T00:00:00.000Z"));
     expect(latest?.payload.totals?.distanceMeters).toBe(42000);
+  });
+
+  it("lists snapshot summaries for one user in newest-first order", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "snapshot-list@example.com",
+      name: "Snapshot List",
+    });
+    const otherUser = await createUser(db, {
+      email: "snapshot-list-other@example.com",
+      name: "Snapshot List Other",
+    });
+    const repo = createWeeklySnapshotRepository(db);
+
+    await Effect.runPromise(
+      repo.upsertForUserAndWeek({
+        id: "snapshot-list-old",
+        userId: user.id,
+        timezone: "UTC",
+        weekStart: new Date("2026-03-23T00:00:00.000Z"),
+        weekEnd: new Date("2026-03-30T00:00:00.000Z"),
+        generatedAt: new Date("2026-03-30T01:00:00.000Z"),
+        sourceSyncCompletedAt: null,
+        payload: buildPayload(21000),
+      }),
+    );
+    await Effect.runPromise(
+      repo.upsertForUserAndWeek({
+        id: "snapshot-list-current-first",
+        userId: user.id,
+        timezone: "UTC",
+        weekStart: new Date("2026-03-30T00:00:00.000Z"),
+        weekEnd: new Date("2026-04-06T00:00:00.000Z"),
+        generatedAt: new Date("2026-04-06T01:00:00.000Z"),
+        sourceSyncCompletedAt: null,
+        payload: buildPayload(36000),
+      }),
+    );
+    await Effect.runPromise(
+      repo.upsertForUserAndWeek({
+        id: "snapshot-list-current-second",
+        userId: user.id,
+        timezone: "Australia/Brisbane",
+        weekStart: new Date("2026-03-30T00:00:00.000Z"),
+        weekEnd: new Date("2026-04-06T00:00:00.000Z"),
+        generatedAt: new Date("2026-04-06T02:00:00.000Z"),
+        sourceSyncCompletedAt: null,
+        payload: buildPayload(42000),
+      }),
+    );
+    await Effect.runPromise(
+      repo.upsertForUserAndWeek({
+        id: "snapshot-list-other-user",
+        userId: otherUser.id,
+        timezone: "UTC",
+        weekStart: new Date("2026-04-06T00:00:00.000Z"),
+        weekEnd: new Date("2026-04-13T00:00:00.000Z"),
+        generatedAt: new Date("2026-04-13T01:00:00.000Z"),
+        sourceSyncCompletedAt: null,
+        payload: buildPayload(99000),
+      }),
+    );
+
+    const summaries = await Effect.runPromise(repo.listForUser(user.id));
+
+    expect(summaries).toEqual([
+      {
+        weekStart: "2026-03-30T00:00:00.000Z",
+        weekEnd: "2026-04-06T00:00:00.000Z",
+        timezone: "Australia/Brisbane",
+        generatedAt: "2026-04-06T02:00:00.000Z",
+        totals: buildPayload(42000).totals,
+      },
+      {
+        weekStart: "2026-03-30T00:00:00.000Z",
+        weekEnd: "2026-04-06T00:00:00.000Z",
+        timezone: "UTC",
+        generatedAt: "2026-04-06T01:00:00.000Z",
+        totals: buildPayload(36000).totals,
+      },
+      {
+        weekStart: "2026-03-23T00:00:00.000Z",
+        weekEnd: "2026-03-30T00:00:00.000Z",
+        timezone: "UTC",
+        generatedAt: "2026-03-30T01:00:00.000Z",
+        totals: buildPayload(21000).totals,
+      },
+    ]);
+  });
+
+  it("finds a selected week using the persisted timezone and does not expose other users", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "snapshot-selected@example.com",
+      name: "Snapshot Selected",
+    });
+    const otherUser = await createUser(db, {
+      email: "snapshot-selected-other@example.com",
+      name: "Snapshot Selected Other",
+    });
+    const repo = createWeeklySnapshotRepository(db);
+    const weekStart = new Date("2026-03-30T00:00:00.000Z");
+    const weekEnd = new Date("2026-04-06T00:00:00.000Z");
+
+    await Effect.runPromise(
+      repo.upsertForUserAndWeek({
+        id: "snapshot-selected-brisbane",
+        userId: user.id,
+        timezone: "Australia/Brisbane",
+        weekStart,
+        weekEnd,
+        generatedAt: new Date("2026-04-06T01:00:00.000Z"),
+        sourceSyncCompletedAt: null,
+        payload: buildPayload(42000),
+      }),
+    );
+    await Effect.runPromise(
+      repo.upsertForUserAndWeek({
+        id: "snapshot-selected-other",
+        userId: otherUser.id,
+        timezone: "Pacific/Auckland",
+        weekStart,
+        weekEnd,
+        generatedAt: new Date("2026-04-06T01:00:00.000Z"),
+        sourceSyncCompletedAt: null,
+        payload: buildPayload(99000),
+      }),
+    );
+
+    const service = createWeeklySnapshotService({
+      snapshotRepo: repo,
+      trainingSettingsService: {
+        getTimezoneForUser: () => Effect.succeed("Pacific/Auckland"),
+      },
+      planningRepo: {
+        getHistoryRuns: () => Effect.succeed([]),
+        getLatestSuccessfulSync: () => Effect.succeed(null),
+      },
+      createGoalProgressServiceAt: () => ({
+        getForUser: () => Effect.die("not used"),
+      }),
+    });
+    const selected = await Effect.runPromise(
+      service.getByWeekForUser({
+        userId: user.id,
+        timezone: "Australia/Brisbane",
+        weekStart,
+        weekEnd,
+      }),
+    );
+    const currentTimezoneSelection = await Effect.runPromise(
+      service.getByWeekForUser({
+        userId: user.id,
+        timezone: "Pacific/Auckland",
+        weekStart,
+        weekEnd,
+      }),
+    );
+
+    expect(selected?.payload.totals?.distanceMeters).toBe(42000);
+    expect(currentTimezoneSelection).toBeNull();
   });
 });
