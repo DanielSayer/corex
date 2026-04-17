@@ -69,6 +69,8 @@ function buildSystemPrompt() {
     "Use userPerceivedAbility and corexPerceivedAbility together to choose an appropriate level of training stress, complexity, and recovery.",
     "For beginner or limited-history athletes, prefer fewer running days and more rest; do not schedule a run on every available day unless the history clearly supports that frequency.",
     "Keep the draft close to the athlete's recent pattern, then make only a sensible step toward the plan goal rather than a dramatic jump.",
+    "Use priorPlanAdherence when present to adjust conservatively: missed or partial sessions should hold or reduce load, strong completion can allow cautious progression, and extra unplanned runs count as load.",
+    "Do not punish a moved completed session; treat it as completion with scheduling friction.",
     "Bias workouts and long-run sizing to the goal, but preserve a believable week that the athlete could complete right now.",
     "If history is sparse, inconsistent, or not recent, choose the more conservative interpretation.",
     "Use rest days when needed to support recovery and adaptation.",

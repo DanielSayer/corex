@@ -6,6 +6,8 @@ import { createTrainingCalendarService } from "./service";
 function createDraft() {
   return {
     id: "plan-1",
+    startDate: "2026-04-06",
+    endDate: "2026-04-12",
     payload: {
       days: [
         {
@@ -108,7 +110,7 @@ describe("training calendar service", () => {
     });
   });
 
-  it("rejects cross-date activity links", async () => {
+  it("rejects outside-week activity links", async () => {
     const service = createTrainingCalendarService({
       trainingSettingsService: {
         getTimezoneForUser: () => Effect.succeed("Australia/Brisbane"),
@@ -123,8 +125,8 @@ describe("training calendar service", () => {
         getActivity: () =>
           Effect.succeed({
             id: "run-2",
-            name: "Wrong date run",
-            startDate: new Date("2026-04-08T06:00:00.000Z"),
+            name: "Outside week run",
+            startDate: new Date("2026-04-20T06:00:00.000Z"),
             elapsedTime: 1500,
             distance: 4000,
             averageHeartrate: 144,
@@ -132,12 +134,7 @@ describe("training calendar service", () => {
             totalElevationGain: 12,
           }),
         getLinkForPlannedDate: () => Effect.succeed(null),
-        getLinkForActivity: () =>
-          Effect.succeed({
-            weeklyPlanId: "plan-0",
-            plannedDate: "2026-04-05",
-            activityId: "run-2",
-          }),
+        getLinkForActivity: () => Effect.succeed(null),
         createLink: () => Effect.die("not used"),
       } as never,
     });
@@ -150,8 +147,7 @@ describe("training calendar service", () => {
         }),
       ),
     ).rejects.toMatchObject({
-      message:
-        "Selected activity must occur on the same local calendar date as the planned session",
+      message: "Selected activity must occur inside the planned session week",
     });
   });
 });

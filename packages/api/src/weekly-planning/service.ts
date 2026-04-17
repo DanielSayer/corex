@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 
 import { getLocalDateKey } from "../activity-history/activity-calendar";
+import type { PlanAdherenceService } from "../plan-adherence/service";
 import type { PlanningDataService } from "../planning-data/service";
 import type { TrainingSettingsService } from "../training-settings/service";
 import type {
@@ -105,6 +106,7 @@ export function createWeeklyPlanningService(options: {
   >;
   repo: WeeklyPlanningRepository;
   model: PlannerModelPort;
+  planAdherenceService?: Pick<PlanAdherenceService, "summaryForPlan">;
   clock?: Clock;
   idGenerator?: () => string;
 }) {
@@ -437,6 +439,12 @@ export function createWeeklyPlanningService(options: {
         const today = getLocalDateKey(clock.now(), timezone);
         const currentFinalizedPlan =
           yield* options.repo.getFinalizedPlanForDate(userId, today);
+        const currentFinalizedPlanAdherence =
+          currentFinalizedPlan && options.planAdherenceService
+            ? yield* options.planAdherenceService.summaryForPlan(userId, {
+                planId: currentFinalizedPlan.id,
+              })
+            : null;
 
         const defaults =
           settings.status === "complete" && settings.availability
@@ -463,6 +471,7 @@ export function createWeeklyPlanningService(options: {
           defaults,
           activeDraft,
           currentFinalizedPlan,
+          currentFinalizedPlanAdherence,
         };
       });
     },
@@ -626,6 +635,7 @@ export function createWeeklyPlanningService(options: {
           generationMode: "initial",
           parentWeeklyPlanId: null,
           previousPlanWindow: null,
+          priorPlanAdherence: null,
           currentDate: toDateOnly(clock.now()),
           availability,
           historySnapshot,
@@ -702,6 +712,12 @@ export function createWeeklyPlanningService(options: {
           performanceSnapshot,
         });
         const previousContext = latestPlan.generationContext;
+        const priorPlanAdherence =
+          latestPlan.status === "finalized" && options.planAdherenceService
+            ? yield* options.planAdherenceService.summaryForPlan(userId, {
+                planId: latestPlan.id,
+              })
+            : null;
         const longRunDay = availability[previousContext.longRunDay].available
           ? previousContext.longRunDay
           : buildPlannerDefaults({
@@ -719,6 +735,7 @@ export function createWeeklyPlanningService(options: {
             startDate: latestPlan.startDate,
             endDate: latestPlan.endDate,
           },
+          priorPlanAdherence,
           currentDate: toDateOnly(clock.now()),
           availability,
           historySnapshot,
@@ -914,6 +931,7 @@ export function createWeeklyPlanningService(options: {
           generationMode: "regeneration",
           parentWeeklyPlanId: draft.parentWeeklyPlanId,
           previousPlanWindow: previousContext.previousPlanWindow,
+          priorPlanAdherence: previousContext.priorPlanAdherence,
           currentDate: toDateOnly(clock.now()),
           availability: settings.availability,
           historySnapshot,

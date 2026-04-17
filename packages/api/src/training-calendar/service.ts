@@ -37,6 +37,10 @@ export type TrainingCalendarService = ReturnType<
   typeof createTrainingCalendarService
 >;
 
+type Clock = {
+  now: () => Date;
+};
+
 export function createTrainingCalendarService(options: {
   repo: TrainingCalendarRepository;
   trainingSettingsService: Pick<TrainingSettingsService, "getTimezoneForUser">;
@@ -44,7 +48,10 @@ export function createTrainingCalendarService(options: {
     WeeklyPlanningRepository,
     "getPlanForDate" | "listPlansInRange"
   >;
+  clock?: Clock;
 }) {
+  const clock = options.clock ?? { now: () => new Date() };
+
   return {
     month(
       userId: string,
@@ -84,6 +91,7 @@ export function createTrainingCalendarService(options: {
             plans,
             activityRecords,
             links,
+            currentLocalDate: getLocalDateKey(clock.now(), timezone),
           },
         );
       });
@@ -147,13 +155,16 @@ export function createTrainingCalendarService(options: {
           );
         }
 
+        const activityLocalDate = getLocalDateKey(activity.startDate, timezone);
+
         if (
-          getLocalDateKey(activity.startDate, timezone) !== input.plannedDate
+          activityLocalDate < draft.startDate ||
+          activityLocalDate > draft.endDate
         ) {
           return yield* Effect.fail(
             new InvalidTrainingCalendarLink({
               message:
-                "Selected activity must occur on the same local calendar date as the planned session",
+                "Selected activity must occur inside the planned session week",
             }),
           );
         }

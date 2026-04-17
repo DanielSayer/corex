@@ -11,6 +11,9 @@ import {
 export function createLiveTrainingCalendarService(
   options: {
     db?: Database;
+    clock?: {
+      now: () => Date;
+    };
   } = {},
 ): TrainingCalendarService {
   const database = options.db ?? db;
@@ -21,5 +24,6 @@ export function createLiveTrainingCalendarService(
       db: database,
     }),
     weeklyPlanningRepo: createWeeklyPlanningRepository(database),
+    clock: options.clock,
   });
 }

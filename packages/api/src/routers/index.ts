@@ -5,6 +5,7 @@ import { goalsRouter } from "../goals/router";
 import { getPrivateData } from "../session/private-data";
 import { getHealthCheck } from "../system/health-check";
 import { intervalsSyncRouter } from "../intervals-sync/router";
+import { planAdherenceRouter } from "../plan-adherence/router";
 import { publicProcedure, router } from "../index";
 import { trainingCalendarRouter } from "../training-calendar/router";
 import { trainingSettingsRouter } from "../training-settings/router";
@@ -19,6 +20,7 @@ type CreateAppRouterOptions = {
   trainingSettings?: typeof trainingSettingsRouter;
   trainingCalendar?: typeof trainingCalendarRouter;
   intervalsSync?: typeof intervalsSyncRouter;
+  planAdherence?: typeof planAdherenceRouter;
   weeklyPlanning?: typeof weeklyPlanningRouter;
   weeklySnapshots?: typeof weeklySnapshotsRouter;
 };
@@ -36,6 +38,7 @@ export function createAppRouter(options: CreateAppRouterOptions = {}) {
     trainingSettings: options.trainingSettings ?? trainingSettingsRouter,
     trainingCalendar: options.trainingCalendar ?? trainingCalendarRouter,
     intervalsSync: options.intervalsSync ?? intervalsSyncRouter,
+    planAdherence: options.planAdherence ?? planAdherenceRouter,
     weeklyPlanning: options.weeklyPlanning ?? weeklyPlanningRouter,
     weeklySnapshots: options.weeklySnapshots ?? weeklySnapshotsRouter,
   });

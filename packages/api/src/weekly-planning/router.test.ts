@@ -68,6 +68,7 @@ describe("weekly planning router", () => {
             defaults: null,
             activeDraft: null,
             currentFinalizedPlan: null,
+            currentFinalizedPlanAdherence: null,
           });
         },
         generateDraft: () => Effect.die("not used"),

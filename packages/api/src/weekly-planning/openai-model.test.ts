@@ -18,6 +18,7 @@ function createContext(): DraftGenerationContext {
     generationMode: "initial",
     parentWeeklyPlanId: null,
     previousPlanWindow: null,
+    priorPlanAdherence: null,
     availability: {
       monday: { available: true, maxDurationMinutes: 45 },
       tuesday: { available: true, maxDurationMinutes: 45 },

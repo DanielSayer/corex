@@ -6,10 +6,9 @@ import {
   type CalendarActivityRecord,
   type CalendarWeekSummary,
 } from "../activity-history/activity-calendar";
-import type {
-  PlannedSession,
-  WeeklyPlanDraft,
-} from "../weekly-planning/contracts";
+import type { PlanAdherenceStatus } from "../plan-adherence/contracts";
+import { buildPlanAdherenceSummary } from "../plan-adherence/domain";
+import type { PlannedSession, WeeklyPlan } from "../weekly-planning/contracts";
 
 export type TrainingCalendarLinkRecord = {
   weeklyPlanId: string;
@@ -19,12 +18,14 @@ export type TrainingCalendarLinkRecord = {
 
 export type TrainingCalendarPlannedSession = {
   date: string;
-  status: "planned" | "completed";
+  status: PlanAdherenceStatus;
   sessionType: PlannedSession["sessionType"];
   title: string;
   summary: string;
   estimatedDurationSeconds: number;
   estimatedDistanceMeters: number | null;
+  actualLocalDate: string | null;
+  targetCompletionRatio: number;
   linkedActivity: CalendarActivity | null;
   candidateActivities: CalendarActivity[];
 };
@@ -36,9 +37,10 @@ export type TrainingCalendarMonth = {
 };
 
 type BuildTrainingCalendarMonthState = {
-  plans: Array<Pick<WeeklyPlanDraft, "id" | "payload">>;
+  plans: Array<Pick<WeeklyPlan, "id" | "startDate" | "endDate" | "payload">>;
   activityRecords: CalendarActivityRecord[];
   links: TrainingCalendarLinkRecord[];
+  currentLocalDate: string;
 };
 
 export function buildTrainingCalendarMonth(
@@ -49,17 +51,43 @@ export function buildTrainingCalendarMonth(
   const activityById = new Map(
     activityCalendar.activities.map((activity) => [activity.id, activity]),
   );
-  const linkedActivityIds = new Set(state.links.map((link) => link.activityId));
+  const adherenceByPlanId = new Map(
+    state.plans.map((plan) => [
+      plan.id,
+      buildPlanAdherenceSummary({
+        plan,
+        timezone: input.timezone,
+        currentLocalDate: state.currentLocalDate,
+        activities: state.activityRecords.map((activity) => ({
+          id: activity.id,
+          name: activity.name,
+          startDate: activity.startDate,
+          elapsedTime: activity.elapsedTime,
+          distance: activity.distance,
+        })),
+        links: state.links,
+      }),
+    ]),
+  );
+  const sameDayCompletedLinkedActivityIds = new Set(
+    [...adherenceByPlanId.values()].flatMap((summary) =>
+      summary.sessions
+        .filter(
+          (session) =>
+            session.status === "completed" &&
+            session.linkedActivity &&
+            session.actualLocalDate === session.plannedDate,
+        )
+        .map((session) => session.linkedActivity!.activityId),
+    ),
+  );
   const visibleActivities = activityCalendar.activities.filter(
+    (activity) => !sameDayCompletedLinkedActivityIds.has(activity.id),
+  );
+  const linkedActivityIds = new Set(state.links.map((link) => link.activityId));
+  const candidateActivities = activityCalendar.activities.filter(
     (activity) => !linkedActivityIds.has(activity.id),
   );
-  const unlinkedActivitiesByDate = visibleActivities.reduce<
-    Map<string, CalendarActivity[]>
-  >((acc, activity) => {
-    const key = getLocalDateKey(new Date(activity.startDate), input.timezone);
-    acc.set(key, [...(acc.get(key) ?? []), activity]);
-    return acc;
-  }, new Map());
 
   if (state.plans.length === 0) {
     return {
@@ -84,7 +112,7 @@ export function buildTrainingCalendarMonth(
           day.date <= visibleDates.lastDate,
       )
       .flatMap((day) => {
-        if (!day.session) {
+        if (!day.session || day.session.sessionType === "rest") {
           return [];
         }
 
@@ -92,20 +120,34 @@ export function buildTrainingCalendarMonth(
         const linkedActivity = link
           ? (activityById.get(link.activityId) ?? null)
           : null;
+        const adherenceSession =
+          adherenceByPlanId
+            .get(plan.id)
+            ?.sessions.find((session) => session.plannedDate === day.date) ??
+          null;
+        const weekCandidateActivities = candidateActivities.filter(
+          (activity) => {
+            const localDate = getLocalDateKey(
+              new Date(activity.startDate),
+              input.timezone,
+            );
+            return localDate >= plan.startDate && localDate <= plan.endDate;
+          },
+        );
 
         return [
           {
             date: day.date,
-            status: linkedActivity ? "completed" : "planned",
+            status: adherenceSession?.status ?? "planned",
             sessionType: day.session.sessionType,
             title: day.session.title,
             summary: day.session.summary,
             estimatedDurationSeconds: day.session.estimatedDurationSeconds,
             estimatedDistanceMeters: day.session.estimatedDistanceMeters,
+            actualLocalDate: adherenceSession?.actualLocalDate ?? null,
+            targetCompletionRatio: adherenceSession?.targetCompletionRatio ?? 0,
             linkedActivity,
-            candidateActivities: linkedActivity
-              ? []
-              : [...(unlinkedActivitiesByDate.get(day.date) ?? [])],
+            candidateActivities: linkedActivity ? [] : weekCandidateActivities,
           } satisfies TrainingCalendarPlannedSession,
         ];
       });

@@ -1,6 +1,7 @@
 import { db, type Database } from "@corex/db";
 import { env } from "@corex/env/server";
 
+import { createLivePlanAdherenceService } from "../plan-adherence/live";
 import { createLivePlanningDataService } from "../planning-data/live";
 import { createLiveTrainingSettingsService } from "../training-settings/live";
 import { createOpenAiPlannerModel } from "./openai-model";
@@ -29,5 +30,6 @@ export function createLiveWeeklyPlanningService(
       apiKey: env.OPENAI_API_KEY,
       model: env.PLANNER_OPENAI_MODEL,
     }),
+    planAdherenceService: createLivePlanAdherenceService({ db: database }),
   });
 }

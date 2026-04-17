@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { PlanAdherenceSummary } from "../plan-adherence/contracts";
 import { weeklyAvailabilitySchema } from "../training-settings/contracts";
 import type {
   PlanningHistoryQuality,
@@ -336,6 +337,10 @@ const draftGenerationContextSchema = z
       })
       .nullable()
       .default(null),
+    priorPlanAdherence: z
+      .custom<PlanAdherenceSummary>()
+      .nullable()
+      .default(null),
     currentDate: isoDateSchema,
     currentDayOfWeek: dayOfWeekSchema.optional(),
     availability: weeklyAvailabilitySchema,
@@ -444,6 +449,7 @@ export type PlannerState = {
   defaults: PlannerDefaults | null;
   activeDraft: WeeklyPlanDraft | null;
   currentFinalizedPlan: WeeklyPlanFinalized | null;
+  currentFinalizedPlanAdherence: PlanAdherenceSummary | null;
 };
 
 export type FinalizedPlanHistory = {
