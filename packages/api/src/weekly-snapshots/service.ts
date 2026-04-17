@@ -72,9 +72,12 @@ export function createWeeklySnapshotService(options: {
   clock?: Clock;
 }) {
   const clock = options.clock ?? { now: () => new Date() };
-  const generateWeeklySnapshotForUser = (
+  const buildWeeklySnapshotRecordForUser = (
     userId: string,
-  ): Effect.Effect<StoredWeeklySnapshot, unknown> =>
+  ): Effect.Effect<
+    Parameters<WeeklySnapshotRepository["upsertForUserAndWeek"]>[0],
+    unknown
+  > =>
     Effect.gen(function* () {
       const timezone =
         yield* options.trainingSettingsService.getTimezoneForUser(userId);
@@ -118,7 +121,7 @@ export function createWeeklySnapshotService(options: {
         ],
       });
 
-      return yield* options.snapshotRepo.upsertForUserAndWeek({
+      return {
         id: buildSnapshotId({
           userId,
           timezone,
@@ -131,8 +134,24 @@ export function createWeeklySnapshotService(options: {
         generatedAt: now,
         sourceSyncCompletedAt: latestSuccessfulSync?.completedAt ?? null,
         payload,
-      });
+      };
     });
+  const generateWeeklySnapshotForUser = (
+    userId: string,
+  ): Effect.Effect<StoredWeeklySnapshot, unknown> =>
+    Effect.flatMap(buildWeeklySnapshotRecordForUser(userId), (record) =>
+      options.snapshotRepo.upsertForUserAndWeek(record),
+    );
+
+  const createWeeklySnapshotForUserIfMissing = (
+    userId: string,
+  ): Effect.Effect<
+    { snapshot: StoredWeeklySnapshot; created: boolean },
+    unknown
+  > =>
+    Effect.flatMap(buildWeeklySnapshotRecordForUser(userId), (record) =>
+      options.snapshotRepo.createForUserAndWeekIfMissing(record),
+    );
 
   return {
     getLatestForUser(
@@ -158,7 +177,8 @@ export function createWeeklySnapshotService(options: {
           return existing;
         }
 
-        return yield* generateWeeklySnapshotForUser(userId);
+        const created = yield* createWeeklySnapshotForUserIfMissing(userId);
+        return created.snapshot;
       });
     },
     getByWeekForUser(input: {
@@ -181,6 +201,14 @@ export function createWeeklySnapshotService(options: {
       userId: string,
     ): Effect.Effect<StoredWeeklySnapshot, unknown> {
       return generateWeeklySnapshotForUser(userId);
+    },
+    createWeeklySnapshotForUserIfMissing(
+      userId: string,
+    ): Effect.Effect<
+      { snapshot: StoredWeeklySnapshot; created: boolean },
+      unknown
+    > {
+      return createWeeklySnapshotForUserIfMissing(userId);
     },
   };
 }

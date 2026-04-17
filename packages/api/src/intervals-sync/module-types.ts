@@ -10,6 +10,7 @@ import type { IntervalsAccountPort } from "../intervals/account";
 import type { IntervalsUpstreamPort } from "./adapter";
 import type { DerivedPerformancePort } from "./derived-performance-service";
 import type { IntervalsSyncError, SyncPersistenceFailure } from "./errors";
+import type { ListSyncEventsInput, SyncEventHistory } from "./contracts";
 export type Clock = {
   now: () => Date;
 };
@@ -51,4 +52,8 @@ export type IntervalsSyncApi = {
   latest: (
     userId: string,
   ) => Effect.Effect<SyncSummary | null, SyncPersistenceFailure>;
+  listEvents: (
+    userId: string,
+    input?: ListSyncEventsInput,
+  ) => Effect.Effect<SyncEventHistory, SyncPersistenceFailure>;
 };

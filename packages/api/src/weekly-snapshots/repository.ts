@@ -41,6 +41,19 @@ export type WeeklySnapshotRepository = {
     sourceSyncCompletedAt: Date | null;
     payload: WeeklyWrappedData;
   }) => Effect.Effect<StoredWeeklySnapshot, WeeklySnapshotPersistenceFailure>;
+  createForUserAndWeekIfMissing: (record: {
+    id: string;
+    userId: string;
+    timezone: string;
+    weekStart: Date;
+    weekEnd: Date;
+    generatedAt: Date;
+    sourceSyncCompletedAt: Date | null;
+    payload: WeeklyWrappedData;
+  }) => Effect.Effect<
+    { snapshot: StoredWeeklySnapshot; created: boolean },
+    WeeklySnapshotPersistenceFailure
+  >;
   getLatestForUser: (
     userId: string,
   ) => Effect.Effect<
@@ -130,6 +143,58 @@ export function createWeeklySnapshotRepository(
         catch: (cause) =>
           new Error(
             `Failed to persist weekly snapshot: ${cause instanceof Error ? cause.message : String(cause)}`,
+          ),
+      });
+    },
+    createForUserAndWeekIfMissing(record) {
+      return Effect.tryPromise({
+        try: async () => {
+          const [created] = await db
+            .insert(weeklySnapshot)
+            .values({
+              id: record.id,
+              userId: record.userId,
+              timezone: record.timezone,
+              weekStart: record.weekStart,
+              weekEnd: record.weekEnd,
+              generatedAt: record.generatedAt,
+              sourceSyncCompletedAt: record.sourceSyncCompletedAt,
+              payload: record.payload,
+            })
+            .onConflictDoNothing({
+              target: [
+                weeklySnapshot.userId,
+                weeklySnapshot.weekStart,
+                weeklySnapshot.weekEnd,
+                weeklySnapshot.timezone,
+              ],
+            })
+            .returning();
+
+          if (created) {
+            return { snapshot: mapRow(created), created: true };
+          }
+
+          const existing = await db.query.weeklySnapshot.findFirst({
+            where: and(
+              eq(weeklySnapshot.userId, record.userId),
+              eq(weeklySnapshot.timezone, record.timezone),
+              eq(weeklySnapshot.weekStart, record.weekStart),
+              eq(weeklySnapshot.weekEnd, record.weekEnd),
+            ),
+          });
+
+          if (!existing) {
+            throw new Error(
+              "Weekly snapshot conflict row could not be reloaded",
+            );
+          }
+
+          return { snapshot: mapRow(existing), created: false };
+        },
+        catch: (cause) =>
+          new Error(
+            `Failed to create weekly snapshot: ${cause instanceof Error ? cause.message : String(cause)}`,
           ),
       });
     },

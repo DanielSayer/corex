@@ -50,6 +50,7 @@ describe("http integration", () => {
       intervalsSync: createIntervalsSyncRouter({
         service: {
           latest: () => Effect.die("not used"),
+          listEvents: () => Effect.die("not used"),
           syncNow: () => Effect.die("not used"),
         },
       }),
@@ -95,6 +96,7 @@ describe("http integration", () => {
               startedAt: "2026-03-21T00:00:00.000Z",
               completedAt: "2026-03-21T00:05:00.000Z",
             }),
+          listEvents: () => Effect.die("not used"),
           syncNow: () => Effect.die("not used"),
         },
       }),
@@ -134,6 +136,7 @@ describe("http integration", () => {
           regenerateDraft: () => Effect.die("not used"),
           finalizeDraft: () => Effect.die("not used"),
           listFinalizedPlans: () => Effect.die("not used"),
+          listGenerationEvents: () => Effect.die("not used"),
         },
       }),
     });
@@ -185,6 +188,7 @@ describe("http integration", () => {
           regenerateDraft: () => Effect.die("not used"),
           finalizeDraft: () => Effect.die("not used"),
           listFinalizedPlans: () => Effect.die("not used"),
+          listGenerationEvents: () => Effect.die("not used"),
         },
       }),
     });

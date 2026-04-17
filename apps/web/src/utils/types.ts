@@ -9,6 +9,9 @@ export type AnalyticsRouterOutputs = InferRouterOutputs<AppRouter>["analytics"];
 export type ActivityHistoryRouterOutputs =
   InferRouterOutputs<AppRouter>["activityHistory"];
 
+export type IntervalsSyncRouterOutputs =
+  InferRouterOutputs<AppRouter>["intervalsSync"];
+
 export type GoalProgressRouterOutputs =
   InferRouterOutputs<AppRouter>["goalProgress"];
 

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { Effect } from "effect";
 
+import { listSyncEventsInputSchema } from "./contracts";
 import type {
   CreateIntervalsSyncModuleOptions,
   IntervalsSyncApi,
@@ -39,6 +40,13 @@ export function createIntervalsSyncModule(
   return {
     latest(userId) {
       return options.ledger.latest(userId);
+    },
+    listEvents(userId, rawInput = {}) {
+      return Effect.gen(function* () {
+        const input = listSyncEventsInputSchema.parse(rawInput);
+
+        return yield* options.ledger.listEvents(userId, input);
+      });
     },
     syncNow(userId) {
       return Effect.suspend(() =>

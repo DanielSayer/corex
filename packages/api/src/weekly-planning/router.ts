@@ -5,6 +5,7 @@ import { executeEffect } from "../trpc/effect";
 import {
   finalizeDraftInputSchema,
   generateWeeklyDraftInputSchema,
+  listGenerationEventsInputSchema,
   listFinalizedPlansInputSchema,
   moveDraftSessionInputSchema,
   regenerateDraftInputSchema,
@@ -102,6 +103,14 @@ export function createWeeklyPlanningRouter(
       .query(({ ctx, input }) =>
         executeEffect(
           getService().listFinalizedPlans(ctx.session.user.id, input),
+          mapWeeklyPlanningError,
+        ),
+      ),
+    listGenerationEvents: authedProcedure
+      .input(listGenerationEventsInputSchema)
+      .query(({ ctx, input }) =>
+        executeEffect(
+          getService().listGenerationEvents(ctx.session.user.id, input),
           mapWeeklyPlanningError,
         ),
       ),

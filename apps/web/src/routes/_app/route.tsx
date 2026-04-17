@@ -32,6 +32,7 @@ import {
   CalendarDaysIcon,
   HistoryIcon,
   LineChartIcon,
+  ClipboardListIcon,
 } from "lucide-react";
 import { LoadingWrapper } from "@/components/renderers";
 
@@ -78,6 +79,11 @@ function AppSidebar() {
       to: "/weekly-wrapped",
       label: "Weekly review",
       icon: HistoryIcon,
+    },
+    {
+      to: "/history",
+      label: "History",
+      icon: ClipboardListIcon,
     },
     {
       to: "/analytics",

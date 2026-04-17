@@ -4,8 +4,10 @@ import { Effect } from "effect";
 import type { Database } from "@corex/db";
 import { generationEvent, weeklyPlan } from "@corex/db/schema/weekly-planning";
 
+import { sanitizeFailureSummary } from "../diagnostics/redaction";
 import type {
   DraftGenerationContext,
+  GenerationHistoryEvent,
   GenerationFailureCategory,
   PlanQualityReport,
   WeeklyPlan,
@@ -14,6 +16,9 @@ import type {
   WeeklyPlanPayload,
 } from "./contracts";
 import {
+  planQualityReportSchema,
+  trainingPlanGoalSchema,
+  weeklyGenerationModeSchema,
   weeklyPlanDraftSchema,
   weeklyPlanFinalizedSchema,
   weeklyPlanSchema,
@@ -79,6 +84,13 @@ export type WeeklyPlanningRepository = {
     userId: string,
     input: { limit: number; offset: number },
   ) => Effect.Effect<WeeklyPlanFinalized[], WeeklyPlanningPersistenceFailure>;
+  listGenerationEvents: (
+    userId: string,
+    input: { limit: number; offset: number },
+  ) => Effect.Effect<
+    GenerationHistoryEvent[],
+    WeeklyPlanningPersistenceFailure
+  >;
   listPlansInRange: (
     userId: string,
     input: { startDate: string; endDate: string },
@@ -205,6 +217,77 @@ function mapGenerationEvent(
     qualityReport: row.qualityReport as PlanQualityReport | null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+function parseGenerationContextSummary(
+  value: unknown,
+): Pick<GenerationHistoryEvent, "generationMode" | "planGoal"> {
+  if (!value || typeof value !== "object") {
+    return {
+      generationMode: null,
+      planGoal: null,
+    };
+  }
+
+  const context = value as {
+    generationMode?: unknown;
+    plannerIntent?: { planGoal?: unknown };
+  };
+  const generationMode = weeklyGenerationModeSchema.safeParse(
+    context.generationMode,
+  );
+  const planGoal = trainingPlanGoalSchema.safeParse(
+    context.plannerIntent?.planGoal,
+  );
+
+  return {
+    generationMode: generationMode.success ? generationMode.data : null,
+    planGoal: planGoal.success ? planGoal.data : null,
+  };
+}
+
+function mapQualitySummary(value: unknown) {
+  const parsed = planQualityReportSchema.safeParse(value);
+
+  if (!parsed.success) {
+    return null;
+  }
+
+  return {
+    status: parsed.data.status,
+    mode: parsed.data.mode,
+    summary: parsed.data.summary,
+    generatedAt: parsed.data.generatedAt,
+    warningCount: parsed.data.items.filter(
+      (item) => item.severity === "warning",
+    ).length,
+    blockingCount: parsed.data.items.filter(
+      (item) => item.severity === "blocking",
+    ).length,
+  };
+}
+
+function mapGenerationHistoryEvent(
+  row: typeof generationEvent.$inferSelect,
+): GenerationHistoryEvent {
+  const contextSummary = parseGenerationContextSummary(row.generationContext);
+
+  return {
+    eventId: row.id,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    startDate: row.startDate,
+    provider: row.provider,
+    model: row.model,
+    weeklyPlanId: row.weeklyPlanId,
+    generationMode: contextSummary.generationMode,
+    planGoal: contextSummary.planGoal,
+    failureCategory:
+      (row.failureCategory as GenerationFailureCategory | null) ?? null,
+    failureSummary: sanitizeFailureSummary(row.failureMessage),
+    qualityReport: mapQualitySummary(row.qualityReport),
   };
 }
 
@@ -413,6 +496,25 @@ export function createWeeklyPlanningRepository(
                 message: "Failed to list finalized weekly plans",
                 cause,
               }),
+      });
+    },
+    listGenerationEvents(userId, input) {
+      return Effect.tryPromise({
+        try: async () => {
+          const rows = await db.query.generationEvent.findMany({
+            where: eq(generationEvent.userId, userId),
+            orderBy: desc(generationEvent.createdAt),
+            limit: input.limit,
+            offset: input.offset,
+          });
+
+          return rows.map(mapGenerationHistoryEvent);
+        },
+        catch: (cause) =>
+          new WeeklyPlanningPersistenceFailure({
+            message: "Failed to list generation event history",
+            cause,
+          }),
       });
     },
     listPlansInRange(userId, input) {

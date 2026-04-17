@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
+import { listSyncEventsInputSchema } from "./contracts";
 import {
   InvalidIntervalsCredentials,
   IntervalsSchemaValidationFailure,
@@ -81,6 +82,14 @@ export function createIntervalsSyncRouter(
         mapIntervalsSyncError,
       ),
     ),
+    listEvents: authedProcedure
+      .input(listSyncEventsInputSchema)
+      .query(({ ctx, input }) =>
+        executeEffect(
+          getService().listEvents(ctx.session.user.id, input),
+          mapIntervalsSyncError,
+        ),
+      ),
   });
 }
 
