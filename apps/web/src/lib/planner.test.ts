@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { aggregateTerrainSummary } from "@corex/api/terrain/domain";
 import {
   createPlannerFormState,
   formatLongRunDayLabel,
@@ -25,6 +26,7 @@ describe("planner helpers", () => {
         generatedAt: "2026-04-01T00:00:00.000Z",
         detailedRuns: [],
         weeklyRollups: [],
+        terrainSummary: aggregateTerrainSummary([]),
       },
       historyQuality: {
         hasAnyHistory: false,

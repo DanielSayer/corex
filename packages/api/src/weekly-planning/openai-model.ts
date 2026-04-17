@@ -66,6 +66,7 @@ function buildSystemPrompt() {
     "Never exceed the day's availability max duration when one exists.",
     "Treat availability as an upper bound, not a target number of runs.",
     "Use historySnapshot.detailedRuns and historySnapshot.weeklyRollups to infer the athlete's current running pattern, including weekly frequency, long-run habit, recent volume, and consistency.",
+    "Use historySnapshot.terrainSummary as conservative terrain context: flat, rolling, or hilly recent history can inform long-run and workout guidance, especially for race-oriented plans, but it must not override availability, recent load, or recovery needs.",
     "Use userPerceivedAbility and corexPerceivedAbility together to choose an appropriate level of training stress, complexity, and recovery.",
     "For beginner or limited-history athletes, prefer fewer running days and more rest; do not schedule a run on every available day unless the history clearly supports that frequency.",
     "Keep the draft close to the athlete's recent pattern, then make only a sensible step toward the plan goal rather than a dramatic jump.",

@@ -23,6 +23,10 @@ describe("analytics integration", () => {
       email: "analytics@example.com",
       name: "Analytics User",
     });
+    const otherUser = await createUser(db, {
+      email: "other-analytics@example.com",
+      name: "Other Analytics",
+    });
     await db.insert(userTrainingPreference).values({
       userId: user.id,
       timezone: "Australia/Brisbane",
@@ -40,6 +44,7 @@ describe("analytics integration", () => {
         movingTimeSeconds: 1500,
         elapsedTimeSeconds: 1510,
         distanceMeters: 5000,
+        totalElevationGainMeters: 20,
         rawDetail: {},
       },
       {
@@ -53,6 +58,7 @@ describe("analytics integration", () => {
         movingTimeSeconds: 3200,
         elapsedTimeSeconds: 3210,
         distanceMeters: 16000,
+        totalElevationGainMeters: 160,
         rawDetail: {},
       },
       {
@@ -66,6 +72,21 @@ describe("analytics integration", () => {
         movingTimeSeconds: 1440,
         elapsedTimeSeconds: 1450,
         distanceMeters: 5000,
+        totalElevationGainMeters: 100,
+        rawDetail: {},
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "run-apr-unclassified",
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        name: "April unclassified",
+        startAt: new Date("2026-04-02T06:00:00.000Z"),
+        movingTimeSeconds: 1800,
+        elapsedTimeSeconds: 1810,
+        distanceMeters: 6000,
+        totalElevationGainMeters: null,
         rawDetail: {},
       },
       {
@@ -79,6 +100,21 @@ describe("analytics integration", () => {
         movingTimeSeconds: 1800,
         elapsedTimeSeconds: 1810,
         distanceMeters: 8000,
+        totalElevationGainMeters: 200,
+        rawDetail: {},
+      },
+      {
+        userId: otherUser.id,
+        upstreamActivityId: "other-user-hilly",
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        name: "Other user hilly",
+        startAt: new Date("2026-01-20T06:00:00.000Z"),
+        movingTimeSeconds: 1800,
+        elapsedTimeSeconds: 1810,
+        distanceMeters: 5000,
+        totalElevationGainMeters: 200,
         rawDetail: {},
       },
     ]);
@@ -206,6 +242,31 @@ describe("analytics integration", () => {
         activityId: "run-feb",
         monthKey: "2026-02",
       },
+    ]);
+    expect(result.terrainSummary).toMatchObject({
+      totalRunCount: 4,
+      classifiedRunCount: 3,
+      unclassifiedRunCount: 1,
+      classifiedDistanceMeters: 26000,
+      classifiedElevationGainMeters: 280,
+      dominantClass: "rolling",
+    });
+    expect(result.terrainSummary.classes).toEqual([
+      expect.objectContaining({
+        terrainClass: "flat",
+        runCount: 1,
+        distanceMeters: 5000,
+      }),
+      expect.objectContaining({
+        terrainClass: "rolling",
+        runCount: 1,
+        distanceMeters: 16000,
+      }),
+      expect.objectContaining({
+        terrainClass: "hilly",
+        runCount: 1,
+        distanceMeters: 5000,
+      }),
     ]);
     expect(result.longestRun).toEqual({
       activityId: "run-feb",

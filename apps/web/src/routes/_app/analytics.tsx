@@ -14,6 +14,7 @@ import {
   LongestRunCard,
   OverallPrsCard,
   PrTrendCard,
+  TerrainMixCard,
   type DistanceGranularity,
 } from "@/components/analytics";
 import { LoadingWrapper } from "@/components/renderers";
@@ -110,6 +111,7 @@ function RouteComponent() {
               }
             />
             <CumulativeDistanceCard data={analytics.data} />
+            <TerrainMixCard data={analytics.data} />
             <PrTrendCard
               data={analytics.data}
               selectedDistance={effectivePrDistance}

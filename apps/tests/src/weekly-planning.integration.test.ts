@@ -12,6 +12,7 @@ import {
   SUPPORTED_RACE_DISTANCES,
   TRAINING_PLAN_GOALS,
   USER_PERCEIVED_ABILITY_LEVELS,
+  type DraftGenerationContext,
   type WeeklyPlanPayload,
 } from "@corex/api/weekly-planning/contracts";
 import {
@@ -395,6 +396,50 @@ describe("weekly planning integration", () => {
     expect(events[0]?.qualityReport).toMatchObject({
       status: "pass",
       mode: "enforced",
+    });
+  });
+
+  it("passes terrain summary context to the planner model without changing the plan payload", async () => {
+    const { db, user } = await seedPlannerUser();
+    const baseModel = createFakeModel();
+    const capturedContexts: DraftGenerationContext[] = [];
+    const service = createWeeklyPlanningService({
+      trainingSettingsService: createLiveTrainingSettingsService({ db }),
+      planningDataService: createLivePlanningDataService({ db }),
+      repo: createWeeklyPlanningRepository(db),
+      model: createFakeModel({
+        generateWeeklyPlan: (context) => {
+          capturedContexts.push(context);
+
+          return baseModel.generateWeeklyPlan(context);
+        },
+      }),
+      clock: { now: () => new Date("2026-04-01T00:00:00.000Z") },
+      idGenerator: () => "planner-terrain-context",
+    });
+
+    const draft = await Effect.runPromise(
+      service.generateDraft(user.id, {
+        planGoal: TRAINING_PLAN_GOALS.race,
+        startDate: "2026-04-06",
+        longRunDay: DAYS_OF_WEEK.saturday,
+        planDurationWeeks: 4,
+        userPerceivedAbility: USER_PERCEIVED_ABILITY_LEVELS.intermediate,
+        raceBenchmark: {
+          estimatedRaceDistance: SUPPORTED_RACE_DISTANCES["10k"],
+          estimatedRaceTimeSeconds: 3000,
+        },
+      }),
+    );
+
+    expect(capturedContexts[0]?.historySnapshot.terrainSummary).toMatchObject({
+      totalRunCount: 5,
+      classifiedRunCount: 5,
+      dominantClass: "rolling",
+    });
+    expect(draft.payload.days).toHaveLength(7);
+    expect(draft.payload.days[0]?.session).toMatchObject({
+      sessionType: "easy_run",
     });
   });
 

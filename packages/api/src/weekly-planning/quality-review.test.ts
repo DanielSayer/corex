@@ -9,6 +9,7 @@ import {
   type PlannedSession,
   type WeeklyPlanPayload,
 } from "./contracts";
+import { aggregateTerrainSummary } from "../terrain/domain";
 import { reviewPlanQuality } from "./quality-review";
 
 function createContext(
@@ -70,6 +71,7 @@ function createContext(
           },
         },
       ],
+      terrainSummary: aggregateTerrainSummary([]),
     },
     historyQuality: {
       hasAnyHistory: true,

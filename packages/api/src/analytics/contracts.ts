@@ -1,3 +1,5 @@
+import type { TerrainSummary } from "../terrain/domain";
+
 export type AnalyticsDistanceTrendBucket = {
   key: string;
   label: string;
@@ -40,6 +42,7 @@ export type AnalyticsView = {
     distances: number[];
     series: AnalyticsPrTrend[];
   };
+  terrainSummary: TerrainSummary;
   overallPrs: AnalyticsOverallPr[];
   longestRun: AnalyticsLongestRun;
 };

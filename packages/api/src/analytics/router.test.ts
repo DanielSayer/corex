@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
 
 import type { Context } from "../context";
+import { aggregateTerrainSummary } from "../terrain/domain";
 import { createAnalyticsRouter } from "./router";
 
 function createCallerContext(session: Context["session"]): Context {
@@ -52,6 +53,7 @@ describe("analytics router", () => {
               distances: [],
               series: [],
             },
+            terrainSummary: aggregateTerrainSummary([]),
             overallPrs: [],
             longestRun: null,
           });

@@ -1,3 +1,5 @@
+import type { TerrainSummary } from "../terrain/domain";
+
 export type HeartRateZoneTimes = {
   z1Seconds: number | null;
   z2Seconds: number | null;
@@ -33,6 +35,7 @@ export type PlanningHistorySnapshot = {
   generatedAt: string;
   detailedRuns: PlanningDetailedRun[];
   weeklyRollups: PlanningWeeklyRollup[];
+  terrainSummary: TerrainSummary;
 };
 
 export type PlanningHistoryQuality = {

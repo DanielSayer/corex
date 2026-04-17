@@ -20,6 +20,7 @@ import {
 import type { PlannerModelPort } from "./model";
 import type { WeeklyPlanningRepository } from "./repository";
 import { createWeeklyPlanningService } from "./service";
+import { aggregateTerrainSummary } from "../terrain/domain";
 
 function createRepository(
   overrides: Partial<WeeklyPlanningRepository> = {},
@@ -133,6 +134,12 @@ function createPlannerState(): PlannerState {
           },
         },
       ],
+      terrainSummary: aggregateTerrainSummary([
+        {
+          distanceMeters: 10000,
+          elevationGainMeters: 100,
+        },
+      ]),
     },
     historyQuality: {
       hasAnyHistory: true,
