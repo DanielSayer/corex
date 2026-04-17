@@ -34,6 +34,7 @@ function createRepository(
     getFinalizedPlanForDate: () => Effect.succeed(null),
     findOverlappingFinalizedPlan: () => Effect.succeed(null),
     listFinalizedPlans: () => Effect.succeed([]),
+    listGenerationEvents: () => Effect.succeed([]),
     listPlansInRange: () => Effect.succeed([]),
     createDraft: (input) =>
       Effect.succeed({

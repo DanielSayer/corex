@@ -31,6 +31,7 @@ describe("weekly planning router", () => {
         regenerateDraft: () => Effect.die("not used"),
         finalizeDraft: () => Effect.die("not used"),
         listFinalizedPlans: () => Effect.die("not used"),
+        listGenerationEvents: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(createCallerContext(null));
@@ -76,6 +77,7 @@ describe("weekly planning router", () => {
         regenerateDraft: () => Effect.die("not used"),
         finalizeDraft: () => Effect.die("not used"),
         listFinalizedPlans: () => Effect.die("not used"),
+        listGenerationEvents: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -114,6 +116,7 @@ describe("weekly planning router", () => {
         regenerateDraft: () => Effect.die("not used"),
         finalizeDraft: () => Effect.die("not used"),
         listFinalizedPlans: () => Effect.die("not used"),
+        listGenerationEvents: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -163,6 +166,7 @@ describe("weekly planning router", () => {
         regenerateDraft: () => Effect.die("not used"),
         finalizeDraft: () => Effect.die("not used"),
         listFinalizedPlans: () => Effect.die("not used"),
+        listGenerationEvents: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -201,6 +205,7 @@ describe("weekly planning router", () => {
           return Effect.die("stop after capture");
         },
         listFinalizedPlans: () => Effect.die("not used"),
+        listGenerationEvents: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -242,6 +247,7 @@ describe("weekly planning router", () => {
           requestedLimit = input?.limit;
           return Effect.succeed({ items: [], nextOffset: null });
         },
+        listGenerationEvents: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -265,6 +271,66 @@ describe("weekly planning router", () => {
     expect(requestedLimit).toBe(5);
   });
 
+  it("rejects generation history reads without a session", () => {
+    const router = createWeeklyPlanningRouter({
+      service: {
+        getState: () => Effect.die("not used"),
+        generateDraft: () => Effect.die("not used"),
+        generateNextWeek: () => Effect.die("not used"),
+        updateDraftSession: () => Effect.die("not used"),
+        moveDraftSession: () => Effect.die("not used"),
+        regenerateDraft: () => Effect.die("not used"),
+        finalizeDraft: () => Effect.die("not used"),
+        listFinalizedPlans: () => Effect.die("not used"),
+        listGenerationEvents: () => Effect.die("not used"),
+      },
+    });
+    const caller = router.createCaller(createCallerContext(null));
+
+    expect(caller.listGenerationEvents()).rejects.toBeInstanceOf(TRPCError);
+  });
+
+  it("passes the authenticated user id through to generation history reads", async () => {
+    let requestedUserId: string | undefined;
+    let requestedLimit: number | undefined;
+    const router = createWeeklyPlanningRouter({
+      service: {
+        getState: () => Effect.die("not used"),
+        generateDraft: () => Effect.die("not used"),
+        generateNextWeek: () => Effect.die("not used"),
+        updateDraftSession: () => Effect.die("not used"),
+        moveDraftSession: () => Effect.die("not used"),
+        regenerateDraft: () => Effect.die("not used"),
+        finalizeDraft: () => Effect.die("not used"),
+        listFinalizedPlans: () => Effect.die("not used"),
+        listGenerationEvents: (userId, input) => {
+          requestedUserId = userId;
+          requestedLimit = input?.limit;
+          return Effect.succeed({ items: [], nextOffset: null });
+        },
+      },
+    });
+    const caller = router.createCaller(
+      createCallerContext({
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
+      } as NonNullable<Context["session"]>),
+    );
+
+    await caller.listGenerationEvents({ limit: 5, offset: 0 });
+
+    expect(requestedUserId).toBe("user-1");
+    expect(requestedLimit).toBe(5);
+  });
+
   it("maps finalization conflicts to trpc conflict errors", async () => {
     const router = createWeeklyPlanningRouter({
       service: {
@@ -281,6 +347,7 @@ describe("weekly planning router", () => {
             }),
           ),
         listFinalizedPlans: () => Effect.die("not used"),
+        listGenerationEvents: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(

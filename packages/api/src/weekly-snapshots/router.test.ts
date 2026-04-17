@@ -46,6 +46,7 @@ describe("weekly snapshots router", () => {
         ensureLatestForUser: () => Effect.die("not used"),
         getByWeekForUser: () => Effect.die("not used"),
         generateWeeklySnapshotForUser: () => Effect.die("not used"),
+        createWeeklySnapshotForUserIfMissing: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(createCallerContext(null));
@@ -64,6 +65,7 @@ describe("weekly snapshots router", () => {
         ensureLatestForUser: () => Effect.die("not used"),
         getByWeekForUser: () => Effect.die("not used"),
         generateWeeklySnapshotForUser: () => Effect.die("not used"),
+        createWeeklySnapshotForUserIfMissing: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -101,6 +103,7 @@ describe("weekly snapshots router", () => {
         },
         getByWeekForUser: () => Effect.die("not used"),
         generateWeeklySnapshotForUser: () => Effect.die("not used"),
+        createWeeklySnapshotForUserIfMissing: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(
@@ -142,6 +145,7 @@ describe("weekly snapshots router", () => {
           return Effect.succeed(null);
         },
         generateWeeklySnapshotForUser: () => Effect.die("not used"),
+        createWeeklySnapshotForUserIfMissing: () => Effect.die("not used"),
       },
     });
     const caller = router.createCaller(

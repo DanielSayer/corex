@@ -8,7 +8,9 @@ import type { TrainingSettingsService } from "../training-settings/service";
 import type {
   FinalizedPlanHistory,
   FinalizeDraftInput,
+  GenerationEventHistory,
   GenerateWeeklyDraftInput,
+  ListGenerationEventsInput,
   ListFinalizedPlansInput,
   MoveDraftSessionInput,
   PlanQualityReport,
@@ -33,6 +35,7 @@ import {
 import {
   moveDraftSessionInputSchema,
   finalizeDraftInputSchema,
+  listGenerationEventsInputSchema,
   listFinalizedPlansInputSchema,
   regenerateDraftInputSchema,
   updateDraftSessionInputSchema,
@@ -531,6 +534,34 @@ export function createWeeklyPlanningService(options: {
             }),
         });
         const items = yield* options.repo.listFinalizedPlans(userId, {
+          limit: input.limit + 1,
+          offset: input.offset,
+        });
+        const visibleItems = items.slice(0, input.limit);
+
+        return {
+          items: visibleItems,
+          nextOffset:
+            items.length > input.limit ? input.offset + input.limit : null,
+        };
+      });
+    },
+    listGenerationEvents(
+      userId: string,
+      rawInput: ListGenerationEventsInput = {},
+    ): Effect.Effect<GenerationEventHistory, unknown> {
+      return Effect.gen(function* () {
+        const input = yield* Effect.try({
+          try: () => listGenerationEventsInputSchema.parse(rawInput),
+          catch: (error) =>
+            new WeeklyPlanningValidationError({
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Invalid generation event history input",
+            }),
+        });
+        const items = yield* options.repo.listGenerationEvents(userId, {
           limit: input.limit + 1,
           offset: input.offset,
         });

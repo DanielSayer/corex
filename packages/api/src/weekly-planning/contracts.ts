@@ -316,6 +316,14 @@ export const listFinalizedPlansInputSchema = z
   .strict()
   .default({ limit: 10, offset: 0 });
 
+export const listGenerationEventsInputSchema = z
+  .object({
+    limit: z.number().int().min(1).max(50).default(20),
+    offset: z.number().int().min(0).default(0),
+  })
+  .strict()
+  .default({ limit: 20, offset: 0 });
+
 const draftGenerationContextSchema = z
   .object({
     plannerIntent: plannerIntentSchema,
@@ -407,6 +415,12 @@ export type FinalizeDraftInput = z.infer<typeof finalizeDraftInputSchema>;
 export type ListFinalizedPlansInput = z.input<
   typeof listFinalizedPlansInputSchema
 >;
+export type ListGenerationEventsInput = z.input<
+  typeof listGenerationEventsInputSchema
+>;
+export type ParsedListGenerationEventsInput = z.infer<
+  typeof listGenerationEventsInputSchema
+>;
 export type DraftGenerationContext = z.infer<
   typeof draftGenerationContextSchema
 >;
@@ -434,5 +448,35 @@ export type PlannerState = {
 
 export type FinalizedPlanHistory = {
   items: WeeklyPlanFinalized[];
+  nextOffset: number | null;
+};
+
+export type GenerationEventQualitySummary = {
+  status: PlanQualityReport["status"];
+  mode: PlanQualityReport["mode"];
+  summary: string;
+  generatedAt: string;
+  warningCount: number;
+  blockingCount: number;
+} | null;
+
+export type GenerationHistoryEvent = {
+  eventId: string;
+  status: "success" | "failure";
+  createdAt: string;
+  updatedAt: string;
+  startDate: string;
+  provider: string;
+  model: string;
+  weeklyPlanId: string | null;
+  generationMode: WeeklyGenerationMode | null;
+  planGoal: TrainingPlanGoal | null;
+  failureCategory: GenerationFailureCategory | null;
+  failureSummary: string | null;
+  qualityReport: GenerationEventQualitySummary;
+};
+
+export type GenerationEventHistory = {
+  items: GenerationHistoryEvent[];
   nextOffset: number | null;
 };

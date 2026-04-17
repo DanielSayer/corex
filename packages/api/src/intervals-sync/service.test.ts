@@ -93,6 +93,7 @@ function createLedger(overrides: Partial<SyncLedgerPort> = {}): SyncLedgerPort {
     hasInProgress: () => Effect.succeed(false),
     begin: () => Effect.void,
     latest: () => Effect.succeed(null),
+    listEvents: () => Effect.succeed({ items: [], nextOffset: null }),
     latestSuccessfulCursor: () => Effect.succeed(null),
     completeSuccess: (input) =>
       Effect.succeed({

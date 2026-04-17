@@ -1,6 +1,7 @@
 import type { Effect } from "effect";
 
 import type { SyncPersistenceFailure } from "./errors";
+import type { ParsedListSyncEventsInput, SyncEventHistory } from "./contracts";
 import type {
   IntervalsActivityDetail,
   IntervalsActivityMap,
@@ -96,6 +97,10 @@ export type SyncLedgerPort = {
   latest: (
     userId: string,
   ) => Effect.Effect<SyncSummary | null, SyncPersistenceFailure>;
+  listEvents: (
+    userId: string,
+    input: ParsedListSyncEventsInput,
+  ) => Effect.Effect<SyncEventHistory, SyncPersistenceFailure>;
   latestSuccessfulCursor: (
     userId: string,
   ) => Effect.Effect<Date | null, SyncPersistenceFailure>;
