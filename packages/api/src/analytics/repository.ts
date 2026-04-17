@@ -14,6 +14,7 @@ import {
   getLocalDateKey,
   localDateKeyToUtcStart,
 } from "../goal-progress/timezones";
+import { aggregateTerrainSummary } from "../terrain/domain";
 import type {
   AnalyticsDistanceTrendBucket,
   AnalyticsOverallPr,
@@ -25,6 +26,7 @@ import type { AnalyticsRepository } from "./service";
 type RunRow = {
   startAt: Date;
   distanceMeters: number;
+  totalElevationGainMeters: number | null;
 };
 
 const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
@@ -205,6 +207,7 @@ export function createAnalyticsRepository(db: Database): AnalyticsRepository {
             columns: {
               startAt: true,
               distanceMeters: true,
+              totalElevationGainMeters: true,
             },
             orderBy: asc(importedActivity.startAt),
           }),
@@ -282,6 +285,12 @@ export function createAnalyticsRepository(db: Database): AnalyticsRepository {
             input.timezone,
           ),
           prTrends: buildPrTrendSeries(input.year, monthlyBestRows),
+          terrainSummary: aggregateTerrainSummary(
+            yearRuns.map((row) => ({
+              distanceMeters: row.distanceMeters,
+              elevationGainMeters: row.totalElevationGainMeters,
+            })),
+          ),
           overallPrs,
           longestRun: longestRunRow
             ? {

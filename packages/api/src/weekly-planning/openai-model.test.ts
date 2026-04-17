@@ -5,6 +5,7 @@ import type { DraftGenerationContext, WeeklyPlanPayload } from "./contracts";
 import { SUPPORTED_RACE_DISTANCES, TRAINING_PLAN_GOALS } from "./contracts";
 import { GenerationTimeout, ProviderFailure } from "./errors";
 import { createOpenAiPlannerModel } from "./openai-model";
+import { aggregateTerrainSummary } from "../terrain/domain";
 
 function createContext(): DraftGenerationContext {
   return {
@@ -32,6 +33,7 @@ function createContext(): DraftGenerationContext {
       generatedAt: "2026-04-01T00:00:00.000Z",
       detailedRuns: [],
       weeklyRollups: [],
+      terrainSummary: aggregateTerrainSummary([]),
     },
     historyQuality: {
       hasAnyHistory: true,
@@ -141,6 +143,9 @@ describe("openai planner model", () => {
     );
     expect(generateTextCalls[0]?.system).toContain(
       "Use historySnapshot.detailedRuns and historySnapshot.weeklyRollups to infer the athlete's current running pattern",
+    );
+    expect(generateTextCalls[0]?.system).toContain(
+      "Use historySnapshot.terrainSummary as conservative terrain context",
     );
     expect(generateTextCalls[0]?.system).toContain(
       "For beginner or limited-history athletes, prefer fewer running days and more rest",

@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import { createIntervalsSyncRouter } from "@corex/api/intervals-sync/router";
 import { createAppRouter } from "@corex/api/routers/index";
+import { aggregateTerrainSummary } from "@corex/api/terrain/domain";
 import { createWeeklyPlanningRouter } from "@corex/api/weekly-planning/router";
 
 import { createHttpApp, createHttpAppWithRouter } from "./helpers/http";
@@ -161,6 +162,7 @@ describe("http integration", () => {
                 generatedAt: "2026-04-01T00:00:00.000Z",
                 detailedRuns: [],
                 weeklyRollups: [],
+                terrainSummary: aggregateTerrainSummary([]),
               },
               historyQuality: {
                 hasAnyHistory: false,

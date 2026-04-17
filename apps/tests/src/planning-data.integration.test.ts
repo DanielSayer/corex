@@ -6,6 +6,7 @@ import { createLivePlanningDataService } from "@corex/api/planning-data/live";
 import { TARGET_EFFORT_DISTANCES_METERS } from "@corex/api/intervals-sync/derived-performance";
 import {
   importedActivity,
+  importedActivityMap,
   importedActivityStream,
   runProcessingWarning,
   syncEvent,
@@ -132,6 +133,15 @@ describe("planning data integration", () => {
       z4Seconds: 1,
       z5Seconds: 1,
     });
+    expect(snapshot.terrainSummary).toMatchObject({
+      totalRunCount: 8,
+      classifiedRunCount: 8,
+      unclassifiedRunCount: 0,
+      dominantClass: "hilly",
+    });
+    expect(
+      snapshot.terrainSummary.classes.map((entry) => entry.runCount),
+    ).toEqual([0, 0, 8]);
     expect(snapshot.weeklyRollups).toHaveLength(4);
     expect(snapshot.weeklyRollups[0]).toMatchObject({
       runCount: 1,
@@ -143,6 +153,114 @@ describe("planning data integration", () => {
         (run) => run.startAt === "2025-12-20T12:00:00.000Z",
       ),
     ).toBe(false);
+  });
+
+  it("derives terrain classes from elevation facts without requiring usable map data", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "terrain-planner@example.com",
+      name: "Terrain Planner",
+    });
+
+    await db.insert(importedActivity).values([
+      {
+        userId: user.id,
+        upstreamActivityId: "flat-run",
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-03-24T12:00:00.000Z"),
+        movingTimeSeconds: 1200,
+        elapsedTimeSeconds: 1210,
+        distanceMeters: 10_000,
+        totalElevationGainMeters: 40,
+        rawDetail: { id: "flat-run" },
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "rolling-run",
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-03-23T12:00:00.000Z"),
+        movingTimeSeconds: 1300,
+        elapsedTimeSeconds: 1310,
+        distanceMeters: 10_000,
+        totalElevationGainMeters: 100,
+        rawDetail: { id: "rolling-run" },
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "hilly-run",
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-03-22T12:00:00.000Z"),
+        movingTimeSeconds: 1400,
+        elapsedTimeSeconds: 1410,
+        distanceMeters: 10_000,
+        totalElevationGainMeters: 180,
+        rawDetail: { id: "hilly-run" },
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "unclassified-run",
+        athleteId: "i509216",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-03-21T12:00:00.000Z"),
+        movingTimeSeconds: 1500,
+        elapsedTimeSeconds: 1510,
+        distanceMeters: 10_000,
+        totalElevationGainMeters: null,
+        rawDetail: { id: "unclassified-run" },
+      },
+    ]);
+
+    await db.insert(importedActivityMap).values({
+      userId: user.id,
+      upstreamActivityId: "hilly-run",
+      hasRoute: true,
+      hasWeather: false,
+      rawMap: {
+        latlngs: "malformed",
+        route: {
+          route_id: 123,
+        },
+      },
+    });
+
+    const service = createLivePlanningDataService({
+      db,
+      clock: { now: () => new Date("2026-03-25T12:00:00.000Z") },
+    });
+
+    const snapshot = await Effect.runPromise(
+      service.getPlanningHistorySnapshot(user.id),
+    );
+
+    expect(snapshot.terrainSummary).toMatchObject({
+      totalRunCount: 4,
+      classifiedRunCount: 3,
+      unclassifiedRunCount: 1,
+    });
+    expect(snapshot.terrainSummary.classes).toEqual([
+      expect.objectContaining({
+        terrainClass: "flat",
+        runCount: 1,
+        distanceMeters: 10_000,
+      }),
+      expect.objectContaining({
+        terrainClass: "rolling",
+        runCount: 1,
+        distanceMeters: 10_000,
+      }),
+      expect.objectContaining({
+        terrainClass: "hilly",
+        runCount: 1,
+        distanceMeters: 10_000,
+      }),
+    ]);
   });
 
   it("returns null HR zone fields when derivation is not possible", async () => {
@@ -547,6 +665,12 @@ describe("planning data integration", () => {
 
     expect(history.detailedRuns).toEqual([]);
     expect(history.weeklyRollups).toEqual([]);
+    expect(history.terrainSummary).toMatchObject({
+      totalRunCount: 0,
+      classifiedRunCount: 0,
+      unclassifiedRunCount: 0,
+      dominantClass: null,
+    });
     expect(quality).toEqual({
       hasAnyHistory: false,
       meetsSnapshotThreshold: false,

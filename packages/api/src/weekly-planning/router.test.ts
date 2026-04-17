@@ -11,6 +11,7 @@ import {
 } from "./contracts";
 import { DraftConflict, PlanFinalizationConflict } from "./errors";
 import { createWeeklyPlanningRouter } from "./router";
+import { aggregateTerrainSummary } from "../terrain/domain";
 
 function createCallerContext(session: Context["session"]): Context {
   return {
@@ -52,6 +53,7 @@ describe("weekly planning router", () => {
               generatedAt: "2026-04-01T00:00:00.000Z",
               detailedRuns: [],
               weeklyRollups: [],
+              terrainSummary: aggregateTerrainSummary([]),
             },
             historyQuality: {
               hasAnyHistory: false,

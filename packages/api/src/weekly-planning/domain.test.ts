@@ -8,6 +8,7 @@ import {
   USER_PERCEIVED_ABILITY_LEVELS,
   type WeeklyPlanPayload,
 } from "./contracts";
+import { aggregateTerrainSummary } from "../terrain/domain";
 import {
   buildPlannerDefaults,
   chooseDefaultLongRunDay,
@@ -26,6 +27,7 @@ describe("weekly planning domain", () => {
         generatedAt: "2026-04-01T00:00:00.000Z",
         detailedRuns: [],
         weeklyRollups: [],
+        terrainSummary: aggregateTerrainSummary([]),
       },
       historyQuality: {
         hasAnyHistory: true,
@@ -387,6 +389,7 @@ describe("weekly planning domain", () => {
         generatedAt: "2026-04-01T00:00:00.000Z",
         detailedRuns: [],
         weeklyRollups: [],
+        terrainSummary: aggregateTerrainSummary([]),
       },
       historyQuality: {
         hasAnyHistory: true,

@@ -1,4 +1,4 @@
-import { RouteIcon } from "lucide-react";
+import { MountainIcon, RouteIcon } from "lucide-react";
 
 import { Badge } from "@corex/ui/components/badge";
 import {
@@ -89,6 +89,101 @@ export function LongestRunCard({
             title="No longest run yet"
             description="Import some running history to populate this summary."
             compact
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function TerrainMixCard({ data }: { data: AnalyticsView }) {
+  const terrain = data.terrainSummary;
+  const hasTerrain = terrain.classifiedRunCount > 0;
+  const classLabels = {
+    flat: "Flat",
+    rolling: "Rolling",
+    hilly: "Hilly",
+  } as const;
+
+  return (
+    <Card className="border border-border/70">
+      <CardHeader>
+        <CardTitle>Terrain mix</CardTitle>
+        <CardDescription>
+          Elevation density across imported runs in the selected year.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {hasTerrain ? (
+          <div className="flex flex-col gap-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <div className="text-3xl font-semibold tracking-tight capitalize">
+                  {terrain.dominantClass ?? "Mixed"}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {terrain.classifiedRunCount} classified of{" "}
+                  {terrain.totalRunCount} runs
+                </div>
+              </div>
+              <MountainIcon className="size-5 text-muted-foreground" />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              {terrain.classes.map((entry) => {
+                const share =
+                  terrain.classifiedDistanceMeters > 0
+                    ? (entry.distanceMeters /
+                        terrain.classifiedDistanceMeters) *
+                      100
+                    : 0;
+
+                return (
+                  <div
+                    className="flex min-h-36 flex-col justify-between rounded-lg border border-border/70 bg-muted/25 px-4 py-4"
+                    key={entry.terrainClass}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium">
+                        {classLabels[entry.terrainClass]}
+                      </div>
+                      <Badge variant="secondary">{entry.runCount}</Badge>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <div className="text-2xl font-semibold tracking-tight">
+                        {formatDistanceToKm(entry.distanceMeters)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {entry.averageElevationGainMetersPerKm == null
+                          ? "--"
+                          : `${entry.averageElevationGainMetersPerKm.toFixed(
+                              1,
+                            )} m/km`}{" "}
+                        avg
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${share}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {terrain.unclassifiedRunCount > 0 ? (
+              <div className="text-sm text-muted-foreground">
+                {terrain.unclassifiedRunCount} runs are missing usable elevation
+                data.
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <EmptyPanel
+            title="No terrain mix yet"
+            description="Import runs with distance and elevation gain to compare flat, rolling, and hilly training."
           />
         )}
       </CardContent>
