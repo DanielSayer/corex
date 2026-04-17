@@ -3,9 +3,11 @@ import { Effect } from "effect";
 import {
   trainingPreferencesSchema,
   trainingSettingsInputSchema,
+  updateAutomaticWeeklyPlanRenewalInputSchema,
   type TrainingSettingsInput,
   type TrainingGoal,
   type TrainingPreferences,
+  type UpdateAutomaticWeeklyPlanRenewalInput,
 } from "./contracts";
 import type { CredentialCrypto } from "../intervals/crypto";
 import { InvalidApiKeyFormat, InvalidSettings } from "./errors";
@@ -36,6 +38,7 @@ function createEmptyState(): TrainingSettingsView {
     availability: null,
     preferences: {
       timezone: "UTC",
+      automaticWeeklyPlanRenewalEnabled: false,
     },
     intervalsCredential: {
       hasKey: false,
@@ -133,6 +136,8 @@ export function createTrainingSettingsService(
         ...createEmptyState(),
         preferences: {
           timezone: preferences?.timezone ?? "UTC",
+          automaticWeeklyPlanRenewalEnabled:
+            preferences?.automaticWeeklyPlanRenewalEnabled ?? false,
         },
       };
     });
@@ -153,6 +158,8 @@ export function createTrainingSettingsService(
     ): Effect.Effect<TrainingSettingsView, unknown> {
       return Effect.gen(function* () {
         const validatedInput = yield* validateInput(input);
+        const existingPreferences =
+          yield* options.repo.findPreferencesByUserId(userId);
         const encryptedCredential = yield* options.crypto.encrypt(
           userId,
           validatedInput.intervalsApiKey.trim(),
@@ -162,6 +169,10 @@ export function createTrainingSettingsService(
           availability: validatedInput.availability,
           preferences: {
             timezone: validatedInput.timezone,
+            automaticWeeklyPlanRenewalEnabled:
+              validatedInput.automaticWeeklyPlanRenewalEnabled ??
+              existingPreferences?.automaticWeeklyPlanRenewalEnabled ??
+              false,
           },
           intervalsUsername: validatedInput.intervalsUsername.trim(),
           intervalsCredential: encryptedCredential,
@@ -172,11 +183,44 @@ export function createTrainingSettingsService(
     },
     updateTimezoneForUser(
       userId: string,
-      preferences: TrainingPreferences,
+      preferences: Pick<TrainingPreferences, "timezone">,
     ): Effect.Effect<TrainingSettingsView, unknown> {
       return Effect.gen(function* () {
-        const validatedPreferences = yield* validatePreferences(preferences);
+        const existingPreferences =
+          yield* options.repo.findPreferencesByUserId(userId);
+        const validatedPreferences = yield* validatePreferences({
+          timezone: preferences.timezone,
+          automaticWeeklyPlanRenewalEnabled:
+            existingPreferences?.automaticWeeklyPlanRenewalEnabled ?? false,
+        });
         yield* options.repo.upsertPreferences(userId, validatedPreferences);
+        return yield* getForUser(userId);
+      });
+    },
+    updateAutomaticWeeklyPlanRenewalForUser(
+      userId: string,
+      input: UpdateAutomaticWeeklyPlanRenewalInput,
+    ): Effect.Effect<TrainingSettingsView, unknown> {
+      return Effect.gen(function* () {
+        const parsed =
+          updateAutomaticWeeklyPlanRenewalInputSchema.safeParse(input);
+
+        if (!parsed.success) {
+          return yield* Effect.fail(
+            new InvalidSettings({
+              message:
+                parsed.error.issues[0]?.message ??
+                "Invalid automatic weekly renewal preference",
+            }),
+          );
+        }
+
+        const existingPreferences =
+          yield* options.repo.findPreferencesByUserId(userId);
+        yield* options.repo.upsertPreferences(userId, {
+          timezone: existingPreferences?.timezone ?? "UTC",
+          automaticWeeklyPlanRenewalEnabled: parsed.data.enabled,
+        });
         return yield* getForUser(userId);
       });
     },

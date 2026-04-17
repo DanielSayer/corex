@@ -30,6 +30,7 @@ function createStoredSettings(): StoredTrainingSettings {
     availability: sampleInput.availability,
     preferences: {
       timezone: sampleInput.timezone,
+      automaticWeeklyPlanRenewalEnabled: false,
     },
     intervalsCredential: {
       username: sampleInput.intervalsUsername,
@@ -55,6 +56,7 @@ function createRepo(
     upsertPreferences: () =>
       Effect.succeed({
         timezone: sampleInput.timezone,
+        automaticWeeklyPlanRenewalEnabled: false,
         updatedAt: new Date("2026-03-20T00:00:00.000Z"),
       }),
     saveIntervalsAthleteIdentity: () => Effect.void,
@@ -81,6 +83,7 @@ describe("training settings service", () => {
       availability: null,
       preferences: {
         timezone: "UTC",
+        automaticWeeklyPlanRenewalEnabled: false,
       },
       intervalsCredential: {
         hasKey: false,
@@ -121,6 +124,7 @@ describe("training settings service", () => {
       availability: sampleInput.availability,
       preferences: {
         timezone: sampleInput.timezone,
+        automaticWeeklyPlanRenewalEnabled: false,
       },
       intervalsCredential: {
         hasKey: true,
@@ -134,6 +138,7 @@ describe("training settings service", () => {
       availability: sampleInput.availability,
       preferences: {
         timezone: sampleInput.timezone,
+        automaticWeeklyPlanRenewalEnabled: false,
       },
       intervalsUsername: sampleInput.intervalsUsername,
       intervalsCredential: {
@@ -155,6 +160,7 @@ describe("training settings service", () => {
         findPreferencesByUserId: () =>
           Effect.succeed({
             timezone: "Pacific/Auckland",
+            automaticWeeklyPlanRenewalEnabled: true,
             updatedAt: new Date("2026-03-21T00:00:00.000Z"),
           }),
         upsertPreferences: (_userId, preferences) => {
@@ -185,6 +191,95 @@ describe("training settings service", () => {
 
     expect(persistedPreferences).toEqual({
       timezone: "Pacific/Auckland",
+      automaticWeeklyPlanRenewalEnabled: true,
+    });
+  });
+
+  it("updates automatic weekly plan renewal without requiring credentials", async () => {
+    let persistedPreferences:
+      | Parameters<TrainingSettingsRepository["upsertPreferences"]>[1]
+      | undefined;
+    let storedPreferences = {
+      timezone: "Pacific/Auckland",
+      automaticWeeklyPlanRenewalEnabled: false,
+      updatedAt: new Date("2026-03-21T00:00:00.000Z"),
+    };
+
+    const service = createTrainingSettingsService({
+      repo: createRepo({
+        findPreferencesByUserId: () => Effect.succeed(storedPreferences),
+        upsertPreferences: (_userId, preferences) => {
+          persistedPreferences = preferences;
+          storedPreferences = {
+            ...preferences,
+            updatedAt: new Date("2026-03-21T00:00:00.000Z"),
+          };
+          return Effect.succeed(storedPreferences);
+        },
+      }),
+      crypto: {
+        encrypt: () => Effect.die("not used"),
+        decrypt: () => Effect.die("not used"),
+      },
+    });
+
+    await expect(
+      Effect.runPromise(
+        service.updateAutomaticWeeklyPlanRenewalForUser("user-1", {
+          enabled: true,
+        }),
+      ),
+    ).resolves.toMatchObject({
+      preferences: {
+        timezone: "Pacific/Auckland",
+        automaticWeeklyPlanRenewalEnabled: true,
+      },
+    });
+
+    expect(persistedPreferences).toEqual({
+      timezone: "Pacific/Auckland",
+      automaticWeeklyPlanRenewalEnabled: true,
+    });
+  });
+
+  it("preserves the existing automatic renewal preference during full settings upsert", async () => {
+    let persistedRecord:
+      | Parameters<TrainingSettingsRepository["upsert"]>[0]
+      | undefined;
+
+    const service = createTrainingSettingsService({
+      repo: createRepo({
+        findPreferencesByUserId: () =>
+          Effect.succeed({
+            timezone: "Australia/Brisbane",
+            automaticWeeklyPlanRenewalEnabled: true,
+            updatedAt: new Date("2026-03-21T00:00:00.000Z"),
+          }),
+        upsert: (record) => {
+          persistedRecord = record;
+          return Effect.succeed({
+            ...createStoredSettings(),
+            preferences: record.preferences,
+          });
+        },
+      }),
+      crypto: {
+        encrypt: () =>
+          Effect.succeed({
+            ciphertext: "ciphertext",
+            iv: "iv",
+            tag: "tag",
+            keyVersion: 1,
+          }),
+        decrypt: () => Effect.die("not used"),
+      },
+    });
+
+    await Effect.runPromise(service.upsertForUser("user-1", sampleInput));
+
+    expect(persistedRecord?.preferences).toEqual({
+      timezone: "Australia/Brisbane",
+      automaticWeeklyPlanRenewalEnabled: true,
     });
   });
 

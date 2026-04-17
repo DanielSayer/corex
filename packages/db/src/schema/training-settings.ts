@@ -94,6 +94,11 @@ export const userTrainingPreference = pgTable("user_training_preference", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   timezone: text("timezone").notNull(),
+  automaticWeeklyPlanRenewalEnabled: boolean(
+    "automatic_weekly_plan_renewal_enabled",
+  )
+    .notNull()
+    .default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

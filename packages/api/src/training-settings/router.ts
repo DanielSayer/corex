@@ -11,6 +11,7 @@ import { type TrainingSettingsService } from "./service";
 import {
   trainingGoalSchema,
   trainingSettingsInputSchema,
+  updateAutomaticWeeklyPlanRenewalInputSchema,
   updateTimezoneInputSchema,
 } from "./contracts";
 import { authedProcedure, router } from "../index";
@@ -79,6 +80,17 @@ export function createTrainingSettingsRouter(
       .mutation(({ ctx, input }) =>
         executeEffect(
           getService().updateTimezoneForUser(ctx.session.user.id, input),
+          mapTrainingSettingsError,
+        ),
+      ),
+    updateAutomaticWeeklyPlanRenewal: authedProcedure
+      .input(updateAutomaticWeeklyPlanRenewalInputSchema)
+      .mutation(({ ctx, input }) =>
+        executeEffect(
+          getService().updateAutomaticWeeklyPlanRenewalForUser(
+            ctx.session.user.id,
+            input,
+          ),
           mapTrainingSettingsError,
         ),
       ),

@@ -70,17 +70,26 @@ export const trainingSettingsInputSchema = z.object({
   intervalsUsername: z.string().trim().min(1).max(255),
   intervalsApiKey: z.string().trim().min(1).max(512),
   timezone: timezoneSchema,
+  automaticWeeklyPlanRenewalEnabled: z.boolean().optional(),
 });
 
 export const trainingPreferencesSchema = z.object({
   timezone: timezoneSchema,
+  automaticWeeklyPlanRenewalEnabled: z.boolean(),
 });
 
 export const updateTimezoneInputSchema = z.object({
   timezone: timezoneSchema,
 });
 
+export const updateAutomaticWeeklyPlanRenewalInputSchema = z.object({
+  enabled: z.boolean(),
+});
+
 export type TrainingGoal = z.infer<typeof trainingGoalSchema>;
 export type WeeklyAvailability = z.infer<typeof weeklyAvailabilitySchema>;
 export type TrainingSettingsInput = z.infer<typeof trainingSettingsInputSchema>;
 export type TrainingPreferences = z.infer<typeof trainingPreferencesSchema>;
+export type UpdateAutomaticWeeklyPlanRenewalInput = z.infer<
+  typeof updateAutomaticWeeklyPlanRenewalInputSchema
+>;

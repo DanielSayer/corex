@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { Effect } from "effect";
+import { Cause, Effect, Exit, Option } from "effect";
 
 import { createUser } from "@corex/api/application/commands/create-user";
 import { createCredentialCrypto } from "@corex/api/training-settings/crypto";
@@ -35,6 +35,7 @@ describe("training settings integration", () => {
       availability: null,
       preferences: {
         timezone: "UTC",
+        automaticWeeklyPlanRenewalEnabled: false,
       },
       intervalsCredential: {
         hasKey: false,
@@ -91,6 +92,7 @@ describe("training settings integration", () => {
     );
     expect(stored.intervalsCredential.username).toBe("runner@example.com");
     expect(stored.preferences.timezone).toBe("Australia/Brisbane");
+    expect(stored.preferences.automaticWeeklyPlanRenewalEnabled).toBe(false);
 
     const decrypted = await Effect.runPromise(
       crypto.decrypt(createdUser.id, {
@@ -203,7 +205,57 @@ describe("training settings integration", () => {
 
     expect(updated.status).toBe("complete");
     expect(updated.preferences.timezone).toBe("Pacific/Auckland");
+    expect(updated.preferences.automaticWeeklyPlanRenewalEnabled).toBe(false);
     expect(updated.intervalsCredential.username).toBe("runner@example.com");
+  });
+
+  it("updates automatic weekly plan renewal without replacing credentials or availability", async () => {
+    const { db } = await getIntegrationHarness();
+    const createdUser = await createUser(db, {
+      email: "automatic-renewal-update@example.com",
+      name: "Automatic Renewal Runner",
+    });
+    const service = createTrainingSettingsService({
+      repo: createTrainingSettingsRepository(db),
+      crypto: createCredentialCrypto({
+        masterKeyBase64,
+        keyVersion: 1,
+      }),
+    });
+
+    await Effect.runPromise(
+      service.upsertForUser(createdUser.id, {
+        availability: {
+          monday: { available: true, maxDurationMinutes: 45 },
+          tuesday: { available: false, maxDurationMinutes: null },
+          wednesday: { available: true, maxDurationMinutes: 60 },
+          thursday: { available: false, maxDurationMinutes: null },
+          friday: { available: true, maxDurationMinutes: null },
+          saturday: { available: true, maxDurationMinutes: 90 },
+          sunday: { available: false, maxDurationMinutes: null },
+        },
+        intervalsUsername: "runner@example.com",
+        intervalsApiKey: "first-secret",
+        timezone: "Australia/Brisbane",
+      }),
+    );
+
+    const updated = await Effect.runPromise(
+      service.updateAutomaticWeeklyPlanRenewalForUser(createdUser.id, {
+        enabled: true,
+      }),
+    );
+
+    expect(updated.status).toBe("complete");
+    expect(updated.preferences).toEqual({
+      timezone: "Australia/Brisbane",
+      automaticWeeklyPlanRenewalEnabled: true,
+    });
+    expect(updated.intervalsCredential.username).toBe("runner@example.com");
+    expect(updated.availability?.saturday).toEqual({
+      available: true,
+      maxDurationMinutes: 90,
+    });
   });
 
   it("rejects invalid timezone updates", async () => {
@@ -220,14 +272,23 @@ describe("training settings integration", () => {
       }),
     });
 
-    await expect(
-      Effect.runPromise(
-        service.updateTimezoneForUser(createdUser.id, {
-          timezone: "not-a-timezone",
-        }),
-      ),
-    ).rejects.toMatchObject({
-      message: "Invalid timezone",
-    });
+    const exit = await Effect.runPromiseExit(
+      service.updateTimezoneForUser(createdUser.id, {
+        timezone: "not-a-timezone",
+      }),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+
+    if (Exit.isFailure(exit)) {
+      const failure = Cause.failureOption(exit.cause);
+      expect(Option.isSome(failure)).toBe(true);
+
+      if (Option.isSome(failure)) {
+        expect(failure.value).toMatchObject({
+          message: "Invalid timezone",
+        });
+      }
+    }
   });
 });

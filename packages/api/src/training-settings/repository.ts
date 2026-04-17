@@ -131,6 +131,7 @@ function mapPreferenceRow(
 
   return {
     timezone: row.timezone,
+    automaticWeeklyPlanRenewalEnabled: row.automaticWeeklyPlanRenewalEnabled,
     updatedAt: row.updatedAt,
   };
 }
@@ -153,6 +154,7 @@ function mapStoredAggregate(
 
   const preferences = mapPreferenceRow(preferenceRow) ?? {
     timezone: "UTC",
+    automaticWeeklyPlanRenewalEnabled: false,
     updatedAt: credentialRow.updatedAt,
   };
 
@@ -161,6 +163,8 @@ function mapStoredAggregate(
     availability: mapAvailabilityRows(availabilityRows),
     preferences: {
       timezone: preferences.timezone,
+      automaticWeeklyPlanRenewalEnabled:
+        preferences.automaticWeeklyPlanRenewalEnabled,
     },
     intervalsCredential: {
       username: credentialRow.intervalsUsername,
@@ -222,12 +226,16 @@ async function upsertStoredPreferences(
     .values({
       userId,
       timezone: preferences.timezone,
+      automaticWeeklyPlanRenewalEnabled:
+        preferences.automaticWeeklyPlanRenewalEnabled,
       updatedAt: now,
     })
     .onConflictDoUpdate({
       target: userTrainingPreference.userId,
       set: {
         timezone: preferences.timezone,
+        automaticWeeklyPlanRenewalEnabled:
+          preferences.automaticWeeklyPlanRenewalEnabled,
         updatedAt: now,
       },
     });
@@ -281,12 +289,16 @@ export function createTrainingSettingsRepository(
               .values({
                 userId: record.userId,
                 timezone: record.preferences.timezone,
+                automaticWeeklyPlanRenewalEnabled:
+                  record.preferences.automaticWeeklyPlanRenewalEnabled,
                 updatedAt: now,
               })
               .onConflictDoUpdate({
                 target: userTrainingPreference.userId,
                 set: {
                   timezone: record.preferences.timezone,
+                  automaticWeeklyPlanRenewalEnabled:
+                    record.preferences.automaticWeeklyPlanRenewalEnabled,
                   updatedAt: now,
                 },
               });
@@ -388,6 +400,7 @@ export function createTrainingSettingsRepository(
                 .values({
                   userId,
                   timezone: identity.timezone,
+                  automaticWeeklyPlanRenewalEnabled: false,
                   createdAt: identity.resolvedAt,
                   updatedAt: identity.resolvedAt,
                 })

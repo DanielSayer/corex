@@ -56,6 +56,7 @@ function createTrainingSettingsRepo(
               },
               preferences: {
                 timezone: "Australia/Brisbane",
+                automaticWeeklyPlanRenewalEnabled: false,
               },
               intervalsCredential: {
                 username: "runner@example.com",
