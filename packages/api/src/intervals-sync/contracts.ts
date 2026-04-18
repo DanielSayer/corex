@@ -19,6 +19,25 @@ export type SyncWarningSummary = {
   count: number | null;
 };
 
+export type SyncStatusSummary = {
+  status: "in_progress" | "success" | "failure";
+  historyCoverage: "initial_30d_window" | "incremental_from_cursor" | null;
+  coveredDateRange: {
+    start: string | null;
+    end: string | null;
+  };
+  runsProcessed: number;
+  newRuns: number;
+  updatedRuns: number;
+  unsupportedCount: number;
+  invalidCount: number;
+  fetchIssueCount: number;
+  warningCount: number;
+  lastAttemptedAt: string;
+  lastCompletedAt: string | null;
+  failureSummary: string | null;
+};
+
 export type SyncHistoryEvent = {
   eventId: string;
   status: "in_progress" | "success" | "failure";

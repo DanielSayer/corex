@@ -37,7 +37,7 @@ export function toSvgPath(
   return points
     .map((point, index) => {
       const x = (point.lng - minLng) * scale + offsetX;
-      const y = drawHeight - (point.lat - minLat) * scale + offsetY;
+      const y = offsetY + (maxLat - point.lat) * scale;
 
       return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
@@ -84,4 +84,49 @@ export function formatHeartRate(value: number | null) {
   }
 
   return `${Math.round(value)} bpm`;
+}
+
+export function formatPace(
+  value: number | null,
+  options?: { showUnit?: boolean },
+) {
+  if (value == null || value <= 0) {
+    return "--";
+  }
+
+  const minutes = Math.floor(value / 60);
+  const seconds = Math.round(value % 60);
+  const pace = `${minutes}:${String(seconds).padStart(2, "0")}`;
+
+  return options?.showUnit === false ? pace : `${pace}/km`;
+}
+
+export function formatDistanceKm(meters: number) {
+  return (meters / 1000).toFixed(2);
+}
+
+export function formatSignedDistanceDelta(value: number) {
+  const absKm = (Math.abs(value) / 1000).toFixed(1);
+  const sign = value >= 0 ? "+" : "-";
+  return `${sign}${absKm} km`;
+}
+
+export function formatSignedPaceDelta(value: number | null) {
+  if (value == null) {
+    return "N/A";
+  }
+
+  const sign = value >= 0 ? "+" : "-";
+  return `${sign}${Math.abs(value).toFixed(1)}s/km`;
+}
+
+export function formatWeekRange(startDate: string, endDate: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).formatRange(
+    new Date(`${startDate}T00:00:00.000Z`),
+    new Date(`${endDate}T00:00:00.000Z`),
+  );
 }

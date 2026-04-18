@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { Effect } from "effect";
 
 import { authedProcedure, router } from "../index";
 import { executeEffect } from "../trpc/effect";
@@ -13,6 +14,7 @@ import {
 } from "./errors";
 import { createLiveIntervalsSyncApi } from "./live";
 import type { IntervalsSyncApi } from "./module";
+import { toSyncStatusSummary } from "./summary";
 
 type CreateIntervalsSyncRouterOptions = {
   service?: IntervalsSyncApi;
@@ -72,13 +74,21 @@ export function createIntervalsSyncRouter(
   return router({
     trigger: authedProcedure.mutation(({ ctx }) =>
       executeEffect(
-        getService().syncNow(ctx.session.user.id),
+        getService()
+          .syncNow(ctx.session.user.id)
+          .pipe(Effect.map(toSyncStatusSummary)),
         mapIntervalsSyncError,
       ),
     ),
     latest: authedProcedure.query(({ ctx }) =>
       executeEffect(
-        getService().latest(ctx.session.user.id),
+        getService()
+          .latest(ctx.session.user.id)
+          .pipe(
+            Effect.map((summary) =>
+              summary ? toSyncStatusSummary(summary) : null,
+            ),
+          ),
         mapIntervalsSyncError,
       ),
     ),
