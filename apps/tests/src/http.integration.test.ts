@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
 
+import { createDashboardRouter } from "@corex/api/dashboard/router";
 import { createIntervalsSyncRouter } from "@corex/api/intervals-sync/router";
 import { createAppRouter } from "@corex/api/routers/index";
 import { aggregateTerrainSummary } from "@corex/api/terrain/domain";
@@ -16,9 +17,16 @@ describe("http integration", () => {
     expect(await response.text()).toBe("OK");
   });
 
-  it("rejects protected data without a session", async () => {
-    const response = await createHttpApp(null).request(
-      "http://localhost/trpc/privateData",
+  it("rejects dashboard reads without a session", async () => {
+    const router = createAppRouter({
+      dashboard: createDashboardRouter({
+        service: {
+          getForUser: () => Effect.die("not used"),
+        },
+      }),
+    });
+    const response = await createHttpAppWithRouter(null, router).request(
+      "http://localhost/trpc/dashboard.get",
     );
     const body = await response.text();
 
@@ -26,24 +34,67 @@ describe("http integration", () => {
     expect(body).toContain("Authentication required");
   });
 
-  it("returns protected data when the transport receives an authenticated session", async () => {
-    const response = await createHttpApp({
-      session: {
-        id: "session-1",
-        userId: "user-1",
-        expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+  it("returns dashboard data when the transport receives an authenticated session", async () => {
+    const router = createAppRouter({
+      dashboard: createDashboardRouter({
+        service: {
+          getForUser: () =>
+            Effect.succeed({
+              timezone: "Australia/Brisbane",
+              sync: null,
+              today: {
+                localDate: "2026-04-18",
+                state: "rest" as const,
+                title: "No workouts scheduled for today",
+                subtitle: "Today is a rest day. Enjoy your day off.",
+                sessionType: "rest" as const,
+                estimatedDistanceMeters: null,
+                estimatedDurationSeconds: null,
+              },
+              weekly: {
+                weekToDate: {
+                  startDate: "2026-04-13",
+                  endDate: "2026-04-18",
+                },
+                distance: {
+                  thisWeekMeters: 0,
+                  vsLastWeekMeters: 0,
+                  avgWeekMeters: 0,
+                  series: [],
+                },
+                pace: {
+                  thisWeekSecPerKm: null,
+                  vsLastWeekSecPerKm: null,
+                  avgWeekSecPerKm: null,
+                  series: [],
+                },
+              },
+              goals: [],
+              recentActivities: [],
+            }),
+        },
+      }),
+    });
+    const response = await createHttpAppWithRouter(
+      {
+        session: {
+          id: "session-1",
+          userId: "user-1",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        },
+        user: {
+          id: "user-1",
+          email: "runner@example.com",
+          name: "Runner One",
+        },
       },
-      user: {
-        id: "user-1",
-        email: "runner@example.com",
-        name: "Runner One",
-      },
-    }).request("http://localhost/trpc/privateData");
+      router,
+    ).request("http://localhost/trpc/dashboard.get");
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(body).toContain("This is private");
-    expect(body).toContain("runner@example.com");
+    expect(body).toContain("No workouts scheduled for today");
+    expect(body).toContain("weekToDate");
   });
 
   it("rejects sync status reads without a session", async () => {
@@ -120,9 +171,9 @@ describe("http integration", () => {
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(body).toContain("sync-1");
-    expect(body).toContain("initial_30d_window");
-    expect(body).toContain("storedMapCount");
+    expect(body).toContain('"status":"success"');
+    expect(body).toContain("runsProcessed");
+    expect(body).toContain("lastCompletedAt");
   });
 
   it("rejects planner state reads without a session", async () => {

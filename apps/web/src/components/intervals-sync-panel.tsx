@@ -7,45 +7,16 @@ import { Badge } from "@corex/ui/components/badge";
 import { Button } from "@corex/ui/components/button";
 import { Separator } from "@corex/ui/components/separator";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { AlertCircleIcon, LoaderCircleIcon, RefreshCwIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import type { IntervalsSyncRouterOutputs } from "@/utils/types";
 import { queryClient, trpc } from "@/utils/trpc";
 
-type SyncSummary = {
-  status: "in_progress" | "success" | "failure";
-  historyCoverage: "initial_30d_window" | "incremental_from_cursor" | null;
-  coveredDateRange: {
-    start: string | null;
-    end: string | null;
-  };
-  insertedCount: number;
-  updatedCount: number;
-  skippedNonRunningCount: number;
-  skippedInvalidCount: number;
-  failedDetailCount: number;
-  failedMapCount: number;
-  failedStreamCount: number;
-  warnings: string[];
-  failureMessage: string | null;
-  completedAt: string | null;
-};
+type SyncStatusSummary = NonNullable<IntervalsSyncRouterOutputs["latest"]>;
 
-function formatHistoryCoverage(
-  historyCoverage: SyncSummary["historyCoverage"],
-) {
-  if (historyCoverage === "incremental_from_cursor") {
-    return "Incremental update";
-  }
-
-  if (historyCoverage === "initial_30d_window") {
-    return "Initial 30 day import";
-  }
-
-  return "Ready for first sync";
-}
-
-function formatSyncStatusLabel(status: SyncSummary["status"]) {
+function formatSyncStatusLabel(status: SyncStatusSummary["status"]) {
   if (status === "in_progress") {
     return "Syncing";
   }
@@ -57,18 +28,16 @@ function formatSyncStatusLabel(status: SyncSummary["status"]) {
   return "Sync complete";
 }
 
-function formatDateRange(range: SyncSummary["coveredDateRange"]) {
+function formatDateRange(range: SyncStatusSummary["coveredDateRange"]) {
   if (!range.start || !range.end) {
     return "No imported runs yet";
   }
 
-  const formatter = new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
-  });
-
-  return `${formatter.format(new Date(range.start))} to ${formatter.format(new Date(range.end))}`;
+  }).formatRange(new Date(range.start), new Date(range.end));
 }
 
 function formatCompletedAt(value: string | null) {
@@ -84,18 +53,18 @@ function formatCompletedAt(value: string | null) {
   }).format(new Date(value));
 }
 
-function getTotalImportedCount(summary: SyncSummary) {
-  return summary.insertedCount + summary.updatedCount;
-}
+function formatCoverageLabel(
+  historyCoverage: SyncStatusSummary["historyCoverage"],
+) {
+  if (historyCoverage === "incremental_from_cursor") {
+    return "Incremental update";
+  }
 
-function getPartialItemCount(summary: SyncSummary) {
-  return (
-    summary.skippedInvalidCount +
-    summary.skippedNonRunningCount +
-    summary.failedDetailCount +
-    summary.failedMapCount +
-    summary.failedStreamCount
-  );
+  if (historyCoverage === "initial_30d_window") {
+    return "Initial 30 day import";
+  }
+
+  return "No coverage recorded";
 }
 
 export function IntervalsSyncPanel({
@@ -107,14 +76,14 @@ export function IntervalsSyncPanel({
 }) {
   const latestSyncQueryOptions = trpc.intervalsSync.latest.queryOptions();
   const latestSync = useQuery(latestSyncQueryOptions);
-  const syncSummary = latestSync.data as SyncSummary | null | undefined;
+  const syncSummary = latestSync.data;
 
   const triggerSync = useMutation({
     ...trpc.intervalsSync.trigger.mutationOptions(),
     onSuccess: (summary) => {
       queryClient.setQueryData(latestSyncQueryOptions.queryKey, summary);
       toast.success(
-        `Intervals sync complete: ${getTotalImportedCount(summary)} runs processed`,
+        `Intervals sync complete: ${summary.runsProcessed} runs processed`,
       );
     },
     onError: (error) => {
@@ -182,8 +151,8 @@ export function IntervalsSyncPanel({
             <LoaderCircleIcon className="animate-spin" />
             <AlertTitle>Sync in progress</AlertTitle>
             <AlertDescription>
-              Fetching your recent runs, maps, and streams from Intervals. This
-              can take a moment on the first import.
+              Fetching your recent runs from Intervals. This can take a moment
+              on the first import.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -195,11 +164,10 @@ export function IntervalsSyncPanel({
                 Runs processed
               </div>
               <div className="text-3xl font-semibold tracking-tight">
-                {getTotalImportedCount(syncSummary)}
+                {syncSummary.runsProcessed}
               </div>
               <div className="text-sm text-muted-foreground">
-                {syncSummary.insertedCount} new, {syncSummary.updatedCount}{" "}
-                updated
+                {syncSummary.newRuns} new, {syncSummary.updatedRuns} updated
               </div>
             </div>
 
@@ -211,24 +179,24 @@ export function IntervalsSyncPanel({
                 {formatDateRange(syncSummary.coveredDateRange)}
               </div>
               <div className="text-sm text-muted-foreground">
-                {formatHistoryCoverage(syncSummary.historyCoverage)}
+                {formatCoverageLabel(syncSummary.historyCoverage)}
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Partial items
+                Sync notes
               </div>
               <div className="text-base font-semibold tracking-tight">
-                {getPartialItemCount(syncSummary)}
+                {syncSummary.unsupportedCount +
+                  syncSummary.invalidCount +
+                  syncSummary.fetchIssueCount}
               </div>
               <div className="text-sm text-muted-foreground">
-                {syncSummary.skippedNonRunningCount} unsupported,{" "}
-                {syncSummary.skippedInvalidCount} invalid,{" "}
-                {syncSummary.failedDetailCount +
-                  syncSummary.failedMapCount +
-                  syncSummary.failedStreamCount}{" "}
-                fetch issues
+                {syncSummary.unsupportedCount} unsupported,{" "}
+                {syncSummary.invalidCount} invalid,{" "}
+                {syncSummary.fetchIssueCount} fetch issues,{" "}
+                {syncSummary.warningCount} warnings
               </div>
             </div>
 
@@ -237,7 +205,7 @@ export function IntervalsSyncPanel({
                 Last completed
               </div>
               <div className="text-base font-semibold tracking-tight">
-                {formatCompletedAt(syncSummary.completedAt)}
+                {formatCompletedAt(syncSummary.lastCompletedAt)}
               </div>
               <div className="text-sm text-muted-foreground">
                 {status === "failure"
@@ -248,27 +216,19 @@ export function IntervalsSyncPanel({
           </div>
         ) : null}
 
-        {status === "failure" && syncSummary?.failureMessage ? (
+        {status === "failure" && syncSummary?.failureSummary ? (
           <Alert variant="destructive">
             <AlertCircleIcon />
             <AlertTitle>Intervals sync failed</AlertTitle>
-            <AlertDescription>{syncSummary.failureMessage}</AlertDescription>
+            <AlertDescription>{syncSummary.failureSummary}</AlertDescription>
           </Alert>
         ) : null}
 
-        {syncSummary?.warnings.length ? (
-          <Alert>
-            <AlertCircleIcon />
-            <AlertTitle>Sync notes</AlertTitle>
-            <AlertDescription>
-              <ul className="list-disc pl-5">
-                {syncSummary.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        ) : null}
+        <div>
+          <Link to="/history" className="text-sm font-medium text-primary">
+            View full sync logs in history
+          </Link>
+        </div>
       </div>
     </section>
   );

@@ -1,107 +1,168 @@
-import {
-  ActivityPreview,
-  ActivityPreviewSkeleton,
-} from "@/components/dashboard/activity-preview";
-import {
-  GoalProgressPanel,
-  GoalProgressPanelSkeleton,
-} from "@/components/dashboard/goal-progress-panel";
-import { IntervalsSyncPanel } from "@/components/intervals-sync-panel";
-import { LoadingWrapper } from "@/components/renderers";
-import { Separator } from "@corex/ui/components/separator";
-import { useQuery } from "@tanstack/react-query";
+import { Button } from "@corex/ui/components/button";
+import { cn } from "@corex/ui/lib/utils";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { RefreshCwIcon } from "lucide-react";
+import { toast } from "sonner";
 
+import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { GoalsPanel } from "@/components/dashboard/goals-panel";
+import { RecentActivities } from "@/components/dashboard/recent-activities";
+import { TodayCard } from "@/components/dashboard/today-card";
+import {
+  formatDistanceKm,
+  formatPace,
+  formatSignedDistanceDelta,
+  formatSignedPaceDelta,
+  formatWeekRange,
+} from "@/components/dashboard/utils";
+import { WeeklyMetricCard } from "@/components/dashboard/weekly-metric-card";
 import { ensureAppRouteAccess } from "@/lib/app-route";
-import { trpc } from "@/utils/trpc";
+import { queryClient, trpc } from "@/utils/trpc";
+import type { DashboardRouterOutputs } from "@/utils/types";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: RouteComponent,
   beforeLoad: ({ context }) => ensureAppRouteAccess(context),
 });
 
+type DashboardData = DashboardRouterOutputs["get"];
+
+function formatSyncTimestamp(sync: DashboardData["sync"]) {
+  if (!sync) {
+    return "No sync history yet";
+  }
+
+  const value = sync.lastCompletedAt ?? sync.lastAttemptedAt;
+  const label = sync.lastCompletedAt ? "Last synced" : "Last attempted";
+
+  return `${label}: ${new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value))}`;
+}
+
+function greetingForTimezone(timezone: string) {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hourCycle: "h23",
+      timeZone: timezone,
+    }).format(new Date()),
+  );
+
+  if (hour < 12) {
+    return "Good morning";
+  }
+
+  if (hour < 18) {
+    return "Good afternoon";
+  }
+
+  return "Good evening";
+}
+
 function RouteComponent() {
   const { session } = Route.useRouteContext();
+  const dashboardQueryOptions = trpc.dashboard.get.queryOptions();
+  const dashboard = useQuery(dashboardQueryOptions);
+  const triggerSync = useMutation({
+    ...trpc.intervalsSync.trigger.mutationOptions(),
+    onSuccess: (summary) => {
+      queryClient.setQueryData(
+        dashboardQueryOptions.queryKey,
+        (current: DashboardData | undefined) =>
+          current
+            ? {
+                ...current,
+                sync: summary,
+              }
+            : current,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: dashboardQueryOptions.queryKey,
+      });
+      toast.success(`Sync complete: ${summary.runsProcessed} runs processed`);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+  const data = dashboard.data;
 
-  const privateData = useQuery(trpc.privateData.queryOptions());
-  const goalProgress = useQuery(trpc.goalProgress.get.queryOptions());
-  const recentActivities = useQuery(
-    trpc.activityHistory.recentActivities.queryOptions(),
+  if (dashboard.isLoading || !data) {
+    return <DashboardSkeleton />;
+  }
+
+  const timezone = data.timezone;
+  const greeting = greetingForTimezone(timezone);
+  const syncLabel = formatSyncTimestamp(data.sync);
+  const weekRange = formatWeekRange(
+    data.weekly.weekToDate.startDate,
+    data.weekly.weekToDate.endDate,
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 pb-12 md:px-8">
-      <section className="grid gap-8 border-b border-border/70 pb-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-end">
-        <div className="flex flex-col gap-5">
-          <div className="space-y-3">
-            <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
-              Dashboard
-            </div>
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance md:text-5xl">
-              Welcome {session.data?.user.name}
-            </h1>
-            <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-              Re-run your Intervals import, inspect the latest history pulled
-              into corex, and keep your training setup moving without digging
-              through panels.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-x-8 gap-y-3 border-l border-border/70 pl-5">
-            <div className="space-y-1">
-              <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-                API
-              </div>
-              <p className="text-sm text-foreground">
-                {privateData.data?.message ?? "Loading private data"}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-                Focus
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Sync history, recent activity, and setup flow
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 lg:pl-6">
-          <div>
-            <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
-              Recent activities
-            </div>
-            <h2 className="text-2xl font-semibold tracking-tight">
-              Last 5 imported runs
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              A quick look at the latest Intervals activity history in corex.
-            </p>
-          </div>
-          <Separator />
-
-          <LoadingWrapper
-            isLoading={recentActivities.isLoading}
-            fallback={<ActivityPreviewSkeleton />}
+    <main className="mx-auto w-full max-w-7xl space-y-3 px-4 py-4">
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {greeting}, {session.data?.user.name}
+        </h1>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>{triggerSync.isPending ? "Syncing..." : syncLabel}</span>
+          <Button
+            aria-label="Sync Intervals"
+            disabled={triggerSync.isPending}
+            onClick={() => void triggerSync.mutateAsync()}
+            size="icon"
+            variant="outline"
           >
-            <ActivityPreview activities={recentActivities.data ?? []} />
-          </LoadingWrapper>
+            <RefreshCwIcon
+              className={cn("size-4", triggerSync.isPending && "animate-spin")}
+            />
+          </Button>
         </div>
-      </section>
+      </header>
 
-      <LoadingWrapper
-        isLoading={goalProgress.isLoading}
-        fallback={<GoalProgressPanelSkeleton />}
-      >
-        {goalProgress.data ? (
-          <GoalProgressPanel goalProgress={goalProgress.data} />
-        ) : null}
-      </LoadingWrapper>
+      <div className="grid grid-cols-1 gap-x-4 gap-y-8 md:grid-cols-2">
+        <TodayCard today={data.today} />
 
-      <IntervalsSyncPanel
-        title="Intervals history"
-        description="Re-run your Intervals import from the dashboard at any time. The summary below shows how many runs were processed and what date range is currently covered."
-      />
+        <div className="flex flex-col gap-2">
+          <WeeklyMetricCard
+            averageLabel={`${formatDistanceKm(data.weekly.distance.avgWeekMeters)} km`}
+            currentValue={formatDistanceKm(data.weekly.distance.thisWeekMeters)}
+            deltaLabel={formatSignedDistanceDelta(
+              data.weekly.distance.vsLastWeekMeters,
+            )}
+            deltaPositive={data.weekly.distance.vsLastWeekMeters >= 0}
+            metric="distance"
+            rangeLabel={weekRange}
+            series={data.weekly.distance.series}
+            unit="km"
+          />
+          <WeeklyMetricCard
+            averageLabel={formatPace(data.weekly.pace.avgWeekSecPerKm)}
+            currentValue={formatPace(data.weekly.pace.thisWeekSecPerKm, {
+              showUnit: false,
+            })}
+            deltaLabel={formatSignedPaceDelta(
+              data.weekly.pace.vsLastWeekSecPerKm,
+            )}
+            deltaPositive={(data.weekly.pace.vsLastWeekSecPerKm ?? 0) <= 0}
+            metric="pace"
+            rangeLabel={weekRange}
+            series={data.weekly.pace.series}
+            unit="/km"
+          />
+        </div>
+
+        <GoalsPanel goals={data.goals} />
+
+        <RecentActivities activities={data.recentActivities} />
+      </div>
     </main>
   );
 }

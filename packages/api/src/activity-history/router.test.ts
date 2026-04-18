@@ -16,7 +16,6 @@ describe("activity history router", () => {
   it("rejects reads without a session", () => {
     const router = createActivityHistoryRouter({
       service: {
-        recentActivities: () => Effect.die("not used"),
         activitySummary: () => Effect.die("not used"),
         activityAnalysis: () => Effect.die("not used"),
         calendar: () => Effect.die("not used"),
@@ -24,18 +23,21 @@ describe("activity history router", () => {
     });
     const caller = router.createCaller(createCallerContext(null));
 
-    expect(caller.recentActivities()).rejects.toBeInstanceOf(TRPCError);
+    expect(
+      caller.activitySummary({
+        activityId: "run-1",
+      }),
+    ).rejects.toBeInstanceOf(TRPCError);
   });
 
-  it("passes the authenticated user id through to recent activity reads", async () => {
+  it("passes the authenticated user id through to activity summary reads", async () => {
     let requestedUserId: string | undefined;
     const router = createActivityHistoryRouter({
       service: {
-        recentActivities: (userId) => {
+        activitySummary: (userId) => {
           requestedUserId = userId;
-          return Effect.succeed([]);
+          return Effect.succeed(null);
         },
-        activitySummary: () => Effect.die("not used"),
         activityAnalysis: () => Effect.die("not used"),
         calendar: () => Effect.die("not used"),
       },
@@ -55,7 +57,9 @@ describe("activity history router", () => {
       } as NonNullable<Context["session"]>),
     );
 
-    await caller.recentActivities();
+    await caller.activitySummary({
+      activityId: "run-1",
+    });
 
     expect(requestedUserId).toBe("user-1");
   });
@@ -64,7 +68,6 @@ describe("activity history router", () => {
     let called = false;
     const router = createActivityHistoryRouter({
       service: {
-        recentActivities: () => Effect.die("not used"),
         activitySummary: () => Effect.die("not used"),
         activityAnalysis: () => Effect.die("not used"),
         calendar: () => {

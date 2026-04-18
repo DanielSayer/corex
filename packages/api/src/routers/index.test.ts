@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { Effect } from "effect";
 
 import type { Context } from "../context";
+import { createDashboardRouter } from "../dashboard/router";
 import { createGoalProgressRouter } from "../goal-progress/router";
 import { InvalidSettings } from "../training-settings/errors";
 import { createTrainingSettingsRouter } from "../training-settings/router";
@@ -50,8 +51,13 @@ describe("appRouter", () => {
     expect(caller.healthCheck()).resolves.toBe("OK");
   });
 
-  it("rejects protected data without a session", () => {
+  it("rejects dashboard reads without a session", () => {
     const appRouter = createAppRouter({
+      dashboard: createDashboardRouter({
+        service: {
+          getForUser: () => Effect.die("not used"),
+        },
+      }),
       trainingSettings: createTrainingSettingsRouter({
         service: {
           getForUser: () => Effect.die("not used"),
@@ -69,11 +75,49 @@ describe("appRouter", () => {
     });
     const caller = appRouter.createCaller(createCallerContext(null));
 
-    expect(caller.privateData()).rejects.toBeInstanceOf(TRPCError);
+    expect(caller.dashboard.get()).rejects.toBeInstanceOf(TRPCError);
   });
 
-  it("returns protected data when a session is present", () => {
+  it("returns dashboard data when a session is present", () => {
     const appRouter = createAppRouter({
+      dashboard: createDashboardRouter({
+        service: {
+          getForUser: () =>
+            Effect.succeed({
+              timezone: "Australia/Brisbane",
+              sync: null,
+              today: {
+                localDate: "2026-04-18",
+                state: "rest" as const,
+                title: "No workouts scheduled for today",
+                subtitle: "Today is a rest day. Enjoy your day off.",
+                sessionType: "rest" as const,
+                estimatedDistanceMeters: null,
+                estimatedDurationSeconds: null,
+              },
+              weekly: {
+                weekToDate: {
+                  startDate: "2026-04-13",
+                  endDate: "2026-04-18",
+                },
+                distance: {
+                  thisWeekMeters: 0,
+                  vsLastWeekMeters: 0,
+                  avgWeekMeters: 0,
+                  series: [],
+                },
+                pace: {
+                  thisWeekSecPerKm: null,
+                  vsLastWeekSecPerKm: null,
+                  avgWeekSecPerKm: null,
+                  series: [],
+                },
+              },
+              goals: [],
+              recentActivities: [],
+            }),
+        },
+      }),
       trainingSettings: createTrainingSettingsRouter({
         service: {
           getForUser: () => Effect.die("not used"),
@@ -104,12 +148,8 @@ describe("appRouter", () => {
       } as NonNullable<Context["session"]>),
     );
 
-    expect(caller.privateData()).resolves.toMatchObject({
-      message: "This is private",
-      user: {
-        id: "user-1",
-        email: "runner@example.com",
-      },
+    expect(caller.dashboard.get()).resolves.toMatchObject({
+      timezone: "Australia/Brisbane",
     });
   });
 

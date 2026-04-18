@@ -12,7 +12,10 @@ import { createLiveActivityHistoryApi } from "./live";
 import type { ActivityHistoryApi } from "./service";
 
 type CreateActivityHistoryRouterOptions = {
-  service?: ActivityHistoryApi;
+  service?: Pick<
+    ActivityHistoryApi,
+    "activitySummary" | "activityAnalysis" | "calendar"
+  >;
 };
 
 const isoTimestampSchema = z
@@ -54,12 +57,6 @@ export function createActivityHistoryRouter(
   const getService = () => options.service ?? createLiveActivityHistoryApi();
 
   return router({
-    recentActivities: authedProcedure.query(({ ctx }) =>
-      executeEffect(
-        getService().recentActivities(ctx.session.user.id),
-        mapActivityHistoryError,
-      ),
-    ),
     activitySummary: authedProcedure
       .input(
         z.object({
