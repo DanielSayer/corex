@@ -10,12 +10,14 @@ import {
   userAllTimePr,
   userMonthlyBest,
 } from "@corex/db/schema/intervals-sync";
+import { weeklyPlanActivityLink } from "@corex/db/schema/weekly-planning";
 
 type PlanningDataFailure = Error;
 
 export type PlanningHistorySourceRow = {
   activityId: string;
   startAt: Date;
+  summaryDate?: string | null;
   distanceMeters: number;
   elapsedTimeSeconds: number | null;
   movingTimeSeconds: number;
@@ -102,6 +104,7 @@ export function createPlanningDataRepository(
             .select({
               activityId: importedActivity.upstreamActivityId,
               startAt: importedActivity.startAt,
+              summaryDate: weeklyPlanActivityLink.plannedDate,
               distanceMeters: importedActivity.distanceMeters,
               elapsedTimeSeconds: importedActivity.elapsedTimeSeconds,
               movingTimeSeconds: importedActivity.movingTimeSeconds,
@@ -114,6 +117,16 @@ export function createPlanningDataRepository(
               rawHeartrateStream: importedActivityStream.rawStream,
             })
             .from(importedActivity)
+            .leftJoin(
+              weeklyPlanActivityLink,
+              and(
+                eq(weeklyPlanActivityLink.userId, importedActivity.userId),
+                eq(
+                  weeklyPlanActivityLink.activityId,
+                  importedActivity.upstreamActivityId,
+                ),
+              ),
+            )
             .leftJoin(
               importedActivityStream,
               and(

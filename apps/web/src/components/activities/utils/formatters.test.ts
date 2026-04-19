@@ -5,6 +5,7 @@ import {
   formatDateTime,
   formatDistanceToKm,
   formatPace,
+  formatPaceSecondsPerKm,
   formatSecondsToHms,
   formatSecondsToMinsPerKm,
   formatSpeedToKmPerHour,
@@ -37,6 +38,19 @@ describe("activity formatters", () => {
     expect(formatSecondsToHms(66, { showUnit: true })).toBe("1 min 06 s");
     expect(formatSecondsToMinsPerKm(245)).toBe("4:05/km");
     expect(formatPace(5000, 1200)).toBe("4:00/km");
+  });
+
+  it("carries rounded pace seconds into the next minute", () => {
+    expect(formatPaceSecondsPerKm(299.6)).toBe("5:00/km");
+    expect(formatPaceSecondsPerKm(299.6, { showUnit: false })).toBe("5:00");
+    expect(formatSecondsToMinsPerKm(299.6)).toBe("5:00/km");
+    expect(formatSpeedToMinsPerKm(1000 / 299.6)).toBe("5:00");
+    expect(formatPace(1000, 299.6)).toBe("5:00/km");
+  });
+
+  it("carries rounded duration seconds into the next minute", () => {
+    expect(formatSecondsToHms(59.6)).toBe("1:00");
+    expect(formatSecondsToHms(3599.6)).toBe("1:00:00");
   });
 
   it("formats valid dates and guards invalid dates", () => {

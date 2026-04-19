@@ -14,9 +14,9 @@ type SplitChartRow = SplitsChartProps["splits"][number] & {
 };
 
 function formatDiff(diffSeconds: number) {
-  const abs = Math.abs(diffSeconds);
+  const abs = Math.round(Math.abs(diffSeconds));
   const minutes = Math.floor(abs / 60);
-  const seconds = Math.round(abs % 60);
+  const seconds = abs % 60;
   const sign = diffSeconds > 0 ? "+" : "-";
 
   return `${sign}${minutes}:${seconds.toString().padStart(2, "0")}`;
@@ -122,4 +122,4 @@ function SplitsChart({ splits }: SplitsChartProps) {
   );
 }
 
-export { buildSplitChartRows, SplitsChart };
+export { buildSplitChartRows, formatDiff, SplitsChart };

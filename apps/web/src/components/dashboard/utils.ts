@@ -1,3 +1,5 @@
+import { formatPaceSecondsPerKm } from "@/components/activities/utils/formatters";
+
 export function toSvgPath(
   latlngs: Array<number[] | null> | null | undefined,
   width = 320,
@@ -90,15 +92,9 @@ export function formatPace(
   value: number | null,
   options?: { showUnit?: boolean },
 ) {
-  if (value == null || value <= 0) {
-    return "--";
-  }
-
-  const minutes = Math.floor(value / 60);
-  const seconds = Math.round(value % 60);
-  const pace = `${minutes}:${String(seconds).padStart(2, "0")}`;
-
-  return options?.showUnit === false ? pace : `${pace}/km`;
+  return formatPaceSecondsPerKm(value, {
+    showUnit: options?.showUnit ?? true,
+  });
 }
 
 export function formatDistanceKm(meters: number) {

@@ -17,6 +17,10 @@ import {
   importedActivity,
   importedActivityMap,
 } from "@corex/db/schema/intervals-sync";
+import {
+  weeklyPlan,
+  weeklyPlanActivityLink,
+} from "@corex/db/schema/weekly-planning";
 
 import { getIntegrationHarness, resetDatabase } from "./harness";
 
@@ -238,7 +242,50 @@ describe("dashboard integration", () => {
           distance: 10000,
         },
       },
+      {
+        userId: user.id,
+        upstreamActivityId: "run-7",
+        athleteId: "athlete-1",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        name: "Linked early completion",
+        startAt: new Date("2026-04-05T00:30:00.000Z"),
+        movingTimeSeconds: 2980,
+        elapsedTimeSeconds: 3000,
+        distanceMeters: 10000,
+        averageHeartrate: 156,
+        rawDetail: {
+          id: "run-7",
+          type: "Run",
+          start_date: "2026-04-05T00:30:00.000Z",
+          moving_time: 2980,
+          elapsed_time: 3000,
+          distance: 10000,
+        },
+      },
     ]);
+
+    await db.insert(weeklyPlan).values({
+      id: "dashboard-plan-1",
+      userId: user.id,
+      goalId: null,
+      parentWeeklyPlanId: null,
+      status: "draft",
+      startDate: "2026-04-06",
+      endDate: "2026-04-12",
+      generationContext: {},
+      payload: {
+        days: [],
+      },
+      qualityReport: null,
+    });
+
+    await db.insert(weeklyPlanActivityLink).values({
+      userId: user.id,
+      weeklyPlanId: "dashboard-plan-1",
+      plannedDate: "2026-04-06",
+      activityId: "run-7",
+    });
 
     await db.insert(importedActivityMap).values({
       userId: user.id,
@@ -299,9 +346,14 @@ describe("dashboard integration", () => {
       endDate: "2026-04-15",
     });
     expect(result.weekly.distance.thisWeekMeters).toBe(15000);
-    expect(result.weekly.distance.vsLastWeekMeters).toBe(5000);
+    expect(result.weekly.distance.vsLastWeekMeters).toBe(-5000);
+    expect(
+      result.weekly.distance.series.find(
+        (point) => point.weekStart === "2026-04-06",
+      )?.value,
+    ).toBe(20000);
     expect(result.weekly.pace.thisWeekSecPerKm).toBe(300);
-    expect(result.weekly.pace.vsLastWeekSecPerKm).toBe(-6);
+    expect(result.weekly.pace.vsLastWeekSecPerKm).toBe(-3);
     expect(result.sync).toMatchObject({
       runsProcessed: 3,
       newRuns: 2,

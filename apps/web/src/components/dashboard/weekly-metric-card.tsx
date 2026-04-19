@@ -13,6 +13,7 @@ import {
 } from "recharts";
 
 import type { DashboardRouterOutputs } from "@/utils/types";
+import { formatPaceSecondsPerKm } from "@/components/activities/utils/formatters";
 
 type DashboardData = DashboardRouterOutputs["get"];
 type SeriesPoint = DashboardData["weekly"]["distance"]["series"][number];
@@ -34,9 +35,7 @@ function formatChartValue(metric: MetricKind, value: number) {
     return `${(value / 1000).toFixed(1)} km`;
   }
 
-  const minutes = Math.floor(value / 60);
-  const seconds = Math.round(value % 60);
-  return `${minutes}:${String(seconds).padStart(2, "0")}/km`;
+  return formatPaceSecondsPerKm(value);
 }
 
 function formatYAxisValue(metric: MetricKind, value: number) {
@@ -44,9 +43,7 @@ function formatYAxisValue(metric: MetricKind, value: number) {
     return `${Math.round(value / 1000)}`;
   }
 
-  const minutes = Math.floor(value / 60);
-  const seconds = Math.round(value % 60);
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return formatPaceSecondsPerKm(value, { showUnit: false });
 }
 
 function MetricTooltip({

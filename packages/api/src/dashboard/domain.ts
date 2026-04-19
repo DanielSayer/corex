@@ -3,7 +3,6 @@ import {
   addDaysToDateKey,
   getDateKeyDiffInDays,
   getLocalDateKey,
-  localDateKeyToUtcStart,
   startOfWeekKey,
 } from "../goal-progress/timezones";
 import type { WeeklyPlanFinalized } from "../weekly-planning/contracts";
@@ -16,6 +15,7 @@ import type {
 
 type RunRecord = {
   startAt: Date;
+  summaryDate?: string | null;
   distanceMeters: number;
   elapsedTimeSeconds: number | null;
 };
@@ -94,22 +94,25 @@ function formatWeekLabel(weekStartKey: string) {
   }).format(new Date(`${weekStartKey}T00:00:00.000Z`));
 }
 
-function getWindowBounds(input: {
+function getRunSummaryDateKey(run: RunRecord, timezone: string) {
+  return run.summaryDate ?? getLocalDateKey(run.startAt, timezone);
+}
+
+function getRunsInWindow(input: {
+  runs: RunRecord[];
   weekStartKey: string;
   daysIntoWeek: number;
   timezone: string;
 }) {
-  return {
-    start: localDateKeyToUtcStart(input.weekStartKey, input.timezone),
-    end: localDateKeyToUtcStart(
-      addDaysToDateKey(input.weekStartKey, input.daysIntoWeek + 1),
-      input.timezone,
-    ),
-  };
-}
+  const lastIncludedDateKey = addDaysToDateKey(
+    input.weekStartKey,
+    input.daysIntoWeek,
+  );
 
-function getRunsInRange(runs: RunRecord[], start: Date, end: Date) {
-  return runs.filter((run) => run.startAt >= start && run.startAt < end);
+  return input.runs.filter((run) => {
+    const dateKey = getRunSummaryDateKey(run, input.timezone);
+    return dateKey >= input.weekStartKey && dateKey <= lastIncludedDateKey;
+  });
 }
 
 export function buildDashboardWeeklySummary(input: {
@@ -133,13 +136,13 @@ export function buildDashboardWeeklySummary(input: {
     weekOffset -= 1
   ) {
     const weekStartKey = addDaysToDateKey(currentWeekStartKey, -7 * weekOffset);
-    const bounds = getWindowBounds({
-      weekStartKey,
-      daysIntoWeek,
-      timezone: input.timezone,
-    });
     const summary = summarizeRuns(
-      getRunsInRange(input.runs, bounds.start, bounds.end),
+      getRunsInWindow({
+        runs: input.runs,
+        weekStartKey,
+        daysIntoWeek,
+        timezone: input.timezone,
+      }),
     );
 
     points.push({

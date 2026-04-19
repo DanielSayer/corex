@@ -34,6 +34,7 @@ export type CalendarActivityRecord = {
   id: string;
   name: string | null;
   startDate: Date;
+  summaryDate?: string;
   elapsedTime: number | null;
   distance: number;
   averageHeartrate: number | null;
@@ -100,7 +101,8 @@ export function buildActivityCalendar(
   );
 
   for (const record of records) {
-    const localDate = getLocalDateKey(record.startDate, input.timezone);
+    const localDate =
+      record.summaryDate ?? getLocalDateKey(record.startDate, input.timezone);
     const weekStart = startOfWeekKey(localDate);
     const summary = summariesByWeekStart.get(weekStart);
 
