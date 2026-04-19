@@ -5,9 +5,10 @@ export function formatCalendarDuration(totalSeconds: number | null) {
     return EMPTY_VALUE;
   }
 
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.round(totalSeconds % 60);
+  const roundedSeconds = Math.round(totalSeconds);
+  const hours = Math.floor(roundedSeconds / 3600);
+  const minutes = Math.floor((roundedSeconds % 3600) / 60);
+  const seconds = roundedSeconds % 60;
 
   if (hours > 0) {
     return `${hours}h ${minutes}m`;

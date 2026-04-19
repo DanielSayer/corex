@@ -47,7 +47,16 @@ export function buildTrainingCalendarMonth(
   input: ActivityCalendarQueryInput,
   state: BuildTrainingCalendarMonthState,
 ): TrainingCalendarMonth {
-  const activityCalendar = buildActivityCalendar(input, state.activityRecords);
+  const plannedDateByLinkedActivityId = new Map(
+    state.links.map((link) => [link.activityId, link.plannedDate]),
+  );
+  const activityCalendar = buildActivityCalendar(
+    input,
+    state.activityRecords.map((record) => ({
+      ...record,
+      summaryDate: plannedDateByLinkedActivityId.get(record.id),
+    })),
+  );
   const activityById = new Map(
     activityCalendar.activities.map((activity) => [activity.id, activity]),
   );
@@ -69,22 +78,10 @@ export function buildTrainingCalendarMonth(
       }),
     ]),
   );
-  const sameDayCompletedLinkedActivityIds = new Set(
-    [...adherenceByPlanId.values()].flatMap((summary) =>
-      summary.sessions
-        .filter(
-          (session) =>
-            session.status === "completed" &&
-            session.linkedActivity &&
-            session.actualLocalDate === session.plannedDate,
-        )
-        .map((session) => session.linkedActivity!.activityId),
-    ),
-  );
-  const visibleActivities = activityCalendar.activities.filter(
-    (activity) => !sameDayCompletedLinkedActivityIds.has(activity.id),
-  );
   const linkedActivityIds = new Set(state.links.map((link) => link.activityId));
+  const visibleActivities = activityCalendar.activities.filter(
+    (activity) => !linkedActivityIds.has(activity.id),
+  );
   const candidateActivities = activityCalendar.activities.filter(
     (activity) => !linkedActivityIds.has(activity.id),
   );

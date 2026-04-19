@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { buildSplitChartRows } from "./splits-chart";
+import { buildSplitChartRows, formatDiff } from "./splits-chart";
 
 describe("buildSplitChartRows", () => {
   it("derives per-split pace from cumulative split distances", () => {
@@ -39,5 +39,10 @@ describe("buildSplitChartRows", () => {
         paceSecondsPerKm: 289,
       }),
     ]);
+  });
+
+  it("carries rounded diff seconds into the next minute", () => {
+    expect(formatDiff(59.6)).toBe("+1:00");
+    expect(formatDiff(-59.6)).toBe("-1:00");
   });
 });

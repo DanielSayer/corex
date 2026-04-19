@@ -320,7 +320,7 @@ describe("training calendar integration", () => {
     );
   });
 
-  it("links a different-day activity inside the same plan week and keeps it visible on the actual day", async () => {
+  it("links a different-day activity inside the same plan week and suppresses the standalone duplicate", async () => {
     const { user, service, activities } = await seedTrainingCalendarUser({
       email: "calendar-moved-link@example.com",
       name: "Calendar Moved Link",
@@ -353,7 +353,7 @@ describe("training calendar integration", () => {
         }),
       ]),
     );
-    expect(month.activities.map((activity) => activity.id)).toContain(
+    expect(month.activities.map((activity) => activity.id)).not.toContain(
       activities.wednesday,
     );
   });

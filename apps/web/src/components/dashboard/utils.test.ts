@@ -4,6 +4,7 @@ import {
   formatDistance,
   formatDuration,
   formatHeartRate,
+  formatPace,
   toSvgPath,
 } from "./utils";
 
@@ -30,6 +31,11 @@ describe("dashboard activity utils", () => {
 
   it("formats elapsed seconds as h:mm:ss", () => {
     expect(formatDuration(3723)).toBe("1:02:03");
+  });
+
+  it("uses the shared pace formatter", () => {
+    expect(formatPace(299.6)).toBe("5:00/km");
+    expect(formatPace(299.6, { showUnit: false })).toBe("5:00");
   });
 
   it("formats meters as kilometres with two decimal places", () => {

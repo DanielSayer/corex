@@ -34,11 +34,7 @@ function formatSpeedToMinsPerKm(speedMs: number | null) {
     return EMPTY_VALUE;
   }
 
-  const secsPerKm = 1000 / speedMs;
-  const mins = Math.floor(secsPerKm / 60);
-  const secs = Math.round(secsPerKm % 60);
-
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
+  return formatPaceSecondsPerKm(1000 / speedMs, { showUnit: false });
 }
 
 function formatSpeedToKmPerHour(
@@ -56,21 +52,7 @@ function formatSecondsToMinsPerKm(
   totalSeconds: number | null,
   { showUnit = true }: { showUnit?: boolean } = {},
 ) {
-  if (!totalSeconds || totalSeconds <= 0) {
-    return EMPTY_VALUE;
-  }
-
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.round(totalSeconds % 60);
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
-      .toString()
-      .padStart(2, "0")}`;
-  }
-
-  return `${minutes}:${seconds.toString().padStart(2, "0")}${showUnit ? "/km" : ""}`;
+  return formatPaceSecondsPerKm(totalSeconds, { showUnit });
 }
 
 function formatSecondsToHms(
@@ -84,9 +66,10 @@ function formatSecondsToHms(
     return EMPTY_VALUE;
   }
 
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.round(totalSeconds % 60);
+  const roundedSeconds = Math.round(totalSeconds);
+  const hours = Math.floor(roundedSeconds / 3600);
+  const minutes = Math.floor((roundedSeconds % 3600) / 60);
+  const seconds = roundedSeconds % 60;
 
   if (hours > 0) {
     if (showUnit) {
@@ -111,6 +94,29 @@ function formatSecondsToHms(
   return `0${showSeconds ? `:${seconds.toString().padStart(2, "0")}` : ""}`;
 }
 
+function formatPaceSecondsPerKm(
+  totalSeconds: number | null,
+  { showUnit = true }: { showUnit?: boolean } = {},
+) {
+  if (!totalSeconds || totalSeconds <= 0) {
+    return EMPTY_VALUE;
+  }
+
+  const roundedSeconds = Math.round(totalSeconds);
+  const hours = Math.floor(roundedSeconds / 3600);
+  const minutes = Math.floor((roundedSeconds % 3600) / 60);
+  const seconds = roundedSeconds % 60;
+  const unit = showUnit ? "/km" : "";
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
+      .toString()
+      .padStart(2, "0")}${unit}`;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}${unit}`;
+}
+
 function formatPace(
   distanceMeters: number,
   durationSeconds: number,
@@ -121,10 +127,7 @@ function formatPace(
   }
 
   const paceSecondsPerKm = durationSeconds / (distanceMeters / 1000);
-  const minutes = Math.floor(paceSecondsPerKm / 60);
-  const seconds = Math.floor(paceSecondsPerKm % 60);
-
-  return `${minutes}:${String(seconds).padStart(2, "0")}${showUnit ? "/km" : ""}`;
+  return formatPaceSecondsPerKm(paceSecondsPerKm, { showUnit });
 }
 
 export {
@@ -132,6 +135,7 @@ export {
   formatDateTime,
   formatDistanceToKm,
   formatPace,
+  formatPaceSecondsPerKm,
   formatSecondsToHms,
   formatSecondsToMinsPerKm,
   formatSpeedToKmPerHour,

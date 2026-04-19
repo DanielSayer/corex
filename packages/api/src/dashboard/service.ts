@@ -78,6 +78,7 @@ export function createDashboardService(options: {
             timezone,
             runs: runs.map((run) => ({
               startAt: run.startAt,
+              summaryDate: run.summaryDate,
               distanceMeters: run.distanceMeters,
               elapsedTimeSeconds: run.elapsedTimeSeconds,
             })),

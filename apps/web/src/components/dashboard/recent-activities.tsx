@@ -23,7 +23,7 @@ export function RecentActivities({
   activities: DashboardData["recentActivities"];
 }) {
   return (
-    <section className="space-y-2">
+    <section className="flex flex-col gap-2">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">
           Recent Activities
@@ -32,7 +32,7 @@ export function RecentActivities({
           A quick look at your 5 most recent activities.
         </p>
       </div>
-      <div className="space-y-3">
+      <div className="flex flex-col gap-2">
         {activities.length > 0 ? (
           activities.map((activity) => {
             const path = toSvgPath(activity.routePreview?.latlngs);

@@ -54,6 +54,45 @@ describe("dashboard domain", () => {
     expect(summary.distance.series.at(-1)?.weekStart).toBe("2026-04-13");
   });
 
+  it("buckets linked runs by planned summary date for the weekly graph", () => {
+    const summary = buildDashboardWeeklySummary({
+      now: new Date("2026-04-15T01:00:00.000Z"),
+      timezone: "Australia/Brisbane",
+      runs: [
+        {
+          startAt: new Date("2026-04-05T05:00:00.000Z"),
+          summaryDate: "2026-04-06",
+          distanceMeters: 10000,
+          elapsedTimeSeconds: 3000,
+        },
+        {
+          startAt: new Date("2026-04-07T00:30:00.000Z"),
+          distanceMeters: 5000,
+          elapsedTimeSeconds: 1500,
+        },
+        {
+          startAt: new Date("2026-03-31T00:30:00.000Z"),
+          distanceMeters: 9000,
+          elapsedTimeSeconds: 2700,
+        },
+      ],
+    });
+
+    expect(summary.distance.series).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          weekStart: "2026-03-30",
+          value: 9000,
+        }),
+        expect.objectContaining({
+          weekStart: "2026-04-06",
+          value: 15000,
+        }),
+      ]),
+    );
+    expect(summary.distance.vsLastWeekMeters).toBe(-15000);
+  });
+
   it("truncates to top three active goals and maps compact progress rows", () => {
     const goals = buildDashboardGoalRows([
       {
