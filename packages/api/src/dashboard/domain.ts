@@ -1,8 +1,8 @@
 import type { GoalProgressCard } from "../goal-progress/contracts";
 import {
   addDaysToDateKey,
-  getDateKeyDiffInDays,
   getLocalDateKey,
+  localDateKeyToUtcStart,
   startOfWeekKey,
 } from "../goal-progress/timezones";
 import type { WeeklyPlanFinalized } from "../weekly-planning/contracts";
@@ -98,20 +98,68 @@ function getRunSummaryDateKey(run: RunRecord, timezone: string) {
   return run.summaryDate ?? getLocalDateKey(run.startAt, timezone);
 }
 
-function getRunsInWindow(input: {
+function getRunsInWeek(input: {
   runs: RunRecord[];
   weekStartKey: string;
-  daysIntoWeek: number;
   timezone: string;
 }) {
-  const lastIncludedDateKey = addDaysToDateKey(
-    input.weekStartKey,
-    input.daysIntoWeek,
-  );
+  const weekEndKey = addDaysToDateKey(input.weekStartKey, 7);
 
   return input.runs.filter((run) => {
     const dateKey = getRunSummaryDateKey(run, input.timezone);
-    return dateKey >= input.weekStartKey && dateKey <= lastIncludedDateKey;
+    return dateKey >= input.weekStartKey && dateKey < weekEndKey;
+  });
+}
+
+function getLocalTimeOfDayMilliseconds(date: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(
+    parts.find((part) => part.type === "minute")?.value ?? 0,
+  );
+  const second = Number(
+    parts.find((part) => part.type === "second")?.value ?? 0,
+  );
+
+  return (
+    ((hour * 60 + minute) * 60 + second) * 1000 + date.getUTCMilliseconds()
+  );
+}
+
+function getLocalDateTimeInstant(input: {
+  dateKey: string;
+  timeSource: Date;
+  timezone: string;
+}) {
+  return new Date(
+    localDateKeyToUtcStart(input.dateKey, input.timezone).getTime() +
+      getLocalTimeOfDayMilliseconds(input.timeSource, input.timezone),
+  );
+}
+
+function getRunsInWeekAsOf(input: {
+  runs: RunRecord[];
+  weekStartKey: string;
+  cutoff: Date;
+  timezone: string;
+}) {
+  const cutoffDateKey = getLocalDateKey(input.cutoff, input.timezone);
+  const weekEndKey = addDaysToDateKey(input.weekStartKey, 7);
+
+  return input.runs.filter((run) => {
+    const dateKey = getRunSummaryDateKey(run, input.timezone);
+    return (
+      dateKey >= input.weekStartKey &&
+      dateKey < weekEndKey &&
+      dateKey <= cutoffDateKey &&
+      run.startAt <= input.cutoff
+    );
   });
 }
 
@@ -122,8 +170,12 @@ export function buildDashboardWeeklySummary(input: {
 }): DashboardWeeklySummary {
   const todayKey = getLocalDateKey(input.now, input.timezone);
   const currentWeekStartKey = startOfWeekKey(todayKey);
-  const daysIntoWeek = getDateKeyDiffInDays(currentWeekStartKey, todayKey);
   const previousWeekStartKey = addDaysToDateKey(currentWeekStartKey, -7);
+  const previousWeekCutoff = getLocalDateTimeInstant({
+    dateKey: addDaysToDateKey(todayKey, -7),
+    timeSource: input.now,
+    timezone: input.timezone,
+  });
   const points: Array<{
     weekStart: string;
     distanceMeters: number;
@@ -137,10 +189,9 @@ export function buildDashboardWeeklySummary(input: {
   ) {
     const weekStartKey = addDaysToDateKey(currentWeekStartKey, -7 * weekOffset);
     const summary = summarizeRuns(
-      getRunsInWindow({
+      getRunsInWeek({
         runs: input.runs,
         weekStartKey,
-        daysIntoWeek,
         timezone: input.timezone,
       }),
     );
@@ -157,13 +208,24 @@ export function buildDashboardWeeklySummary(input: {
     distanceMeters: 0,
     paceSecPerKm: null,
   };
-  const previousPoint =
-    points.find((point) => point.weekStart === previousWeekStartKey) ??
-    ({
-      weekStart: previousWeekStartKey,
-      distanceMeters: 0,
-      paceSecPerKm: null,
-    } as const);
+  const currentDeltaSummary = summarizeRuns(
+    getRunsInWeekAsOf({
+      runs: input.runs,
+      weekStartKey: currentWeekStartKey,
+      cutoff: input.now,
+      timezone: input.timezone,
+    }),
+  );
+  const previousDeltaSummary = summarizeRuns(
+    getRunsInWeekAsOf({
+      runs: input.runs,
+      weekStartKey: previousWeekStartKey,
+      cutoff: previousWeekCutoff,
+      timezone: input.timezone,
+    }),
+  );
+  const currentDeltaPaceSecPerKm = derivePaceSecPerKm(currentDeltaSummary);
+  const previousDeltaPaceSecPerKm = derivePaceSecPerKm(previousDeltaSummary);
   const trailingPoints = points.slice(
     Math.max(points.length - 1 - AVG_WEEKS, 0),
     -1,
@@ -205,7 +267,8 @@ export function buildDashboardWeeklySummary(input: {
     distance: {
       thisWeekMeters: currentPoint.distanceMeters,
       vsLastWeekMeters: round(
-        currentPoint.distanceMeters - previousPoint.distanceMeters,
+        currentDeltaSummary.distanceMeters -
+          previousDeltaSummary.distanceMeters,
         1,
       ),
       avgWeekMeters: avgDistanceMeters,
@@ -214,9 +277,9 @@ export function buildDashboardWeeklySummary(input: {
     pace: {
       thisWeekSecPerKm: currentPoint.paceSecPerKm,
       vsLastWeekSecPerKm:
-        currentPoint.paceSecPerKm == null || previousPoint.paceSecPerKm == null
+        currentDeltaPaceSecPerKm == null || previousDeltaPaceSecPerKm == null
           ? null
-          : round(currentPoint.paceSecPerKm - previousPoint.paceSecPerKm, 1),
+          : round(currentDeltaPaceSecPerKm - previousDeltaPaceSecPerKm, 1),
       avgWeekSecPerKm: avgPaceSecPerKm,
       series: paceSeries,
     },

@@ -20,7 +20,7 @@ describe("dashboard domain", () => {
           elapsedTimeSeconds: 1500,
         },
         {
-          startAt: new Date("2026-04-15T07:00:00.000Z"),
+          startAt: new Date("2026-04-15T00:30:00.000Z"),
           distanceMeters: 8000,
           elapsedTimeSeconds: 2480,
         },
@@ -33,6 +33,11 @@ describe("dashboard domain", () => {
           startAt: new Date("2026-04-07T06:00:00.000Z"),
           distanceMeters: 3000,
           elapsedTimeSeconds: 900,
+        },
+        {
+          startAt: new Date("2026-04-08T07:00:00.000Z"),
+          distanceMeters: 2000,
+          elapsedTimeSeconds: 600,
         },
         {
           startAt: new Date("2026-04-09T06:00:00.000Z"),
@@ -52,6 +57,10 @@ describe("dashboard domain", () => {
     expect(summary.pace.vsLastWeekSecPerKm).toBe(-5.2);
     expect(summary.distance.series).toHaveLength(8);
     expect(summary.distance.series.at(-1)?.weekStart).toBe("2026-04-13");
+    expect(
+      summary.distance.series.find((point) => point.weekStart === "2026-04-06")
+        ?.value,
+    ).toBe(19000);
   });
 
   it("buckets linked runs by planned summary date for the weekly graph", () => {
