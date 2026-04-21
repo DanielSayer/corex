@@ -12,7 +12,12 @@ import type {
   StoredWeeklySnapshot,
   WeeklySnapshotRepository,
 } from "./repository";
-import { buildWeeklyWrappedData, type WeeklySnapshotRun } from "./domain";
+import {
+  buildWeeklySnapshotComparison,
+  buildWeeklySnapshotTotals,
+  buildWeeklyWrappedData,
+  type WeeklySnapshotRun,
+} from "./domain";
 
 type Clock = {
   now: () => Date;
@@ -108,6 +113,11 @@ export function createWeeklySnapshotService(options: {
           run.startAt >= ranges.comparisonWeekStart &&
           run.startAt < ranges.comparisonWeekEnd,
       );
+      const previousSnapshot =
+        yield* options.snapshotRepo.getLatestBeforeWeekStart({
+          userId,
+          weekStart: ranges.snapshotWeekStart,
+        });
       const payload = buildWeeklyWrappedData({
         generatedAt: now,
         timezone,
@@ -120,6 +130,9 @@ export function createWeeklySnapshotService(options: {
           ...goalProgress.completedGoals,
         ],
       });
+      const comparisonBaseTotals =
+        previousSnapshot?.payload.totals ??
+        buildWeeklySnapshotTotals(priorWeekRuns);
 
       return {
         id: buildSnapshotId({
@@ -133,7 +146,13 @@ export function createWeeklySnapshotService(options: {
         weekEnd: ranges.snapshotWeekEnd,
         generatedAt: now,
         sourceSyncCompletedAt: latestSuccessfulSync?.completedAt ?? null,
-        payload,
+        payload: {
+          ...payload,
+          comparisonVsPriorWeek: buildWeeklySnapshotComparison({
+            current: payload.totals,
+            prior: comparisonBaseTotals,
+          }),
+        },
       };
     });
   const generateWeeklySnapshotForUser = (

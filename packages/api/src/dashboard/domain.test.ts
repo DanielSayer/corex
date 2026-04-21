@@ -50,6 +50,14 @@ describe("dashboard domain", () => {
     expect(summary.distance.vsLastWeekMeters).toBe(6000);
     expect(summary.pace.thisWeekSecPerKm).toBe(306.2);
     expect(summary.pace.vsLastWeekSecPerKm).toBe(-5.2);
+    expect(summary.distance.series).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          weekStart: "2026-04-06",
+          value: 17000,
+        }),
+      ]),
+    );
     expect(summary.distance.series).toHaveLength(8);
     expect(summary.distance.series.at(-1)?.weekStart).toBe("2026-04-13");
   });

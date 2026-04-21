@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
 import { Effect } from "effect";
 
 import type { Database } from "@corex/db";
@@ -57,6 +57,13 @@ export type WeeklySnapshotRepository = {
   getLatestForUser: (
     userId: string,
   ) => Effect.Effect<
+    StoredWeeklySnapshot | null,
+    WeeklySnapshotPersistenceFailure
+  >;
+  getLatestBeforeWeekStart: (input: {
+    userId: string;
+    weekStart: Date;
+  }) => Effect.Effect<
     StoredWeeklySnapshot | null,
     WeeklySnapshotPersistenceFailure
   >;
@@ -231,6 +238,28 @@ export function createWeeklySnapshotRepository(
         catch: (cause) =>
           new Error(
             `Failed to load latest weekly snapshot: ${cause instanceof Error ? cause.message : String(cause)}`,
+          ),
+      });
+    },
+    getLatestBeforeWeekStart(input) {
+      return Effect.tryPromise({
+        try: async () => {
+          const row = await db.query.weeklySnapshot.findFirst({
+            where: and(
+              eq(weeklySnapshot.userId, input.userId),
+              lt(weeklySnapshot.weekStart, input.weekStart),
+            ),
+            orderBy: [
+              desc(weeklySnapshot.weekStart),
+              desc(weeklySnapshot.generatedAt),
+            ],
+          });
+
+          return row ? mapRow(row) : null;
+        },
+        catch: (cause) =>
+          new Error(
+            `Failed to load previous weekly snapshot: ${cause instanceof Error ? cause.message : String(cause)}`,
           ),
       });
     },
