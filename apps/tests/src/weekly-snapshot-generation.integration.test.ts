@@ -19,9 +19,19 @@ import { getIntegrationHarness, resetDatabase } from "./harness";
 
 const masterKeyBase64 = Buffer.alloc(32, 9).toString("base64");
 
-async function saveTrainingSettings(input: {
+const defaultAvailability = {
+  monday: { available: true, maxDurationMinutes: 45 },
+  tuesday: { available: true, maxDurationMinutes: 45 },
+  wednesday: { available: true, maxDurationMinutes: 45 },
+  thursday: { available: true, maxDurationMinutes: 45 },
+  friday: { available: true, maxDurationMinutes: 45 },
+  saturday: { available: true, maxDurationMinutes: 90 },
+  sunday: { available: false, maxDurationMinutes: null },
+} as const;
+
+async function upsertTrainingSettings(input: {
   userId: string;
-  goal: TrainingGoal;
+  timezone: string;
 }) {
   const { db } = await getIntegrationHarness();
   const trainingRepo = createTrainingSettingsRepository(db);
@@ -35,20 +45,26 @@ async function saveTrainingSettings(input: {
 
   await Effect.runPromise(
     service.upsertForUser(input.userId, {
-      availability: {
-        monday: { available: true, maxDurationMinutes: 45 },
-        tuesday: { available: true, maxDurationMinutes: 45 },
-        wednesday: { available: true, maxDurationMinutes: 45 },
-        thursday: { available: true, maxDurationMinutes: 45 },
-        friday: { available: true, maxDurationMinutes: 45 },
-        saturday: { available: true, maxDurationMinutes: 90 },
-        sunday: { available: false, maxDurationMinutes: null },
-      },
+      availability: defaultAvailability,
       intervalsUsername: "runner@example.com",
       intervalsApiKey: "intervals-secret-key",
-      timezone: "Australia/Brisbane",
+      timezone: input.timezone,
     }),
   );
+}
+
+async function saveTrainingSettings(input: {
+  userId: string;
+  timezone: string;
+  goal: TrainingGoal;
+}) {
+  const { db } = await getIntegrationHarness();
+  const trainingRepo = createTrainingSettingsRepository(db);
+
+  await upsertTrainingSettings({
+    userId: input.userId,
+    timezone: input.timezone,
+  });
 
   await Effect.runPromise(
     createGoalsApi({
@@ -88,6 +104,7 @@ describe("weekly snapshot generation integration", () => {
 
     await saveTrainingSettings({
       userId: user.id,
+      timezone: "Australia/Brisbane",
       goal: {
         type: "volume_goal",
         metric: "distance",
@@ -250,6 +267,7 @@ describe("weekly snapshot generation integration", () => {
 
     await saveTrainingSettings({
       userId: user.id,
+      timezone: "Australia/Brisbane",
       goal: {
         type: "volume_goal",
         metric: "distance",
@@ -287,5 +305,138 @@ describe("weekly snapshot generation integration", () => {
     expect(rows).toHaveLength(1);
     expect(first.id).toBe(second.id);
     expect(second.payload.totals?.distanceMeters).toBe(10000);
+  });
+
+  it("keeps week-over-week deltas aligned with the previous persisted snapshot after a timezone change", async () => {
+    const { db } = await getIntegrationHarness();
+    const user = await createUser(db, {
+      email: "weekly-generation-timezone-shift@example.com",
+      name: "Weekly Timezone Shift",
+    });
+
+    await saveTrainingSettings({
+      userId: user.id,
+      timezone: "Australia/Brisbane",
+      goal: {
+        type: "volume_goal",
+        metric: "distance",
+        period: "week",
+        targetValue: 40,
+        unit: "km",
+      },
+    });
+    await db.insert(importedActivity).values([
+      {
+        userId: user.id,
+        upstreamActivityId: "apr-5-long-run",
+        athleteId: "athlete-1",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-04-05T22:09:46.000Z"),
+        movingTimeSeconds: 3691,
+        elapsedTimeSeconds: 4423,
+        distanceMeters: 10211.38,
+        rawDetail: {},
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "apr-9-run",
+        athleteId: "athlete-1",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-04-10T07:18:22.000Z"),
+        movingTimeSeconds: 1785,
+        elapsedTimeSeconds: 1790,
+        distanceMeters: 5113.89,
+        rawDetail: {},
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "apr-10-run",
+        athleteId: "athlete-1",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-04-10T21:01:36.000Z"),
+        movingTimeSeconds: 1620,
+        elapsedTimeSeconds: 1623,
+        distanceMeters: 5033.48,
+        rawDetail: {},
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "apr-13-run",
+        athleteId: "athlete-1",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-04-13T08:44:13.000Z"),
+        movingTimeSeconds: 1838,
+        elapsedTimeSeconds: 1910,
+        distanceMeters: 5078.45,
+        rawDetail: {},
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "apr-15-run",
+        athleteId: "athlete-1",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-04-15T07:15:15.000Z"),
+        movingTimeSeconds: 3172,
+        elapsedTimeSeconds: 3177,
+        distanceMeters: 8485.61,
+        rawDetail: {},
+      },
+      {
+        userId: user.id,
+        upstreamActivityId: "apr-17-run",
+        athleteId: "athlete-1",
+        upstreamActivityType: "Run",
+        normalizedActivityType: "Run",
+        startAt: new Date("2026-04-17T21:04:17.000Z"),
+        movingTimeSeconds: 1512,
+        elapsedTimeSeconds: 1515,
+        distanceMeters: 5052.66,
+        rawDetail: {},
+      },
+    ]);
+    await insertSuccessfulSync(user.id, "2026-04-13T00:30:00.000Z");
+    await insertSuccessfulSync(user.id, "2026-04-20T00:30:00.000Z");
+
+    const brisbaneService = createLiveWeeklySnapshotService({
+      db,
+      clock: { now: () => new Date("2026-04-13T01:00:00.000Z") },
+    });
+    const priorSnapshot = await Effect.runPromise(
+      brisbaneService.generateWeeklySnapshotForUser(user.id),
+    );
+
+    expect(priorSnapshot.payload.totals).toMatchObject({
+      distanceMeters: 20358.75,
+      runCount: 3,
+    });
+
+    await upsertTrainingSettings({
+      userId: user.id,
+      timezone: "UTC",
+    });
+
+    const utcService = createLiveWeeklySnapshotService({
+      db,
+      clock: { now: () => new Date("2026-04-20T01:00:00.000Z") },
+    });
+    const currentSnapshot = await Effect.runPromise(
+      utcService.generateWeeklySnapshotForUser(user.id),
+    );
+
+    expect(currentSnapshot.timezone).toBe("UTC");
+    expect(currentSnapshot.payload.totals).toMatchObject({
+      distanceMeters: 18616.72,
+      runCount: 3,
+    });
+    expect(currentSnapshot.payload.comparisonVsPriorWeek).toEqual({
+      distanceMetersDelta: -1742,
+      runCountDelta: 0,
+      avgPaceSecPerKmDelta: 1.8,
+    });
   });
 });

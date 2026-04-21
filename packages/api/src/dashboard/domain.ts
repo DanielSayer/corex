@@ -115,6 +115,19 @@ function getRunsInWindow(input: {
   });
 }
 
+function getRunsInFullWeek(input: {
+  runs: RunRecord[];
+  weekStartKey: string;
+  timezone: string;
+}) {
+  const lastIncludedDateKey = addDaysToDateKey(input.weekStartKey, 6);
+
+  return input.runs.filter((run) => {
+    const dateKey = getRunSummaryDateKey(run, input.timezone);
+    return dateKey >= input.weekStartKey && dateKey <= lastIncludedDateKey;
+  });
+}
+
 export function buildDashboardWeeklySummary(input: {
   now: Date;
   timezone: string;
@@ -137,10 +150,9 @@ export function buildDashboardWeeklySummary(input: {
   ) {
     const weekStartKey = addDaysToDateKey(currentWeekStartKey, -7 * weekOffset);
     const summary = summarizeRuns(
-      getRunsInWindow({
+      getRunsInFullWeek({
         runs: input.runs,
         weekStartKey,
-        daysIntoWeek,
         timezone: input.timezone,
       }),
     );
@@ -152,18 +164,24 @@ export function buildDashboardWeeklySummary(input: {
     });
   }
 
-  const currentPoint = points[points.length - 1] ?? {
-    weekStart: currentWeekStartKey,
-    distanceMeters: 0,
-    paceSecPerKm: null,
-  };
-  const previousPoint =
-    points.find((point) => point.weekStart === previousWeekStartKey) ??
-    ({
-      weekStart: previousWeekStartKey,
-      distanceMeters: 0,
-      paceSecPerKm: null,
-    } as const);
+  const currentWeekToDateSummary = summarizeRuns(
+    getRunsInWindow({
+      runs: input.runs,
+      weekStartKey: currentWeekStartKey,
+      daysIntoWeek,
+      timezone: input.timezone,
+    }),
+  );
+  const previousWeekToDateSummary = summarizeRuns(
+    getRunsInWindow({
+      runs: input.runs,
+      weekStartKey: previousWeekStartKey,
+      daysIntoWeek,
+      timezone: input.timezone,
+    }),
+  );
+  const currentWeekToDatePace = derivePaceSecPerKm(currentWeekToDateSummary);
+  const previousWeekToDatePace = derivePaceSecPerKm(previousWeekToDateSummary);
   const trailingPoints = points.slice(
     Math.max(points.length - 1 - AVG_WEEKS, 0),
     -1,
@@ -203,20 +221,21 @@ export function buildDashboardWeeklySummary(input: {
       endDate: todayKey,
     },
     distance: {
-      thisWeekMeters: currentPoint.distanceMeters,
+      thisWeekMeters: round(currentWeekToDateSummary.distanceMeters, 1),
       vsLastWeekMeters: round(
-        currentPoint.distanceMeters - previousPoint.distanceMeters,
+        currentWeekToDateSummary.distanceMeters -
+          previousWeekToDateSummary.distanceMeters,
         1,
       ),
       avgWeekMeters: avgDistanceMeters,
       series: distanceSeries,
     },
     pace: {
-      thisWeekSecPerKm: currentPoint.paceSecPerKm,
+      thisWeekSecPerKm: currentWeekToDatePace,
       vsLastWeekSecPerKm:
-        currentPoint.paceSecPerKm == null || previousPoint.paceSecPerKm == null
+        currentWeekToDatePace == null || previousWeekToDatePace == null
           ? null
-          : round(currentPoint.paceSecPerKm - previousPoint.paceSecPerKm, 1),
+          : round(currentWeekToDatePace - previousWeekToDatePace, 1),
       avgWeekSecPerKm: avgPaceSecPerKm,
       series: paceSeries,
     },

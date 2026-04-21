@@ -351,7 +351,7 @@ describe("dashboard integration", () => {
       result.weekly.distance.series.find(
         (point) => point.weekStart === "2026-04-06",
       )?.value,
-    ).toBe(20000);
+    ).toBe(30000);
     expect(result.weekly.pace.thisWeekSecPerKm).toBe(300);
     expect(result.weekly.pace.vsLastWeekSecPerKm).toBe(-3);
     expect(result.sync).toMatchObject({
