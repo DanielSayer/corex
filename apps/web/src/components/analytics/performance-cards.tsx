@@ -1,193 +1,172 @@
-import { MountainIcon, RouteIcon } from "lucide-react";
-
-import { Badge } from "@corex/ui/components/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@corex/ui/components/card";
+import { ArrowRightIcon } from "lucide-react";
 
 import {
-  formatDateTime,
   formatDistanceToKm,
-  formatPace,
   formatSecondsToHms,
 } from "@/components/activities/utils/formatters";
-import { Medal } from "@/components/medal";
+import { cn } from "@/lib/utils";
 
-import { EmptyPanel } from "./shared";
+import { EmptyPanel, SectionCard } from "./shared";
 import type { AnalyticsView } from "./types";
 import { getDistanceConfig } from "./utils";
 
+const trainingMixStyles = {
+  easy: {
+    label: "Easy",
+    accent: "bg-lime-400",
+    accentSoft: "bg-lime-400/15",
+    text: "text-lime-300",
+  },
+  long_run: {
+    label: "Long run",
+    accent: "bg-indigo-400",
+    accentSoft: "bg-indigo-400/15",
+    text: "text-indigo-300",
+  },
+  tempo: {
+    label: "Tempo",
+    accent: "bg-orange-400",
+    accentSoft: "bg-orange-400/15",
+    text: "text-orange-300",
+  },
+  intervals: {
+    label: "Intervals",
+    accent: "bg-violet-400",
+    accentSoft: "bg-violet-400/15",
+    text: "text-violet-300",
+  },
+} as const;
+
 export function OverallPrsCard({ data }: { data: AnalyticsView }) {
   return (
-    <Card className="border border-border/70">
-      <CardHeader>
-        <CardTitle>Overall PRs</CardTitle>
-        <CardDescription>
-          All-time best performances across tracked distances.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {data.overallPrs.length > 0 ? (
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {data.overallPrs.map((pr) => (
-              <OverallPrCard key={pr.distanceMeters} pr={pr} />
-            ))}
-          </div>
-        ) : (
-          <EmptyPanel
-            title="No overall PRs yet"
-            description="Once best efforts are processed, your all-time PR medals will appear here."
-          />
-        )}
-      </CardContent>
-    </Card>
+    <SectionCard
+      title="Overall PRs"
+      description="All-time best performances across tracked distances."
+      contentClassName="pt-5"
+    >
+      {data.overallPrs.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {data.overallPrs.map((pr) => (
+            <OverallPrCard key={pr.distanceMeters} pr={pr} />
+          ))}
+        </div>
+      ) : (
+        <EmptyPanel
+          title="No overall PRs yet"
+          description="Once best efforts are processed, your all-time personal records will appear here."
+        />
+      )}
+    </SectionCard>
   );
 }
 
-export function LongestRunCard({
-  longestRun,
-}: {
-  longestRun: AnalyticsView["longestRun"];
-}) {
+export function TrainingMixCard({ data }: { data: AnalyticsView }) {
   return (
-    <Card className="border border-border/70 bg-linear-to-br from-accent/30 via-background to-primary/8">
-      <CardHeader>
-        <CardTitle>Longest run</CardTitle>
-        <CardDescription>
-          Your farthest imported run across the current history.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {longestRun ? (
-          <div className="flex flex-col gap-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex flex-col gap-1">
-                <div className="text-4xl font-semibold tracking-tight">
-                  {formatDistanceToKm(longestRun.distanceMeters)}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {longestRun.activityName}
-                </div>
-              </div>
-              <RouteIcon className="size-5 text-muted-foreground" />
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-4">
-              <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
-                Recorded
-              </div>
-              <div className="mt-2 text-sm">
-                {formatDateTime(longestRun.startAt)}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <EmptyPanel
-            title="No longest run yet"
-            description="Import some running history to populate this summary."
-            compact
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+    <SectionCard
+      title="Training mix"
+      description="Distance breakdown by run type."
+      contentClassName="pt-5"
+    >
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {data.trainingMix.buckets.map((bucket) => {
+          const styles = trainingMixStyles[bucket.key];
 
-export function TerrainMixCard({ data }: { data: AnalyticsView }) {
-  const terrain = data.terrainSummary;
-  const hasTerrain = terrain.classifiedRunCount > 0;
-  const classLabels = {
-    flat: "Flat",
-    rolling: "Rolling",
-    hilly: "Hilly",
-  } as const;
-
-  return (
-    <Card className="border border-border/70">
-      <CardHeader>
-        <CardTitle>Terrain mix</CardTitle>
-        <CardDescription>
-          Elevation density across imported runs in the selected year.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {hasTerrain ? (
-          <div className="flex flex-col gap-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex flex-col gap-1">
-                <div className="text-3xl font-semibold tracking-tight capitalize">
-                  {terrain.dominantClass ?? "Mixed"}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {terrain.classifiedRunCount} classified of{" "}
-                  {terrain.totalRunCount} runs
-                </div>
-              </div>
-              <MountainIcon className="size-5 text-muted-foreground" />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              {terrain.classes.map((entry) => {
-                const share =
-                  terrain.classifiedDistanceMeters > 0
-                    ? (entry.distanceMeters /
-                        terrain.classifiedDistanceMeters) *
-                      100
-                    : 0;
-
-                return (
-                  <div
-                    className="flex min-h-36 flex-col justify-between rounded-lg border border-border/70 bg-muted/25 px-4 py-4"
-                    key={entry.terrainClass}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium">
-                        {classLabels[entry.terrainClass]}
-                      </div>
-                      <Badge variant="secondary">{entry.runCount}</Badge>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <div className="text-2xl font-semibold tracking-tight">
-                        {formatDistanceToKm(entry.distanceMeters)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {entry.averageElevationGainMetersPerKm == null
-                          ? "--"
-                          : `${entry.averageElevationGainMetersPerKm.toFixed(
-                              1,
-                            )} m/km`}{" "}
-                        avg
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary"
-                          style={{ width: `${share}%` }}
-                        />
-                      </div>
-                    </div>
+          return (
+            <article
+              key={bucket.key}
+              className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4 text-white"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className={cn("text-sm font-medium", styles.text)}>
+                    {styles.label}
                   </div>
-                );
-              })}
-            </div>
-
-            {terrain.unclassifiedRunCount > 0 ? (
-              <div className="text-sm text-muted-foreground">
-                {terrain.unclassifiedRunCount} runs are missing usable elevation
-                data.
+                  <div className="text-2xl font-semibold tracking-[-0.04em]">
+                    {formatDistanceToKm(bucket.distanceMeters)}
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-medium text-white/90",
+                    styles.accentSoft,
+                  )}
+                >
+                  {bucket.runCount} run{bucket.runCount === 1 ? "" : "s"}
+                </div>
               </div>
-            ) : null}
+
+              <div className="mt-6 space-y-2">
+                <div className="h-2 rounded-full bg-white/8">
+                  <div
+                    className={cn("h-full rounded-full", styles.accent)}
+                    style={{ width: `${bucket.sharePercent}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs text-[#8e97b7]">
+                  <span>{bucket.sharePercent.toFixed(1)}%</span>
+                  <span>{styles.label} volume</span>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </SectionCard>
+  );
+}
+
+export function ConsistencyCard({ data }: { data: AnalyticsView }) {
+  const consistency = data.consistency;
+
+  return (
+    <SectionCard
+      title="Consistency"
+      description="How often you're showing up."
+      contentClassName="pt-5"
+    >
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-5">
+          <div
+            className="relative flex size-32 items-center justify-center rounded-full"
+            style={{
+              background: `conic-gradient(#5b5df0 ${consistency.percent}%, rgba(255,255,255,0.08) 0)`,
+            }}
+          >
+            <div className="flex size-[104px] flex-col items-center justify-center rounded-full bg-[#0b1019]">
+              <div className="text-4xl font-semibold tracking-[-0.05em] text-white">
+                {consistency.percent}%
+              </div>
+            </div>
           </div>
-        ) : (
-          <EmptyPanel
-            title="No terrain mix yet"
-            description="Import runs with distance and elevation gain to compare flat, rolling, and hilly training."
-          />
-        )}
-      </CardContent>
-    </Card>
+
+          <div className="space-y-1">
+            <div className="text-3xl font-semibold tracking-[-0.04em] text-white">
+              {consistency.activeMonthCount} / {consistency.elapsedMonthCount}{" "}
+              months
+            </div>
+            <div className="text-sm text-[#9ba4c4]">with activity</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-6 gap-3 md:flex md:flex-wrap md:justify-end">
+          {consistency.months.map((month) => (
+            <div
+              key={month.key}
+              className={cn(
+                "flex size-9 items-center justify-center rounded-full border text-sm font-medium transition-colors",
+                month.isActive
+                  ? "border-[#5b5df0]/80 bg-[#4f46e5] text-white"
+                  : month.isElapsed
+                    ? "border-white/10 bg-white/[0.03] text-[#7e87a5]"
+                    : "border-transparent bg-transparent text-[#5f6886]",
+              )}
+            >
+              {month.label.slice(0, 1)}
+            </div>
+          ))}
+        </div>
+      </div>
+    </SectionCard>
   );
 }
 
@@ -195,24 +174,30 @@ function OverallPrCard({ pr }: { pr: AnalyticsView["overallPrs"][number] }) {
   const config = getDistanceConfig(pr.distanceMeters);
 
   return (
-    <div className="flex flex-col gap-4 rounded-[1.5rem] border border-border/70 bg-muted/30 px-5 py-5">
-      <div className="flex items-center justify-between gap-3">
-        <Medal
-          color={config.color}
-          glow={config.glow}
-          label={config.short}
-          ring={config.ring}
-        />
-        <Badge variant="secondary">{pr.monthKey}</Badge>
+    <article className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4 text-white">
+      <div className="flex items-start justify-between gap-3">
+        <div
+          className="flex size-12 items-center justify-center rounded-full text-sm font-bold text-white"
+          style={{ backgroundColor: config.color }}
+        >
+          {config.short}
+        </div>
+        <ArrowRightIcon className="size-4 text-[#8c95b4]" />
       </div>
-      <div className="flex flex-col gap-1">
-        <div className="font-mono text-2xl font-semibold tabular-nums">
+
+      <div className="mt-5 space-y-2">
+        <div className="text-sm text-[#8f97b7]">{config.long}</div>
+        <div className="text-4xl font-semibold tracking-[-0.05em] text-white">
           {formatSecondsToHms(pr.durationSeconds)}
         </div>
-        <div className="text-sm text-muted-foreground">
-          {formatPace(pr.distanceMeters, pr.durationSeconds)} pace
+        <div className="text-sm text-[#9aa2c1]">
+          {new Intl.DateTimeFormat("en-US", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          }).format(new Date(pr.achievedAt))}
         </div>
       </div>
-    </div>
+    </article>
   );
 }

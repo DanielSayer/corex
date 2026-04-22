@@ -9,12 +9,12 @@ import {
 import {
   AnalyticsLoadingState,
   AnalyticsOverview,
+  ConsistencyCard,
   CumulativeDistanceCard,
   DistanceTrendCard,
-  LongestRunCard,
   OverallPrsCard,
   PrTrendCard,
-  TerrainMixCard,
+  TrainingMixCard,
   type DistanceGranularity,
 } from "@/components/analytics";
 import { LoadingWrapper } from "@/components/renderers";
@@ -88,7 +88,7 @@ function RouteComponent() {
   const isLoading = requestedAnalytics.isLoading || fallbackAnalytics.isLoading;
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-10 md:px-8">
+    <main className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 px-4 pb-8 pt-2 md:px-6 lg:px-8">
       <AnalyticsOverview
         analytics={analytics.data}
         availableYears={availableYears}
@@ -102,26 +102,32 @@ function RouteComponent() {
         fallback={<AnalyticsLoadingState />}
       >
         {analytics.data ? (
-          <div className="flex flex-col gap-8">
-            <DistanceTrendCard
-              data={analytics.data}
-              distanceGranularity={distanceGranularity}
-              onGranularityChange={(value) =>
-                setDistanceGranularity(value as DistanceGranularity)
-              }
-            />
-            <CumulativeDistanceCard data={analytics.data} />
-            <TerrainMixCard data={analytics.data} />
-            <PrTrendCard
-              data={analytics.data}
-              selectedDistance={effectivePrDistance}
-              onDistanceChange={(value) =>
-                setSelectedPrDistance(Number(value) as BestEffortDistance)
-              }
-            />
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
+          <div className="flex flex-col gap-5">
+            <section className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.15fr)]">
               <OverallPrsCard data={analytics.data} />
-              <LongestRunCard longestRun={analytics.data.longestRun} />
+              <PrTrendCard
+                data={analytics.data}
+                selectedDistance={effectivePrDistance}
+                onDistanceChange={(value) =>
+                  setSelectedPrDistance(Number(value) as BestEffortDistance)
+                }
+              />
+            </section>
+
+            <section className="grid gap-5 xl:grid-cols-2">
+              <DistanceTrendCard
+                data={analytics.data}
+                distanceGranularity={distanceGranularity}
+                onGranularityChange={(value) =>
+                  setDistanceGranularity(value as DistanceGranularity)
+                }
+              />
+              <CumulativeDistanceCard data={analytics.data} />
+            </section>
+
+            <section className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+              <TrainingMixCard data={analytics.data} />
+              <ConsistencyCard data={analytics.data} />
             </section>
           </div>
         ) : null}

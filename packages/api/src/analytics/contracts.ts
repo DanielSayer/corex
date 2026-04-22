@@ -22,6 +22,7 @@ export type AnalyticsOverallPr = {
   durationSeconds: number;
   activityId: string;
   monthKey: string;
+  achievedAt: string;
 };
 
 export type AnalyticsLongestRun = {
@@ -30,6 +31,52 @@ export type AnalyticsLongestRun = {
   distanceMeters: number;
   startAt: string;
 } | null;
+
+export type AnalyticsOverview = {
+  totalDistance: {
+    distanceMeters: number;
+    comparisonYear: number;
+    comparisonDistanceMeters: number;
+    deltaPercent: number | null;
+    cutoffDateKey: string;
+    isPartialYear: boolean;
+  };
+  longestRunInYear: AnalyticsLongestRun;
+  trackedPrDistanceCount: number;
+  allTimePrCount: number;
+  activeMonths: {
+    count: number;
+    elapsedCount: number;
+    rangeLabel: string | null;
+  };
+};
+
+export type AnalyticsTrainingMixBucket = {
+  key: "easy" | "long_run" | "tempo" | "intervals";
+  distanceMeters: number;
+  runCount: number;
+  sharePercent: number;
+};
+
+export type AnalyticsTrainingMix = {
+  totalDistanceMeters: number;
+  buckets: AnalyticsTrainingMixBucket[];
+};
+
+export type AnalyticsConsistencyMonth = {
+  key: string;
+  label: string;
+  isElapsed: boolean;
+  isActive: boolean;
+};
+
+export type AnalyticsConsistency = {
+  activeMonthCount: number;
+  elapsedMonthCount: number;
+  ratio: number;
+  percent: number;
+  months: AnalyticsConsistencyMonth[];
+};
 
 export type AnalyticsView = {
   availableYears: number[];
@@ -42,6 +89,9 @@ export type AnalyticsView = {
     distances: number[];
     series: AnalyticsPrTrend[];
   };
+  overview: AnalyticsOverview;
+  trainingMix: AnalyticsTrainingMix;
+  consistency: AnalyticsConsistency;
   terrainSummary: TerrainSummary;
   overallPrs: AnalyticsOverallPr[];
   longestRun: AnalyticsLongestRun;

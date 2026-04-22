@@ -1,13 +1,13 @@
 export const distanceChartConfig = {
   distance: {
     label: "Distance",
-    color: "var(--primary)",
+    color: "#5b5df0",
   },
 } as const;
 
 export const prChartConfig = {
   duration: {
     label: "PR time",
-    color: "var(--primary)",
+    color: "#5b5df0",
   },
 } as const;

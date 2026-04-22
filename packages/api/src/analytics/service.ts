@@ -8,6 +8,7 @@ export type AnalyticsRepository = {
     input: {
       year: number;
       timezone: string;
+      now: Date;
     },
   ) => Effect.Effect<AnalyticsView, unknown>;
 };

@@ -20,14 +20,14 @@ export function SnapshotRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-[20px] border border-white/8 bg-white/[0.03] px-4 py-3">
       <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-full bg-background">
-          <Icon className="size-4 text-muted-foreground" />
+        <div className="flex size-9 items-center justify-center rounded-full bg-white/[0.05]">
+          <Icon className="size-4 text-[#a8b1cb]" />
         </div>
-        <div className="text-sm text-muted-foreground">{label}</div>
+        <div className="text-sm text-[#9ba3bf]">{label}</div>
       </div>
-      <div className="font-medium">{value}</div>
+      <div className="font-medium text-white">{value}</div>
     </div>
   );
 }
@@ -40,8 +40,8 @@ export function TooltipCard({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-background px-3 py-2 shadow-md">
-      <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+    <div className="rounded-[16px] border border-white/10 bg-[#111827] px-3 py-2 text-white shadow-none">
+      <div className="text-xs font-medium tracking-[0.18em] text-[#8e96b5] uppercase">
         {label}
       </div>
       <div className="mt-1 text-sm font-medium">{value}</div>
@@ -61,12 +61,12 @@ export function EmptyPanel({
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-[1.5rem] border border-dashed border-border/70 bg-muted/15 px-5 py-8",
+        "flex flex-col gap-2 rounded-[24px] border border-dashed border-white/10 bg-white/[0.025] px-5 py-8 text-white",
         compact && "py-6",
       )}
     >
       <div className="font-medium">{title}</div>
-      <div className="max-w-md text-sm leading-6 text-muted-foreground">
+      <div className="max-w-md text-sm leading-6 text-[#8f97b7]">
         {description}
       </div>
     </div>
@@ -75,12 +75,15 @@ export function EmptyPanel({
 
 export function AnalyticsLoadingState() {
   return (
-    <div className="flex flex-col gap-8">
-      <Skeleton className="h-104 w-full rounded-[2rem]" />
-      <Skeleton className="h-104 w-full rounded-[2rem]" />
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
-        <Skeleton className="h-80 w-full rounded-[2rem]" />
-        <Skeleton className="h-80 w-full rounded-[2rem]" />
+    <div className="flex flex-col gap-5">
+      <Skeleton className="h-50 w-full rounded-[24px] bg-white/6" />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)]">
+        <Skeleton className="h-74 w-full rounded-[20px] bg-white/6" />
+        <Skeleton className="h-74 w-full rounded-[20px] bg-white/6" />
+      </div>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Skeleton className="h-74 w-full rounded-[20px] bg-white/6" />
+        <Skeleton className="h-74 w-full rounded-[20px] bg-white/6" />
       </div>
     </div>
   );
@@ -92,23 +95,36 @@ export function SectionCard({
   children,
   action,
   className,
+  contentClassName,
 }: {
   title: string;
   description: string;
   children: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
+  contentClassName?: string;
 }) {
   return (
-    <Card className={className}>
-      <CardHeader>
+    <Card
+      className={cn(
+        "gap-0 rounded-[20px] border border-white/8 bg-[#0d1320] py-0 text-white shadow-none",
+        className,
+      )}
+    >
+      <CardHeader className="gap-2 px-5 py-5 md:px-6">
         <div className="flex flex-col gap-2">
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          <CardTitle className="text-[1.05rem] font-semibold tracking-[-0.02em] text-white">
+            {title}
+          </CardTitle>
+          <CardDescription className="text-sm text-[#8f97b7]">
+            {description}
+          </CardDescription>
         </div>
         {action}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className={cn("px-5 py-5 md:px-6", contentClassName)}>
+        {children}
+      </CardContent>
     </Card>
   );
 }
