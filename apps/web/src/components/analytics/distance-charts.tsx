@@ -1,9 +1,11 @@
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Line,
-  LineChart,
+  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
@@ -19,6 +21,9 @@ import { ChartContainer, ChartTooltip } from "@/components/chart";
 import { distanceChartConfig } from "./constants";
 import { EmptyPanel, SectionCard, TooltipCard } from "./shared";
 import type { AnalyticsView, DistanceGranularity } from "./types";
+
+const chartFrameClassName =
+  "h-80 w-full [&_.recharts-cartesian-axis-tick_text]:fill-[#8b93b2] [&_.recharts-cartesian-grid_line]:stroke-white/6 [&_.recharts-dot]:stroke-[#0f1522]";
 
 export function DistanceTrendCard({
   data,
@@ -37,10 +42,7 @@ export function DistanceTrendCard({
   return (
     <SectionCard
       title="Distance trends"
-      description={`Compare run volume across the selected year by ${
-        distanceGranularity === "month" ? "month" : "week"
-      }.`}
-      className="border border-border/70"
+      description={`${distanceGranularity === "month" ? "Monthly" : "Weekly"} distance (km).`}
       action={
         <CardAction>
           <ToggleGroup
@@ -52,36 +54,52 @@ export function DistanceTrendCard({
               }
             }}
             variant="outline"
+            className="rounded-full border border-white/10 bg-white/[0.03] p-1"
           >
-            <ToggleGroupItem value="week">Week</ToggleGroupItem>
-            <ToggleGroupItem value="month">Month</ToggleGroupItem>
+            <ToggleGroupItem
+              value="month"
+              className="rounded-full border-0 px-4 text-[#97a0c0] data-[state=on]:!bg-white/10 data-[state=on]:text-white"
+            >
+              Month
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="week"
+              className="rounded-full border-0 px-4 text-[#97a0c0] data-[state=on]:!bg-white/10 data-[state=on]:text-white"
+            >
+              Week
+            </ToggleGroupItem>
           </ToggleGroup>
         </CardAction>
       }
+      contentClassName="pt-5"
     >
-      <ChartContainer config={distanceChartConfig} className="h-80 w-full">
+      <ChartContainer
+        config={distanceChartConfig}
+        className={chartFrameClassName}
+      >
         <BarChart accessibilityLayer data={chartData} margin={{ top: 8 }}>
-          <CartesianGrid vertical={false} />
+          <CartesianGrid vertical={false} strokeDasharray="0" />
           <XAxis
             axisLine={false}
             dataKey="label"
             interval={distanceGranularity === "week" ? 3 : 0}
             minTickGap={20}
             tickLine={false}
-            tickMargin={8}
+            tickMargin={12}
           />
           <YAxis
             axisLine={false}
-            tickFormatter={(value) => `${Number(value).toFixed(0)} km`}
+            tickFormatter={(value) => `${Number(value).toFixed(0)}`}
             tickLine={false}
-            tickMargin={8}
-            width={56}
+            tickMargin={12}
+            width={36}
           />
           <ChartTooltip content={<DistanceTrendTooltip />} cursor={false} />
           <Bar
             dataKey="distanceKm"
             fill="var(--color-distance)"
-            radius={[12, 12, 4, 4]}
+            radius={[8, 8, 0, 0]}
+            maxBarSize={distanceGranularity === "week" ? 18 : 28}
           />
         </BarChart>
       </ChartContainer>
@@ -118,37 +136,63 @@ export function CumulativeDistanceCard({ data }: { data: AnalyticsView }) {
   return (
     <SectionCard
       title="Cumulative distance"
-      description="Running total for the selected year, ending at the latest month with imported distance."
-      className="border border-border/70"
+      description="Total distance over time (km)."
+      contentClassName="pt-5"
     >
       {chartData.length > 0 ? (
-        <ChartContainer config={distanceChartConfig} className="h-80 w-full">
-          <LineChart accessibilityLayer data={chartData} margin={{ top: 8 }}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              axisLine={false}
-              dataKey="label"
-              tickLine={false}
-              tickMargin={8}
-            />
-            <YAxis
-              axisLine={false}
-              domain={[0, "dataMax + 5"]}
-              tickFormatter={(value) => `${Number(value).toFixed(0)} km`}
-              tickLine={false}
-              tickMargin={8}
-              width={56}
-            />
-            <ChartTooltip content={<DistanceTrendTooltip />} cursor={false} />
-            <Line
-              dataKey="cumulativeKm"
-              dot={{ fill: "var(--color-distance)", r: 4 }}
-              stroke="var(--color-distance)"
-              strokeWidth={3}
-              type="monotone"
-            />
-          </LineChart>
-        </ChartContainer>
+        <div className={chartFrameClassName}>
+          <ResponsiveContainer>
+            <AreaChart accessibilityLayer data={chartData} margin={{ top: 8 }}>
+              <defs>
+                <linearGradient
+                  id="analytics-cumulative-fill"
+                  x1="0"
+                  x2="0"
+                  y1="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor="#5b5df0" stopOpacity={0.42} />
+                  <stop offset="100%" stopColor="#5b5df0" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                vertical={false}
+                stroke="rgba(255,255,255,0.06)"
+                strokeDasharray="0"
+              />
+              <XAxis
+                axisLine={false}
+                dataKey="label"
+                tick={{ fill: "#8b93b2" }}
+                tickLine={false}
+                tickMargin={12}
+              />
+              <YAxis
+                axisLine={false}
+                domain={[0, "dataMax + 5"]}
+                tick={{ fill: "#8b93b2" }}
+                tickFormatter={(value) => `${Number(value).toFixed(0)}`}
+                tickLine={false}
+                tickMargin={12}
+                width={36}
+              />
+              <ChartTooltip content={<DistanceTrendTooltip />} cursor={false} />
+              <Area
+                dataKey="cumulativeKm"
+                fill="url(#analytics-cumulative-fill)"
+                stroke="none"
+                type="monotone"
+              />
+              <Line
+                dataKey="cumulativeKm"
+                dot={{ fill: "#6366f1", r: 4 }}
+                stroke="#6366f1"
+                strokeWidth={2.5}
+                type="monotone"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       ) : (
         <EmptyPanel
           title="No cumulative distance yet"

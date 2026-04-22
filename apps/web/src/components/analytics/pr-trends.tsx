@@ -18,6 +18,23 @@ import { getDistanceLabel } from "./utils";
 import { EmptyPanel, SectionCard, TooltipCard } from "./shared";
 import type { AnalyticsView } from "./types";
 
+function formatChartDuration(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return "0:00";
+  }
+
+  const roundedSeconds = Math.round(seconds);
+  const hours = Math.floor(roundedSeconds / 3600);
+  const minutes = Math.floor((roundedSeconds % 3600) / 60);
+  const remainingSeconds = roundedSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+}
+
 export function PrTrendCard({
   data,
   selectedDistance,
@@ -39,12 +56,15 @@ export function PrTrendCard({
       label: month.label,
       durationSeconds: month.durationSeconds,
     })) ?? [];
+  const hasPrData =
+    selectedSeries?.months.some(
+      (month) => typeof month.durationSeconds === "number",
+    ) ?? false;
 
   return (
     <SectionCard
-      title="PR trends"
-      description="Best monthly result for the selected PR distance across the chosen year."
-      className="border border-border/70"
+      title="PR trend"
+      description="Best time (min) for tracked PR distances."
       action={
         <CardAction>
           <Select
@@ -55,10 +75,10 @@ export function PrTrendCard({
               }
             }}
           >
-            <SelectTrigger className="min-w-32">
+            <SelectTrigger className="min-w-36 border-white/10 bg-white/[0.04] text-white shadow-none hover:bg-white/[0.06]">
               <SelectValue>{selectedDistanceLabel}</SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="border-white/10 bg-[#111827] text-white ring-white/10">
               <SelectGroup>
                 {data.prTrends.distances.map((distance) => (
                   <SelectItem key={distance} value={String(distance)}>
@@ -70,24 +90,28 @@ export function PrTrendCard({
           </Select>
         </CardAction>
       }
+      contentClassName="pt-5"
     >
-      {selectedSeries ? (
-        <ChartContainer config={prChartConfig} className="h-80 w-full">
+      {selectedSeries && hasPrData ? (
+        <ChartContainer
+          config={prChartConfig}
+          className="h-80 w-full [&_.recharts-cartesian-axis-tick_text]:fill-[#8b93b2] [&_.recharts-cartesian-grid_line]:stroke-white/6 [&_.recharts-dot]:stroke-[#0f1522]"
+        >
           <LineChart accessibilityLayer data={chartData} margin={{ top: 8 }}>
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} strokeDasharray="0" />
             <XAxis
               axisLine={false}
               dataKey="label"
               tickLine={false}
-              tickMargin={8}
+              tickMargin={12}
             />
             <YAxis
               axisLine={false}
               domain={["dataMin - 30", "dataMax + 30"]}
-              tickFormatter={(value) => formatSecondsToHms(Number(value))}
+              tickFormatter={(value) => formatChartDuration(Number(value))}
               tickLine={false}
-              tickMargin={8}
-              width={64}
+              tickMargin={12}
+              width={48}
             />
             <ChartTooltip content={<PrTrendTooltip />} cursor={false} />
             <Line
@@ -95,15 +119,15 @@ export function PrTrendCard({
               dataKey="durationSeconds"
               dot={{ fill: "var(--color-duration)", r: 4 }}
               stroke="var(--color-duration)"
-              strokeWidth={3}
-              type="monotone"
+              strokeWidth={2.5}
+              type="linear"
             />
           </LineChart>
         </ChartContainer>
       ) : (
         <EmptyPanel
           title="No PRs yet"
-          description="Monthly PR trends will appear after run best efforts have been reconciled into monthly bests."
+          description="Monthly PR trends will appear after best efforts have been reconciled into monthly bests."
         />
       )}
     </SectionCard>
