@@ -5,7 +5,7 @@ import {
   MissingIntervalsCredentials,
   SyncAlreadyInProgress,
 } from "./errors";
-import type { IntervalsActivityStream } from "./schemas";
+import type { IntervalsActivityStream } from "../integrations/intervals-icu/schemas";
 
 export function mapFailureCategory(error: unknown): string {
   if (error instanceof MissingIntervalsCredentials) {

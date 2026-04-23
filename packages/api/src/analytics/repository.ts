@@ -15,7 +15,7 @@ import {
   getLocalDateKey,
   localDateKeyToUtcStart,
 } from "../goal-progress/timezones";
-import { intervalsActivityDetailSchema } from "../intervals-sync/schemas";
+import { intervalsActivityDetailSchema } from "../integrations/intervals-icu/schemas";
 import { aggregateTerrainSummary } from "../terrain/domain";
 import type {
   AnalyticsDistanceTrendBucket,

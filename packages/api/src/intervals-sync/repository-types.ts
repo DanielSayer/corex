@@ -6,7 +6,7 @@ import type {
   IntervalsActivityDetail,
   IntervalsActivityMap,
   IntervalsActivityStream,
-} from "./schemas";
+} from "../integrations/intervals-icu/schemas";
 
 export type FailedDetailDiagnostic = {
   activityId: string;

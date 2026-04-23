@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import { createDashboardRouter } from "@corex/api/dashboard/router";
 import { createIntervalsSyncRouter } from "@corex/api/intervals-sync/router";
-import { createAppRouter } from "@corex/api/routers/index";
+import { createAppRouter } from "@corex/api/routers";
 import { aggregateTerrainSummary } from "@corex/api/terrain/domain";
 import { createWeeklyPlanningRouter } from "@corex/api/weekly-planning/router";
 

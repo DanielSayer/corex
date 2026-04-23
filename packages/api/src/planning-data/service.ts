@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { intervalsActivityStreamSchema } from "../intervals-sync/schemas";
+import { intervalsActivityStreamSchema } from "../integrations/intervals-icu/schemas";
 import { TARGET_EFFORT_DISTANCES_METERS } from "../intervals-sync/derived-performance";
 import { aggregateTerrainSummary } from "../terrain/domain";
 import type {

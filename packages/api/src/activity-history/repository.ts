@@ -14,7 +14,7 @@ import {
 import {
   intervalsActivityMapSchema,
   intervalsActivityStreamSchema,
-} from "../intervals-sync/schemas";
+} from "../integrations/intervals-icu/schemas";
 import {
   MAX_ACTIVITY_ANALYSIS_POINTS,
   MAX_ACTIVITY_MAP_PREVIEW_POINTS,

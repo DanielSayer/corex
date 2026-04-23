@@ -1,5 +1,5 @@
 import type { NormalizedActivity } from "./module-types";
-import type { IntervalsActivityDetail } from "./schemas";
+import type { IntervalsActivityDetail } from "../integrations/intervals-icu/schemas";
 
 const RUNNING_ACTIVITY_TYPES = new Set([
   "Run",

@@ -4,6 +4,10 @@ import { Effect } from "effect";
 import type { Database } from "@corex/db";
 import { syncEvent } from "@corex/db/schema/intervals-sync";
 
+import {
+  paginateOffsetResults,
+  toOffsetPaginationQuery,
+} from "../application/pagination";
 import { sanitizeFailureSummary } from "../diagnostics/redaction";
 import type { SyncWarningSummary } from "./contracts";
 import { SyncPersistenceFailure } from "./errors";
@@ -194,16 +198,10 @@ export function createSyncLedgerPort(db: Database): SyncLedgerPort {
           const rows = await db.query.syncEvent.findMany({
             where: eq(syncEvent.userId, userId),
             orderBy: desc(syncEvent.startedAt),
-            limit: input.limit + 1,
-            offset: input.offset,
+            ...toOffsetPaginationQuery(input),
           });
-          const visibleRows = rows.slice(0, input.limit);
 
-          return {
-            items: visibleRows.map(mapSyncHistoryEvent),
-            nextOffset:
-              rows.length > input.limit ? input.offset + input.limit : null,
-          };
+          return paginateOffsetResults(rows.map(mapSyncHistoryEvent), input);
         },
         catch: (cause) =>
           new SyncPersistenceFailure({

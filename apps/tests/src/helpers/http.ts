@@ -1,5 +1,5 @@
 import type { AppSession } from "@corex/api/application/types";
-import type { AppRouter } from "@corex/api/routers/index";
+import type { AppRouter } from "@corex/api/routers";
 import type { Auth } from "@corex/auth";
 import { getServerTestEnv } from "@corex/env/test";
 

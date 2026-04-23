@@ -1,5 +1,5 @@
 import { createContextFactory } from "@corex/api/context";
-import { appRouter, type AppRouter } from "@corex/api/routers/index";
+import { appRouter, type AppRouter } from "@corex/api/routers";
 import { auth, type Auth } from "@corex/auth";
 import { env } from "@corex/env/server";
 import { trpcServer } from "@hono/trpc-server";

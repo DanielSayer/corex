@@ -5,6 +5,21 @@
     ".": {
       "default": "./src/index.ts"
     },
+    "./context": {
+      "default": "./src/context.ts"
+    },
+    "./routers": {
+      "default": "./src/routers/index.ts"
+    },
+    "./intervals-sync": {
+      "default": "./src/intervals-sync/index.ts"
+    },
+    "./weekly-planning": {
+      "default": "./src/weekly-planning/index.ts"
+    },
+    "./scheduled-jobs": {
+      "default": "./src/scheduled-jobs.ts"
+    },
     "./*": {
       "default": "./src/*.ts"
     }

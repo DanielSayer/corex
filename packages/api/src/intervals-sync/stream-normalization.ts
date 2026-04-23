@@ -1,4 +1,4 @@
-import type { IntervalsActivityStream } from "./schemas";
+import type { IntervalsActivityStream } from "../integrations/intervals-icu/schemas";
 
 function normalizeCadenceStreamData(
   data: IntervalsActivityStream["data"],

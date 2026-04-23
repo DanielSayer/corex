@@ -7,7 +7,7 @@ import { createGoalsApi } from "@corex/api/goals/service";
 import { createCredentialCrypto } from "@corex/api/training-settings/crypto";
 import { createTrainingSettingsRepository } from "@corex/api/training-settings/repository";
 import { createTrainingSettingsService } from "@corex/api/training-settings/service";
-import { runScheduledWeeklySnapshotGeneration } from "@corex/api/weekly-snapshots/scheduled";
+import { runScheduledWeeklySnapshotGeneration } from "@corex/api/scheduled-jobs";
 import type { TrainingGoal } from "@corex/api/training-settings/contracts";
 import { importedActivity, syncEvent } from "@corex/db/schema/intervals-sync";
 import { trainingGoal } from "@corex/db/schema/training-settings";

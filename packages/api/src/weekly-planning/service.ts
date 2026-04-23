@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 
 import { getLocalDateKey } from "../activity-history/activity-calendar";
+import {
+  paginateOffsetResults,
+  toOffsetPaginationQuery,
+} from "../application/pagination";
 import type { PlanAdherenceService } from "../plan-adherence/service";
 import type { PlanningDataService } from "../planning-data/service";
 import type { TrainingSettingsService } from "../training-settings/service";
@@ -14,7 +18,6 @@ import type {
   ListGenerationEventsInput,
   ListFinalizedPlansInput,
   MoveDraftSessionInput,
-  PlanQualityReport,
   PlannerState,
   RegenerateDraftInput,
   UpdateDraftSessionInput,
@@ -31,7 +34,6 @@ import {
   createDraftGenerationContext,
   deriveCorexPerceivedAbility,
   plannerGoalOptions,
-  validateGeneratedPayload,
   validateGenerateWeeklyDraftInput,
 } from "./domain";
 import {
@@ -51,11 +53,9 @@ import {
   MissingPriorPlan,
   NoLocalHistory,
   PlanFinalizationConflict,
-  PlanQualityGuardrailFailure,
   WeeklyPlanningValidationError,
-  toFailureCategory,
 } from "./errors";
-import { reviewPlanQuality } from "./quality-review";
+import { createWeeklyPlanningGenerationRunner } from "./generation-runner";
 
 type Clock = {
   now: () => Date;
@@ -63,20 +63,6 @@ type Clock = {
 
 function toDateOnly(now: Date) {
   return now.toISOString().slice(0, 10);
-}
-
-function toFailureMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function createGeneratedAt(clock: Clock) {
-  return clock.now().toISOString();
-}
-
-function createQualityGuardrailFailure(report: PlanQualityReport) {
-  return new PlanQualityGuardrailFailure({
-    message: report.summary,
-  });
 }
 
 function toPlannerIntent(input: GenerateWeeklyDraftInput) {
@@ -113,6 +99,12 @@ export function createWeeklyPlanningService(options: {
 }) {
   const clock = options.clock ?? { now: () => new Date() };
   const idGenerator = options.idGenerator ?? randomUUID;
+  const generationRunner = createWeeklyPlanningGenerationRunner({
+    repo: options.repo,
+    model: options.model,
+    clock,
+    idGenerator,
+  });
 
   function loadGenerationDependencies(userId: string) {
     return Effect.all([
@@ -130,141 +122,7 @@ export function createWeeklyPlanningService(options: {
     generationContext: ReturnType<typeof createDraftGenerationContext>;
     rawOutputEffect: Effect.Effect<WeeklyPlanPayload, unknown, never>;
   }): Effect.Effect<WeeklyPlanDraft, unknown> {
-    return Effect.gen(function* () {
-      const output = yield* Effect.catchAll(input.rawOutputEffect, (error) =>
-        Effect.gen(function* () {
-          yield* options.repo.recordGenerationEvent({
-            id: idGenerator(),
-            userId: input.userId,
-            goalId: input.goalId,
-            weeklyPlanId: null,
-            status: "failure",
-            provider: options.model.provider,
-            model: options.model.model,
-            startDate: input.generationContext.startDate,
-            failureCategory: toFailureCategory(error),
-            failureMessage: toFailureMessage(error),
-            generationContext: input.generationContext,
-            modelOutput: null,
-          });
-
-          return yield* Effect.fail(error);
-        }),
-      );
-
-      const payload = yield* Effect.catchAll(
-        Effect.try({
-          try: () =>
-            validateGeneratedPayload({
-              payload: output,
-              availability: input.generationContext.availability,
-              longRunDay: input.generationContext.longRunDay,
-              startDate: input.generationContext.startDate,
-            }),
-          catch: (error) => error,
-        }),
-        (error) =>
-          Effect.gen(function* () {
-            yield* options.repo.recordGenerationEvent({
-              id: idGenerator(),
-              userId: input.userId,
-              goalId: input.goalId,
-              weeklyPlanId: null,
-              status: "failure",
-              provider: options.model.provider,
-              model: options.model.model,
-              startDate: input.generationContext.startDate,
-              failureCategory: toFailureCategory(error),
-              failureMessage: toFailureMessage(error),
-              generationContext: input.generationContext,
-              modelOutput: output,
-            });
-
-            return yield* Effect.fail(error);
-          }),
-      );
-
-      const qualityReport = reviewPlanQuality({
-        payload,
-        generationContext: input.generationContext,
-        mode: "enforced",
-        generatedAt: createGeneratedAt(clock),
-      });
-
-      if (qualityReport.status === "blocked") {
-        const error = createQualityGuardrailFailure(qualityReport);
-
-        yield* options.repo.recordGenerationEvent({
-          id: idGenerator(),
-          userId: input.userId,
-          goalId: input.goalId,
-          weeklyPlanId: null,
-          status: "failure",
-          provider: options.model.provider,
-          model: options.model.model,
-          startDate: input.generationContext.startDate,
-          failureCategory: toFailureCategory(error),
-          failureMessage: toFailureMessage(error),
-          generationContext: input.generationContext,
-          modelOutput: payload,
-          qualityReport,
-        });
-
-        return yield* Effect.fail(error);
-      }
-
-      const draft = yield* Effect.catchAll(
-        options.repo.createDraft({
-          id: idGenerator(),
-          userId: input.userId,
-          goalId: input.goalId,
-          parentWeeklyPlanId: input.parentWeeklyPlanId,
-          startDate: input.generationContext.startDate,
-          endDate: input.generationContext.endDate,
-          generationContext: input.generationContext,
-          payload,
-          qualityReport,
-        }),
-        (error) =>
-          Effect.gen(function* () {
-            yield* options.repo.recordGenerationEvent({
-              id: idGenerator(),
-              userId: input.userId,
-              goalId: input.goalId,
-              weeklyPlanId: null,
-              status: "failure",
-              provider: options.model.provider,
-              model: options.model.model,
-              startDate: input.generationContext.startDate,
-              failureCategory: toFailureCategory(error),
-              failureMessage: toFailureMessage(error),
-              generationContext: input.generationContext,
-              modelOutput: payload,
-              qualityReport,
-            });
-
-            return yield* Effect.fail(error);
-          }),
-      );
-
-      yield* options.repo.recordGenerationEvent({
-        id: idGenerator(),
-        userId: input.userId,
-        goalId: input.goalId,
-        weeklyPlanId: draft.id,
-        status: "success",
-        provider: options.model.provider,
-        model: options.model.model,
-        startDate: input.generationContext.startDate,
-        failureCategory: null,
-        failureMessage: null,
-        generationContext: input.generationContext,
-        modelOutput: payload,
-        qualityReport,
-      });
-
-      return draft;
-    });
+    return generationRunner.persistGeneratedDraft(input);
   }
 
   function generateNextWeekFromPlan(
@@ -370,149 +228,7 @@ export function createWeeklyPlanningService(options: {
     generationContext: ReturnType<typeof createDraftGenerationContext>;
     rawOutputEffect: Effect.Effect<WeeklyPlanPayload, unknown, never>;
   }): Effect.Effect<WeeklyPlanDraft, unknown> {
-    return Effect.gen(function* () {
-      const output = yield* Effect.catchAll(input.rawOutputEffect, (error) =>
-        Effect.gen(function* () {
-          yield* options.repo.recordGenerationEvent({
-            id: idGenerator(),
-            userId: input.userId,
-            goalId: input.goalId,
-            weeklyPlanId: input.draftId,
-            status: "failure",
-            provider: options.model.provider,
-            model: options.model.model,
-            startDate: input.generationContext.startDate,
-            failureCategory: toFailureCategory(error),
-            failureMessage: toFailureMessage(error),
-            generationContext: input.generationContext,
-            modelOutput: null,
-          });
-
-          return yield* Effect.fail(error);
-        }),
-      );
-
-      const payload = yield* Effect.catchAll(
-        Effect.try({
-          try: () =>
-            validateGeneratedPayload({
-              payload: output,
-              availability: input.generationContext.availability,
-              longRunDay: input.generationContext.longRunDay,
-              startDate: input.generationContext.startDate,
-            }),
-          catch: (error) => error,
-        }),
-        (error) =>
-          Effect.gen(function* () {
-            yield* options.repo.recordGenerationEvent({
-              id: idGenerator(),
-              userId: input.userId,
-              goalId: input.goalId,
-              weeklyPlanId: input.draftId,
-              status: "failure",
-              provider: options.model.provider,
-              model: options.model.model,
-              startDate: input.generationContext.startDate,
-              failureCategory: toFailureCategory(error),
-              failureMessage: toFailureMessage(error),
-              generationContext: input.generationContext,
-              modelOutput: output,
-            });
-
-            return yield* Effect.fail(error);
-          }),
-      );
-
-      const qualityReport = reviewPlanQuality({
-        payload,
-        generationContext: input.generationContext,
-        mode: "enforced",
-        generatedAt: createGeneratedAt(clock),
-      });
-
-      if (qualityReport.status === "blocked") {
-        const error = createQualityGuardrailFailure(qualityReport);
-
-        yield* options.repo.recordGenerationEvent({
-          id: idGenerator(),
-          userId: input.userId,
-          goalId: input.goalId,
-          weeklyPlanId: input.draftId,
-          status: "failure",
-          provider: options.model.provider,
-          model: options.model.model,
-          startDate: input.generationContext.startDate,
-          failureCategory: toFailureCategory(error),
-          failureMessage: toFailureMessage(error),
-          generationContext: input.generationContext,
-          modelOutput: payload,
-          qualityReport,
-        });
-
-        return yield* Effect.fail(error);
-      }
-
-      const draft = yield* Effect.catchAll(
-        Effect.gen(function* () {
-          const updated = yield* options.repo.replaceDraftGeneration({
-            userId: input.userId,
-            draftId: input.draftId,
-            generationContext: input.generationContext,
-            payload,
-            qualityReport,
-          });
-
-          if (!updated) {
-            return yield* Effect.fail(
-              new DraftNotFound({
-                message: "Weekly plan draft could not be found",
-              }),
-            );
-          }
-
-          return updated;
-        }),
-        (error) =>
-          Effect.gen(function* () {
-            yield* options.repo.recordGenerationEvent({
-              id: idGenerator(),
-              userId: input.userId,
-              goalId: input.goalId,
-              weeklyPlanId: input.draftId,
-              status: "failure",
-              provider: options.model.provider,
-              model: options.model.model,
-              startDate: input.generationContext.startDate,
-              failureCategory: toFailureCategory(error),
-              failureMessage: toFailureMessage(error),
-              generationContext: input.generationContext,
-              modelOutput: payload,
-              qualityReport,
-            });
-
-            return yield* Effect.fail(error);
-          }),
-      );
-
-      yield* options.repo.recordGenerationEvent({
-        id: idGenerator(),
-        userId: input.userId,
-        goalId: input.goalId,
-        weeklyPlanId: draft.id,
-        status: "success",
-        provider: options.model.provider,
-        model: options.model.model,
-        startDate: input.generationContext.startDate,
-        failureCategory: null,
-        failureMessage: null,
-        generationContext: input.generationContext,
-        modelOutput: payload,
-        qualityReport,
-      });
-
-      return draft;
-    });
+    return generationRunner.replaceDraftWithGeneratedPayload(input);
   }
 
   return {
@@ -640,16 +356,10 @@ export function createWeeklyPlanningService(options: {
             }),
         });
         const items = yield* options.repo.listFinalizedPlans(userId, {
-          limit: input.limit + 1,
-          offset: input.offset,
+          ...toOffsetPaginationQuery(input),
         });
-        const visibleItems = items.slice(0, input.limit);
 
-        return {
-          items: visibleItems,
-          nextOffset:
-            items.length > input.limit ? input.offset + input.limit : null,
-        };
+        return paginateOffsetResults(items, input);
       });
     },
     listGenerationEvents(
@@ -668,16 +378,10 @@ export function createWeeklyPlanningService(options: {
             }),
         });
         const items = yield* options.repo.listGenerationEvents(userId, {
-          limit: input.limit + 1,
-          offset: input.offset,
+          ...toOffsetPaginationQuery(input),
         });
-        const visibleItems = items.slice(0, input.limit);
 
-        return {
-          items: visibleItems,
-          nextOffset:
-            items.length > input.limit ? input.offset + input.limit : null,
-        };
+        return paginateOffsetResults(items, input);
       });
     },
     generateDraft(
@@ -841,11 +545,9 @@ export function createWeeklyPlanningService(options: {
           userId,
           draftId: draft.id,
           payload,
-          qualityReport: reviewPlanQuality({
+          qualityReport: generationRunner.createAdvisoryQualityReport({
             payload,
             generationContext: draft.generationContext,
-            mode: "advisory",
-            generatedAt: createGeneratedAt(clock),
           }),
         });
 
@@ -900,11 +602,9 @@ export function createWeeklyPlanningService(options: {
           userId,
           draftId: draft.id,
           payload,
-          qualityReport: reviewPlanQuality({
+          qualityReport: generationRunner.createAdvisoryQualityReport({
             payload,
             generationContext: draft.generationContext,
-            mode: "advisory",
-            generatedAt: createGeneratedAt(clock),
           }),
         });
 

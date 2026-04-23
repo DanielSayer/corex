@@ -27,7 +27,7 @@ import type {
   IntervalsActivityDiscovery,
   IntervalsActivityMap,
   IntervalsActivityStream,
-} from "./schemas";
+} from "../integrations/intervals-icu/schemas";
 import { isValidTimeZone } from "../goal-progress/timezones";
 
 type RuntimeOptions = {

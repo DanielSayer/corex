@@ -1,4 +1,4 @@
-import type { AppRouter } from "@corex/api/routers/index";
+import type { AppRouter } from "@corex/api/routers";
 import { env } from "@corex/env/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";

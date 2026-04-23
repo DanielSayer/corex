@@ -1,4 +1,4 @@
-import type { IntervalsActivityDetail } from "./schemas";
+import type { IntervalsActivityDetail } from "../integrations/intervals-icu/schemas";
 
 export type NormalizedActivityScalars = {
   name: string | null;

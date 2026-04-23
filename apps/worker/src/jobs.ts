@@ -1,5 +1,7 @@
-import { runScheduledWeeklyPlanRenewalPromise } from "@corex/api/weekly-planning/scheduled-renewal";
-import { runScheduledWeeklySnapshotGenerationPromise } from "@corex/api/weekly-snapshots/scheduled";
+import {
+  runScheduledWeeklyPlanRenewalPromise,
+  runScheduledWeeklySnapshotGenerationPromise,
+} from "@corex/api/scheduled-jobs";
 
 type Logger = Pick<typeof console, "error" | "info">;
 

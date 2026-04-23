@@ -5,7 +5,7 @@ import type {
   RunBestEffortInput,
   RunProcessingWarning,
 } from "./derived-performance";
-import type { IntervalsActivityStream } from "./schemas";
+import type { IntervalsActivityStream } from "../integrations/intervals-icu/schemas";
 
 export type ImportedRunForDerivedPerformance = {
   userId: string;

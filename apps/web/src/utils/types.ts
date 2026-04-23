@@ -1,5 +1,5 @@
 import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "@corex/api/routers/index";
+import type { AppRouter } from "@corex/api/routers";
 
 type InferRouterOutputs<TRouter extends AppRouter> =
   inferRouterOutputs<TRouter>;

@@ -5,7 +5,7 @@ import type {
   SyncLedgerPort,
   SyncSummary,
 } from "./repository";
-import type { IntervalsActivityDetail } from "./schemas";
+import type { IntervalsActivityDetail } from "../integrations/intervals-icu/schemas";
 import type { IntervalsAccountPort } from "../intervals/account";
 import type { IntervalsUpstreamPort } from "./adapter";
 import type { DerivedPerformancePort } from "./derived-performance-service";

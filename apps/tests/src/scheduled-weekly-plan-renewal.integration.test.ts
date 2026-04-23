@@ -14,7 +14,7 @@ import {
 import { ProviderFailure } from "@corex/api/weekly-planning/errors";
 import type { PlannerModelPort } from "@corex/api/weekly-planning/model";
 import { createWeeklyPlanningRepository } from "@corex/api/weekly-planning/repository";
-import { runScheduledWeeklyPlanRenewal } from "@corex/api/weekly-planning/scheduled-renewal";
+import { runScheduledWeeklyPlanRenewal } from "@corex/api/scheduled-jobs";
 import { createWeeklyPlanningService } from "@corex/api/weekly-planning/service";
 import { importedActivity } from "@corex/db/schema/intervals-sync";
 import {
