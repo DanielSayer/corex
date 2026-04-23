@@ -45,7 +45,7 @@ function RouteComponent() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="flex h-[calc(100svh-1rem)] flex-col overflow-hidden">
-        <header className="sticky top-0 z-10 shrink-0 p-4 md:hidden">
+        <header className="sticky top-0 z-10 shrink-0 p-4">
           <SidebarTrigger />
         </header>
         <div className="flex flex-1 flex-col overflow-y-auto">

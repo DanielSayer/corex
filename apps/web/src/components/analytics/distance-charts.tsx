@@ -1,11 +1,9 @@
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Line,
-  ResponsiveContainer,
+  LineChart,
   XAxis,
   YAxis,
 } from "recharts";
@@ -54,17 +52,17 @@ export function DistanceTrendCard({
               }
             }}
             variant="outline"
-            className="rounded-full border border-white/10 bg-white/[0.03] p-1"
+            className="rounded-full border border-white/10 bg-white/3 p-1"
           >
             <ToggleGroupItem
               value="month"
-              className="rounded-full border-0 px-4 text-[#97a0c0] data-[state=on]:!bg-white/10 data-[state=on]:text-white"
+              className="rounded-full border-0 px-4 text-[#97a0c0] data-[state=on]:bg-white/10! data-[state=on]:text-white"
             >
               Month
             </ToggleGroupItem>
             <ToggleGroupItem
               value="week"
-              className="rounded-full border-0 px-4 text-[#97a0c0] data-[state=on]:!bg-white/10 data-[state=on]:text-white"
+              className="rounded-full border-0 px-4 text-[#97a0c0] data-[state=on]:bg-white/10! data-[state=on]:text-white"
             >
               Week
             </ToggleGroupItem>
@@ -140,59 +138,33 @@ export function CumulativeDistanceCard({ data }: { data: AnalyticsView }) {
       contentClassName="pt-5"
     >
       {chartData.length > 0 ? (
-        <div className={chartFrameClassName}>
-          <ResponsiveContainer>
-            <AreaChart accessibilityLayer data={chartData} margin={{ top: 8 }}>
-              <defs>
-                <linearGradient
-                  id="analytics-cumulative-fill"
-                  x1="0"
-                  x2="0"
-                  y1="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor="#5b5df0" stopOpacity={0.42} />
-                  <stop offset="100%" stopColor="#5b5df0" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                vertical={false}
-                stroke="rgba(255,255,255,0.06)"
-                strokeDasharray="0"
-              />
-              <XAxis
-                axisLine={false}
-                dataKey="label"
-                tick={{ fill: "#8b93b2" }}
-                tickLine={false}
-                tickMargin={12}
-              />
-              <YAxis
-                axisLine={false}
-                domain={[0, "dataMax + 5"]}
-                tick={{ fill: "#8b93b2" }}
-                tickFormatter={(value) => `${Number(value).toFixed(0)}`}
-                tickLine={false}
-                tickMargin={12}
-                width={36}
-              />
-              <ChartTooltip content={<DistanceTrendTooltip />} cursor={false} />
-              <Area
-                dataKey="cumulativeKm"
-                fill="url(#analytics-cumulative-fill)"
-                stroke="none"
-                type="monotone"
-              />
-              <Line
-                dataKey="cumulativeKm"
-                dot={{ fill: "#6366f1", r: 4 }}
-                stroke="#6366f1"
-                strokeWidth={2.5}
-                type="monotone"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer config={distanceChartConfig} className="h-80 w-full">
+          <LineChart accessibilityLayer data={chartData} margin={{ top: 8 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              axisLine={false}
+              dataKey="label"
+              tickLine={false}
+              tickMargin={8}
+            />
+            <YAxis
+              axisLine={false}
+              domain={[0, "dataMax + 5"]}
+              tickFormatter={(value) => `${Number(value).toFixed(0)} km`}
+              tickLine={false}
+              tickMargin={8}
+              width={56}
+            />
+            <ChartTooltip content={<DistanceTrendTooltip />} cursor={false} />
+            <Line
+              dataKey="cumulativeKm"
+              dot={{ fill: "var(--color-distance)", r: 4 }}
+              stroke="var(--color-distance)"
+              strokeWidth={3}
+              type="monotone"
+            />
+          </LineChart>
+        </ChartContainer>
       ) : (
         <EmptyPanel
           title="No cumulative distance yet"

@@ -74,7 +74,7 @@ export function TrainingMixCard({ data }: { data: AnalyticsView }) {
           return (
             <article
               key={bucket.key}
-              className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4 text-white"
+              className="rounded-[18px] border border-white/8 bg-white/3 p-4 text-white"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
@@ -127,12 +127,12 @@ export function ConsistencyCard({ data }: { data: AnalyticsView }) {
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-5">
           <div
-            className="relative flex size-32 items-center justify-center rounded-full"
+            className="relative flex size-32 items-center justify-center rounded-full shrink-0"
             style={{
               background: `conic-gradient(#5b5df0 ${consistency.percent}%, rgba(255,255,255,0.08) 0)`,
             }}
           >
-            <div className="flex size-[104px] flex-col items-center justify-center rounded-full bg-[#0b1019]">
+            <div className="flex size-26 flex-col items-center justify-center rounded-full bg-[#0b1019]">
               <div className="text-4xl font-semibold tracking-[-0.05em] text-white">
                 {consistency.percent}%
               </div>
@@ -148,7 +148,7 @@ export function ConsistencyCard({ data }: { data: AnalyticsView }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-6 gap-3 md:flex md:flex-wrap md:justify-end">
+        <div className="grid grid-cols-6 gap-3 md:grid-cols-4 2xl:grid-cols-6">
           {consistency.months.map((month) => (
             <div
               key={month.key}
@@ -157,7 +157,7 @@ export function ConsistencyCard({ data }: { data: AnalyticsView }) {
                 month.isActive
                   ? "border-[#5b5df0]/80 bg-[#4f46e5] text-white"
                   : month.isElapsed
-                    ? "border-white/10 bg-white/[0.03] text-[#7e87a5]"
+                    ? "border-white/10 bg-white/3 text-[#7e87a5]"
                     : "border-transparent bg-transparent text-[#5f6886]",
               )}
             >
@@ -174,7 +174,7 @@ function OverallPrCard({ pr }: { pr: AnalyticsView["overallPrs"][number] }) {
   const config = getDistanceConfig(pr.distanceMeters);
 
   return (
-    <article className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4 text-white">
+    <article className="rounded-[18px] border border-white/8 bg-white/3 p-4 text-white">
       <div className="flex items-start justify-between gap-3">
         <div
           className="flex size-12 items-center justify-center rounded-full text-sm font-bold text-white"
