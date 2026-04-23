@@ -45,10 +45,8 @@ export function AnalyticsOverview({
     <section className="flex flex-col gap-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white md:text-[3.25rem]">
-            Analytics
-          </h1>
-          <p className="max-w-3xl text-sm leading-6 text-[#98a1bf] md:text-base">
+          <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+          <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
             Track your volume, consistency, and personal records across the
             year.
           </p>
@@ -63,10 +61,10 @@ export function AnalyticsOverview({
               }
             }}
           >
-            <SelectTrigger className="min-w-28 border-white/10 bg-white/[0.04] px-4 text-white shadow-none hover:bg-white/[0.06]">
+            <SelectTrigger className="min-w-28">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="border-white/10 bg-[#111827] text-white ring-white/10">
+            <SelectContent align="start">
               <SelectGroup>
                 {availableYears.map((year) => (
                   <SelectItem key={year} value={String(year)}>
